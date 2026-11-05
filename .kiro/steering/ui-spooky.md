@@ -38,3 +38,15 @@ Applies when editing files under `public/`. Vanilla HTML/CSS/JS only — no fram
 - Candle: CSS animation driven by a `--confidence` custom property set from JS
 - Fog: layered `<canvas>` or CSS radial gradients behind the main panel; avoid heavy JS particle systems
 - Planchette: CSS `transform: rotate()` transition pointing at an active ledger item
+
+## Design floor (anti-template rules, checked with `sloplint`)
+These come from the Hallmark design skill and are enforced by `node ~/.claude/skills/hallmark/scripts/sloplint.mjs public/*.html public/*.css --render`. The spooky concept stays; the generic-AI-page defaults go.
+- Every colour and every font is a CSS custom property declared at `:root`; no literal colours or `font-family` below the token block. First CSS line is the Hallmark stamp comment, then a critique line.
+- No `transition: all`; never animate `width`, `height`, `top`, `left` (use `transform` and `opacity`).
+- Never one italic word inside a roman heading. `overflow-x: clip` on `html` and `body` (never `hidden`, never `100vw`).
+- Every interactive element has an instantly visible `:focus-visible` style. Every animation has a `prefers-reduced-motion: reduce` fallback, and content is visible without JavaScript.
+- No eyebrows, no tracked capitals or small caps for labels, tags, table heads or nav: labels use the body face, a step smaller, sentence case, no letter-spacing.
+- No middle-dot-joined meta strings, no arrows glued to link text, no decorative status dots, no emoji as icons, no card inside a card, no purple-to-blue gradients.
+- Never invent metrics: every number on screen is computed from the ledger.
+- The hero (headline, one sentence, primary action) fits 1280x800 without scrolling; about 80 words on any screen; container capped and centred.
+- Candle flicker rate stays below 3 Hz and is disabled under reduced motion.
