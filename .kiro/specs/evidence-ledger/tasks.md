@@ -8,15 +8,15 @@ Commit messages must use the format `evidence-ledger T<N>: <description>`.
 
 ## T1 — Project scaffold and shared types
 
-- [ ] Initialise `package.json` with Node 20 engine field, `"type": "module"`, and dependencies:
+- [x] Initialise `package.json` with Node 20 engine field, `"type": "module"`, and dependencies:
       `hono`, `zod`, `execa`, `typescript`, `vitest`, `@fast-check/vitest`, `fast-check`,
       `@anthropic-ai/sdk`, `eslint`, `prettier`.
-- [ ] Add `tsconfig.json` with `strict: true`, `noImplicitAny: true`, `target: "ES2022"`,
+- [x] Add `tsconfig.json` with `strict: true`, `noImplicitAny: true`, `target: "ES2022"`,
       `module: "NodeNext"`.
-- [ ] Add `npm` scripts: `build`, `dev`, `test`, `lint`, `typecheck`.
-- [ ] Create `src/ghost/schema.ts` with `EvidenceItemSchema`, `EvidenceItem`, `LedgerResultSchema`,
+- [x] Add `npm` scripts: `build`, `dev`, `test`, `lint`, `typecheck`.
+- [x] Create `src/ghost/schema.ts` with `EvidenceItemSchema`, `EvidenceItem`, `LedgerResultSchema`,
       `LedgerResult`; export from `src/evidence/ledger.ts` as re-exports.
-- [ ] Create the `SeanceError` base class and the four derived error classes
+- [x] Create the `SeanceError` base class and the four derived error classes
       (`ValidationError`, `GitError`, `CloneError`, `SsrfError`) in `src/errors.ts`.
 
 Satisfies: R12.2, R12.3 (type foundations); prerequisite for all other tasks.
@@ -25,13 +25,13 @@ Satisfies: R12.2, R12.3 (type foundations); prerequisite for all other tasks.
 
 ## T2 — Input validation (`src/evidence/ledger.ts` — validation layer only)
 
-- [ ] Define `LedgerInputSchema` (Zod): `repoUrl` (string), `file` (string), `startLine` (≥1),
+- [x] Define `LedgerInputSchema` (Zod): `repoUrl` (string), `file` (string), `startLine` (≥1),
       `endLine` (≥ startLine, ≤ startLine + 499), optional `githubToken`.
-- [ ] Add path-traversal guard: reject if `file` contains `..` or is absolute.
-- [ ] Export `validateLedgerInput(raw: unknown): LedgerInput`; throw `ValidationError` on failure.
-- [ ] Add URL allowlist check for GitHub URLs (regex `^https://github\.com/[\w.-]+/[\w.-]+(\.git)?$`);
+- [x] Add path-traversal guard: reject if `file` contains `..` or is absolute.
+- [x] Export `validateLedgerInput(raw: unknown): LedgerInput`; throw `ValidationError` on failure.
+- [x] Add URL allowlist check for GitHub URLs (regex `^https://github\.com/[\w.-]+/[\w.-]+(\.git)?$`);
       throw `ValidationError` for any other value in `repoUrl`.
-- [ ] Write unit tests in `test/evidence/ledger.test.ts` covering: valid input passes; bad line
+- [x] Write unit tests in `test/evidence/ledger.test.ts` covering: valid input passes; bad line
       range rejects; path traversal rejects; non-GitHub URL rejects; missing fields reject.
 
 Satisfies: R9.1, R9.2, R9.3, R8.1.
@@ -40,20 +40,20 @@ Satisfies: R9.1, R9.2, R9.3, R8.1.
 
 ## T3 — git subprocess wrapper (`src/evidence/git.ts`)
 
-- [ ] Resolve the `git` binary path at module load time; throw at import if absent.
-- [ ] Implement a `runGit(args: string[], cwd: string, timeoutMs?: number): Promise<string>` helper
+- [x] Resolve the `git` binary path at module load time; throw at import if absent.
+- [x] Implement a `runGit(args: string[], cwd: string, timeoutMs?: number): Promise<string>` helper
       using `execa` with `stdio: ['pipe','pipe','pipe']` and a configurable timeout
       (default `GIT_CALL_TIMEOUT_MS` env var, fallback 10 000 ms); throw `GitError` on
       non-zero exit or timeout.
-- [ ] Implement `blame(repo, file, start, end)`: calls `git blame --porcelain -L start,end file`
+- [x] Implement `blame(repo, file, start, end)`: calls `git blame --porcelain -L start,end file`
       and returns `RawBlameEntry[]`.
-- [ ] Implement `logL(repo, file, start, end)`: calls
+- [x] Implement `logL(repo, file, start, end)`: calls
       `git log -L start,end:file --follow --format=fuller` and returns `RawCommit[]`.
-- [ ] Implement `showHunk(repo, sha, file, start, end)`: calls `git show` and returns the raw
+- [x] Implement `showHunk(repo, sha, file, start, end)`: calls `git show` and returns the raw
       unified-diff hunk string; returns `""` on failure (logs error).
-- [ ] Implement `changedFiles(repo, sha)`: calls `git show --name-only --format=` and returns
+- [x] Implement `changedFiles(repo, sha)`: calls `git show --name-only --format=` and returns
       `string[]`.
-- [ ] Write unit tests in `test/evidence/git.test.ts` using spies on `runGit`: verify argument
+- [x] Write unit tests in `test/evidence/git.test.ts` using spies on `runGit`: verify argument
       arrays are correct; verify timeout is enforced; verify `GitError` is thrown on non-zero exit.
 
 Satisfies: R1.1, R1.2, R1.3, R2.1, R2.2, R2.3, R4.2, R4.3, R9.4, R12.1.
@@ -62,17 +62,17 @@ Satisfies: R1.1, R1.2, R1.3, R2.1, R2.2, R2.3, R4.2, R4.3, R9.4, R12.1.
 
 ## T4 — Reference parsing and line-range mapping (`src/evidence/refs.ts`)
 
-- [ ] Implement `parseRefs(text: string): string[]` with the five regex patterns
+- [x] Implement `parseRefs(text: string): string[]` with the five regex patterns
       (`#\d+`, `Fixes #\d+`, `Closes #\d+`, `Resolves #\d+`, `Fix #\d+`, case-insensitive prefix);
       deduplicate by reference number; order by first appearance.
-- [ ] Implement `isSuspicious(text: string): boolean` checking for known prompt-injection
+- [x] Implement `isSuspicious(text: string): boolean` checking for known prompt-injection
       substrings (`ignore previous instructions`, `system:`, `<|`); patterns MUST be simple
       fixed-string or bounded-regex checks to avoid ReDoS.
-- [ ] Implement `mapLineRange(renames: RenameEvent[], original: LineRange): LineRange` as described
+- [x] Implement `mapLineRange(renames: RenameEvent[], original: LineRange): LineRange` as described
       in the design (walk commits newest-to-oldest, apply hunk offset, clamp, enforce order).
-- [ ] Write unit tests in `test/evidence/refs.test.ts`: all five ref patterns; deduplication;
+- [x] Write unit tests in `test/evidence/refs.test.ts`: all five ref patterns; deduplication;
       ordering; suspicious detection on known strings and benign messages.
-- [ ] Write PBT in `test/evidence/pbt/refs.pbt.ts`:
+- [x] Write PBT in `test/evidence/pbt/refs.pbt.ts`:
       - **P1** `mapLineRange` result always has `start >= 1` and `end >= start`.
       - **P2** `mapLineRange` is deterministic (same inputs → same output).
       - **P3** `parseRefs` result length ≤ unique ref count in input.
@@ -85,15 +85,15 @@ Satisfies: R3.1, R3.2, R3.3, R5.1, R5.2, R5.3, R11.3, and PBT properties P1–P5
 
 ## T5 — GitHub enrichment (`src/evidence/github.ts`)
 
-- [ ] Implement `parseGitHubRemote(url: string): { owner: string; repo: string } | null` that
+- [x] Implement `parseGitHubRemote(url: string): { owner: string; repo: string } | null` that
       extracts owner/repo from a `https://github.com/…` URL.
-- [ ] Implement `fetchGitHubRef(owner, repo, ref, token?)` using the native `fetch` API:
+- [x] Implement `fetchGitHubRef(owner, repo, ref, token?)` using the native `fetch` API:
       - Build the API URL (`https://api.github.com/repos/<owner>/<repo>/issues/<n>` or `/pulls/<n>`);
         validate host is exactly `api.github.com` before calling — throw `SsrfError` if not.
       - Parse response with a Zod schema; return `{ title, body }` or `undefined` on any failure.
       - Check `X-RateLimit-Remaining`; skip call and return `undefined` when it is `"0"`.
-- [ ] All errors are caught internally and return `undefined`; never rethrow.
-- [ ] Write unit tests in `test/evidence/github.test.ts` using `vi.stubGlobal('fetch', …)`:
+- [x] All errors are caught internally and return `undefined`; never rethrow.
+- [x] Write unit tests in `test/evidence/github.test.ts` using `vi.stubGlobal('fetch', …)`:
       success path; network error → undefined; rate-limit header → undefined; Zod parse fail →
       undefined; SSRF-redirected URL → `SsrfError` caught → undefined.
 
