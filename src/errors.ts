@@ -50,3 +50,24 @@ export class ParseError extends SeanceError {
     super('PARSE_ERROR', message);
   }
 }
+
+/** Missing or empty ANTHROPIC_API_KEY (or other required configuration). */
+export class ConfigError extends SeanceError {
+  constructor(message: string) {
+    super('CONFIG_ERROR', message);
+  }
+}
+
+/** LLM call exceeded LLM_TIMEOUT_MS. */
+export class TimeoutError extends SeanceError {
+  constructor(message: string) {
+    super('TIMEOUT_ERROR', message);
+  }
+}
+
+/** Unknown or expired sessionId. */
+export class SessionNotFoundError extends SeanceError {
+  constructor(message: string) {
+    super('SESSION_NOT_FOUND', message);
+  }
+}
