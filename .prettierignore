@@ -1,0 +1,9 @@
+# Auto-generated or spec-managed markdown in .kiro/ is not subject to
+# Prettier formatting — these are Kiro IDE files, not project code.
+.kiro/
+DESIGN.md
+
+# Build output and dependencies
+dist/
+node_modules/
+coverage/

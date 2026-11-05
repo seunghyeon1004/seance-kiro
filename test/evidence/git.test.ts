@@ -24,7 +24,7 @@ vi.mock('execa', async (importOriginal) => {
 });
 
 // Import after mock is set up
-const { execa, execaSync } = await import('execa');
+const { execa } = await import('execa');
 const { runGit, blame, changedFiles, showHunk } = await import(
   '../../src/evidence/git.js'
 );
@@ -134,9 +134,7 @@ describe('blame', () => {
 
 describe('changedFiles', () => {
   it('passes correct args to git show --name-only', async () => {
-    mockExeca.mockReturnValueOnce(
-      makeExecaResult('src/a.ts\nsrc/b.ts\n') as never,
-    );
+    mockExeca.mockReturnValueOnce(makeExecaResult('src/a.ts\nsrc/b.ts\n') as never);
     const files = await changedFiles('/repo', 'abc1234' + '0'.repeat(33));
     const args = mockExeca.mock.calls[0]?.[1] as string[];
     expect(args).toContain('show');

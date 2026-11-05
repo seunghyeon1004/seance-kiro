@@ -146,9 +146,7 @@ export function mapLineRange(
 
   // Clamp (R3.2)
   if (start < 1) {
-    console.warn(
-      `[seance:mapLineRange] Clamping start ${start} → 1 after rename offset`,
-    );
+    console.warn(`[seance:mapLineRange] Clamping start ${start} → 1 after rename offset`);
     start = 1;
   }
 

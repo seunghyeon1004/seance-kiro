@@ -38,9 +38,9 @@ Single exported function:
 ```ts
 export function computeScore(
   ledger: LedgerResult,
-  input:  ScoreInput,
-  nowMs:  number,       // caller supplies Date.now(); never called inside
-): ScoredResult
+  input: ScoreInput,
+  nowMs: number, // caller supplies Date.now(); never called inside
+): ScoredResult;
 ```
 
 No I/O, no side effects. All six signals are computed in-process from the ledger alone.
@@ -88,14 +88,14 @@ No I/O, no side effects. All six signals are computed in-process from the ledger
 
 ```ts
 score = Math.round(
-  rawValues.age     * 25 +
-  rawValues.churn   * 20 +
-  rawValues.gone    * 20 +
-  rawValues.marker  * 15 +
-  rawValues.test    * 10 +
-  rawValues.nesting * 10
-)
-score = Math.max(0, Math.min(100, score))
+  rawValues.age * 25 +
+    rawValues.churn * 20 +
+    rawValues.gone * 20 +
+    rawValues.marker * 15 +
+    rawValues.test * 10 +
+    rawValues.nesting * 10,
+);
+score = Math.max(0, Math.min(100, score));
 ```
 
 **Empty ledger:** all raw values are `0`, score is `0`.
@@ -105,16 +105,13 @@ score = Math.max(0, Math.min(100, score))
 Two exported functions:
 
 ```ts
-export function buildPlanPrompt(
-  ledger:      LedgerResult,
-  scoredResult: ScoredResult,
-): string
+export function buildPlanPrompt(ledger: LedgerResult, scoredResult: ScoredResult): string;
 
 export async function buildPlan(
-  ledger:      LedgerResult,
+  ledger: LedgerResult,
   scoredResult: ScoredResult,
-  sessionId:   string,
-): Promise<VerifiedRefactorPlan>
+  sessionId: string,
+): Promise<VerifiedRefactorPlan>;
 ```
 
 `buildPlanPrompt` is pure and deterministic. `buildPlan` calls `askGhost`, parses with `RefactorPlanSchema`, then calls `verifyPlanClaims`.
@@ -166,10 +163,7 @@ Respond with a single JSON object: { characterizationTests, steps, doNotTouchLis
 After parsing the `RefactorPlan`, build a synthetic `GhostAnswer`-like structure so that each step's claims and each do-not-touch entry's claims can be passed through the existing `verify()` function:
 
 ```ts
-function verifyPlanClaims(
-  ledger:  LedgerResult,
-  plan:    RefactorPlan,
-): VerifiedRefactorPlan
+function verifyPlanClaims(ledger: LedgerResult, plan: RefactorPlan): VerifiedRefactorPlan;
 
 // For each step:
 //   result = verify(ledger.items, { claims: step.claims, voice: "", sessionId: "" })
@@ -193,63 +187,73 @@ New schemas appended to the existing file (do not modify existing schemas):
 // ── Exorcism score types ─────────────────────────────────────────────────────
 
 export const SignalNameSchema = z.enum([
-  "age", "churn", "gone", "marker", "test", "nesting"
+  'age',
+  'churn',
+  'gone',
+  'marker',
+  'test',
+  'nesting',
 ]);
 export type SignalName = z.infer<typeof SignalNameSchema>;
 
 export const SignalBreakdownSchema = z.object({
-  signal:               SignalNameSchema,
-  rawValue:             z.number().min(0).max(1),
+  signal: SignalNameSchema,
+  rawValue: z.number().min(0).max(1),
   weightedContribution: z.number().min(0).max(25),
 });
 export type SignalBreakdown = z.infer<typeof SignalBreakdownSchema>;
 
 export const MarkerLocationSchema = z.object({
-  sha7:     z.string().length(7).regex(/^[0-9a-f]{7}$/),
+  sha7: z
+    .string()
+    .length(7)
+    .regex(/^[0-9a-f]{7}$/),
   lineText: z.string().max(256),
 });
 export type MarkerLocation = z.infer<typeof MarkerLocationSchema>;
 
 export const ScoreInputSchema = z.object({
   authorGoneThresholdDays: z.number().int().positive().default(365),
-  nowMs:                   z.number().int().positive(),
+  nowMs: z.number().int().positive(),
 });
 export type ScoreInput = z.infer<typeof ScoreInputSchema>;
 
 export const ScoredResultSchema = z.object({
-  score:            z.number().int().min(0).max(100),
-  signalBreakdown:  z.array(SignalBreakdownSchema).length(6),
-  markerLocations:  z.array(MarkerLocationSchema),
+  score: z.number().int().min(0).max(100),
+  signalBreakdown: z.array(SignalBreakdownSchema).length(6),
+  markerLocations: z.array(MarkerLocationSchema),
 });
 export type ScoredResult = z.infer<typeof ScoredResultSchema>;
 
 // ── Exorcism plan types ──────────────────────────────────────────────────────
 
 export const RefactorStepSchema = z.object({
-  description:    z.string().min(1).max(512),
-  rationale:      z.string().min(1).max(256),
-  claims:         z.array(ClaimSchema).min(1),
+  description: z.string().min(1).max(512),
+  rationale: z.string().min(1).max(256),
+  claims: z.array(ClaimSchema).min(1),
   rejectedClaims: z.array(ClaimSchema).default([]),
-  reversible:     z.boolean(),
+  reversible: z.boolean(),
 });
 export type RefactorStep = z.infer<typeof RefactorStepSchema>;
 
 export const DoNotTouchEntrySchema = z.object({
-  lineRange: z.object({
-    start: z.number().int().positive(),
-    end:   z.number().int().positive(),
-  }).refine(r => r.end >= r.start, { message: "end must be >= start" }),
-  reason:         z.string().min(1).max(512),
-  claims:         z.array(ClaimSchema).min(1),
+  lineRange: z
+    .object({
+      start: z.number().int().positive(),
+      end: z.number().int().positive(),
+    })
+    .refine((r) => r.end >= r.start, { message: 'end must be >= start' }),
+  reason: z.string().min(1).max(512),
+  claims: z.array(ClaimSchema).min(1),
   rejectedClaims: z.array(ClaimSchema).default([]),
 });
 export type DoNotTouchEntry = z.infer<typeof DoNotTouchEntrySchema>;
 
 export const RefactorPlanSchema = z.object({
   characterizationTests: z.array(z.string().min(1).max(512)).min(1),
-  steps:                 z.array(RefactorStepSchema).min(1),
-  doNotTouchList:        z.array(DoNotTouchEntrySchema),
-  summary:               z.string().min(1).max(1024),
+  steps: z.array(RefactorStepSchema).min(1),
+  doNotTouchList: z.array(DoNotTouchEntrySchema),
+  summary: z.string().min(1).max(1024),
 });
 export type RefactorPlan = z.infer<typeof RefactorPlanSchema>;
 
@@ -262,23 +266,23 @@ export type VerifiedRefactorPlan = z.infer<typeof VerifiedRefactorPlanSchema>;
 // ── API response ─────────────────────────────────────────────────────────────
 
 export const ExorciseRequestSchema = z.object({
-  sessionId:               z.string().min(1),
+  sessionId: z.string().min(1),
   authorGoneThresholdDays: z.number().int().positive().optional(),
 });
 export type ExorciseRequest = z.infer<typeof ExorciseRequestSchema>;
 
 export const ExorciseResponseSchema = z.object({
-  sessionId:        z.string().uuid(),
-  score:            z.number().int().min(0).max(100),
-  signalBreakdown:  z.array(SignalBreakdownSchema).length(6),
-  markerLocations:  z.array(MarkerLocationSchema),
+  sessionId: z.string().uuid(),
+  score: z.number().int().min(0).max(100),
+  signalBreakdown: z.array(SignalBreakdownSchema).length(6),
+  markerLocations: z.array(MarkerLocationSchema),
   plan: z.object({
     characterizationTests: z.array(z.string()),
-    steps:          z.array(RefactorStepSchema),
+    steps: z.array(RefactorStepSchema),
     doNotTouchList: z.array(DoNotTouchEntrySchema),
-    summary:        z.string(),
+    summary: z.string(),
   }),
-  verifierScore:    z.number().min(0).max(1),
+  verifierScore: z.number().min(0).max(1),
 });
 export type ExorciseResponse = z.infer<typeof ExorciseResponseSchema>;
 ```
@@ -288,7 +292,7 @@ export type ExorciseResponse = z.infer<typeof ExorciseResponseSchema>;
 The route handler:
 
 ```ts
-app.post("/api/exorcise", async (c) => {
+app.post('/api/exorcise', async (c) => {
   const body = ExorciseRequestSchema.parse(await c.req.json());
   const session = sessions.get(body.sessionId);
   if (!session || Date.now() > session.expiresAt) throw new SessionNotFoundError();
@@ -302,21 +306,23 @@ app.post("/api/exorcise", async (c) => {
 
   const plan = await buildPlan(session.ledger, scoredResult, body.sessionId);
 
-  session.expiresAt = nowMs + SESSION_TTL_MS;   // reset TTL
+  session.expiresAt = nowMs + SESSION_TTL_MS; // reset TTL
 
-  return c.json(ExorciseResponseSchema.parse({
-    sessionId:       body.sessionId,
-    score:           scoredResult.score,
-    signalBreakdown: scoredResult.signalBreakdown,
-    markerLocations: scoredResult.markerLocations,
-    plan: {
-      characterizationTests: plan.characterizationTests,
-      steps:                 plan.steps,
-      doNotTouchList:        plan.doNotTouchList,
-      summary:               plan.summary,
-    },
-    verifierScore: plan.verifierScore,
-  }));
+  return c.json(
+    ExorciseResponseSchema.parse({
+      sessionId: body.sessionId,
+      score: scoredResult.score,
+      signalBreakdown: scoredResult.signalBreakdown,
+      markerLocations: scoredResult.markerLocations,
+      plan: {
+        characterizationTests: plan.characterizationTests,
+        steps: plan.steps,
+        doNotTouchList: plan.doNotTouchList,
+        summary: plan.summary,
+      },
+      verifierScore: plan.verifierScore,
+    }),
+  );
 });
 ```
 
@@ -328,18 +334,18 @@ Error mapping is handled by the existing Hono error middleware in `server.ts`.
 
 ### Types at a glance
 
-| Type | Owner | Description |
-|---|---|---|
-| `ScoreInput` | `src/ghost/schema.ts` | Caller-supplied parameters for `computeScore` |
-| `ScoredResult` | `src/ghost/schema.ts` | Score + per-signal breakdown + marker locations |
-| `SignalBreakdown` | `src/ghost/schema.ts` | One row of the signal breakdown table |
-| `MarkerLocation` | `src/ghost/schema.ts` | A single `TODO`/`FIXME`/`HACK` hit |
-| `RefactorStep` | `src/ghost/schema.ts` | One step in the plan (verified + rejected claims) |
-| `DoNotTouchEntry` | `src/ghost/schema.ts` | A line range the LLM says not to modify |
-| `RefactorPlan` | `src/ghost/schema.ts` | Raw LLM output (pre-verification) |
-| `VerifiedRefactorPlan` | `src/ghost/schema.ts` | Post-verification plan + `verifierScore` |
-| `ExorciseRequest` | `src/ghost/schema.ts` | `/api/exorcise` request body |
-| `ExorciseResponse` | `src/ghost/schema.ts` | `/api/exorcise` success body |
+| Type                   | Owner                 | Description                                       |
+| ---------------------- | --------------------- | ------------------------------------------------- |
+| `ScoreInput`           | `src/ghost/schema.ts` | Caller-supplied parameters for `computeScore`     |
+| `ScoredResult`         | `src/ghost/schema.ts` | Score + per-signal breakdown + marker locations   |
+| `SignalBreakdown`      | `src/ghost/schema.ts` | One row of the signal breakdown table             |
+| `MarkerLocation`       | `src/ghost/schema.ts` | A single `TODO`/`FIXME`/`HACK` hit                |
+| `RefactorStep`         | `src/ghost/schema.ts` | One step in the plan (verified + rejected claims) |
+| `DoNotTouchEntry`      | `src/ghost/schema.ts` | A line range the LLM says not to modify           |
+| `RefactorPlan`         | `src/ghost/schema.ts` | Raw LLM output (pre-verification)                 |
+| `VerifiedRefactorPlan` | `src/ghost/schema.ts` | Post-verification plan + `verifierScore`          |
+| `ExorciseRequest`      | `src/ghost/schema.ts` | `/api/exorcise` request body                      |
+| `ExorciseResponse`     | `src/ghost/schema.ts` | `/api/exorcise` success body                      |
 
 ### Relationship to existing types
 
@@ -352,14 +358,14 @@ No new error classes are required; `SessionNotFoundError`, `TimeoutError`, `Conf
 
 ## 4. Error handling
 
-| Error | HTTP | `code` |
-|---|---|---|
-| `ValidationError` (Zod, bad request body) | 400 | `VALIDATION_ERROR` |
-| `SessionNotFoundError` (absent or expired) | 404 | `SESSION_NOT_FOUND` |
-| `TimeoutError` (LLM call timed out) | 503 | `LLM_ERROR` |
-| `ParseError` (LLM returned invalid JSON) | 503 | `LLM_ERROR` |
-| `ConfigError` (missing API key) | 500 | `CONFIG_ERROR` |
-| All others | 500 | `INTERNAL_ERROR` |
+| Error                                      | HTTP | `code`              |
+| ------------------------------------------ | ---- | ------------------- |
+| `ValidationError` (Zod, bad request body)  | 400  | `VALIDATION_ERROR`  |
+| `SessionNotFoundError` (absent or expired) | 404  | `SESSION_NOT_FOUND` |
+| `TimeoutError` (LLM call timed out)        | 503  | `LLM_ERROR`         |
+| `ParseError` (LLM returned invalid JSON)   | 503  | `LLM_ERROR`         |
+| `ConfigError` (missing API key)            | 500  | `CONFIG_ERROR`      |
+| All others                                 | 500  | `INTERNAL_ERROR`    |
 
 Stack traces, file paths, and API key values are never included in error responses (same rule as all other routes).
 
@@ -369,14 +375,14 @@ Stack traces, file paths, and API key values are never included in error respons
 
 These are compile-time constants in `src/exorcism/score.ts` and form part of the public contract of the function. Changing them is a breaking change.
 
-| Signal | Weight | Full-signal threshold |
-|---|---|---|
-| `age` | 25 | 730 days (2 years) |
-| `churn` | 20 | 1 commit/day |
-| `gone` | 20 | all unique authors gone |
-| `marker` | 15 | 10 markers in hunks |
-| `test` | 10 | no test file references |
-| `nesting` | 10 | 8 indentation levels |
+| Signal    | Weight | Full-signal threshold   |
+| --------- | ------ | ----------------------- |
+| `age`     | 25     | 730 days (2 years)      |
+| `churn`   | 20     | 1 commit/day            |
+| `gone`    | 20     | all unique authors gone |
+| `marker`  | 15     | 10 markers in hunks     |
+| `test`    | 10     | no test file references |
+| `nesting` | 10     | 8 indentation levels    |
 
 Weights sum to 100; maximum achievable score equals 100 when all raw values are 1.
 
@@ -386,27 +392,27 @@ Weights sum to 100; maximum achievable score equals 100 when all raw values are 
 
 ### Unit tests (`test/exorcism/`)
 
-| File | What is tested |
-|---|---|
-| `score.test.ts` | `computeScore` — empty ledger; single signal isolated; all signals at max; marker extraction with `sha7` cross-reference; `authorGoneThresholdDays` at boundary; `nowMs` propagation (no `Date.now()` inside). |
-| `plan.test.ts` | `buildPlanPrompt` — determinism; untrusted-data marker present; score data marker present; no raw 40-char SHAs; `<evidence>` tags contain all ledger sha7s. `buildPlan` in fixture mode: valid plan returned; bad-SHA claim lands in `rejectedClaims`; `verifierScore ∈ [0, 1]`. |
+| File            | What is tested                                                                                                                                                                                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `score.test.ts` | `computeScore` — empty ledger; single signal isolated; all signals at max; marker extraction with `sha7` cross-reference; `authorGoneThresholdDays` at boundary; `nowMs` propagation (no `Date.now()` inside).                                                                   |
+| `plan.test.ts`  | `buildPlanPrompt` — determinism; untrusted-data marker present; score data marker present; no raw 40-char SHAs; `<evidence>` tags contain all ledger sha7s. `buildPlan` in fixture mode: valid plan returned; bad-SHA claim lands in `rejectedClaims`; `verifierScore ∈ [0, 1]`. |
 
 ### API tests (`test/server/`)
 
-| File | What is tested |
-|---|---|
+| File               | What is tested                                                                                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `exorcise.test.ts` | Valid session → 200, correct shape, `verifierScore ∈ [0, 1]`. Missing session → 404 `SESSION_NOT_FOUND`. Malformed body → 400 `VALIDATION_ERROR`. Fixture plan with deliberate bad SHA → rejected claim in output. Custom `authorGoneThresholdDays` → `goneSignal` raw value changes. |
 
 ### Property-based tests (`test/exorcism/pbt/score.pbt.ts`)
 
-| Property | Generator | Invariant |
-|---|---|---|
-| **PS1** Score bounds | arbitrary `LedgerResult` + `ScoreInput` | `score ∈ [0, 100]` |
-| **PS2** Age monotone | two `nowMs` values; same ledger | larger gap → age signal raw ≥ |
-| **PS3** Marker monotone | ledger with N vs N+1 marker lines | `markerSignal.rawValue` non-decreasing |
-| **PS4** Determinism | same inputs twice | `deepEqual(result1, result2)` |
-| **PS5** Verifier score bounds | arbitrary plan | `verifierScore ∈ [0, 1]` |
-| **PS6** Empty ledger identity | `items: []` | `score === 0` |
+| Property                      | Generator                               | Invariant                              |
+| ----------------------------- | --------------------------------------- | -------------------------------------- |
+| **PS1** Score bounds          | arbitrary `LedgerResult` + `ScoreInput` | `score ∈ [0, 100]`                     |
+| **PS2** Age monotone          | two `nowMs` values; same ledger         | larger gap → age signal raw ≥          |
+| **PS3** Marker monotone       | ledger with N vs N+1 marker lines       | `markerSignal.rawValue` non-decreasing |
+| **PS4** Determinism           | same inputs twice                       | `deepEqual(result1, result2)`          |
+| **PS5** Verifier score bounds | arbitrary plan                          | `verifierScore ∈ [0, 1]`               |
+| **PS6** Empty ledger identity | `items: []`                             | `score === 0`                          |
 
 All PBT properties: 1 000 runs per property; fixed seed via `FAST_CHECK_SEED` env var (same config as existing PBT suites).
 

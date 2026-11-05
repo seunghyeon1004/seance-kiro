@@ -6,8 +6,13 @@
  */
 
 import { execaSync, execa } from 'execa';
-import { GitError } from '../errors.js';
+import { GitError, CloneError } from '../errors.js';
 import { z } from 'zod';
+import * as os from 'os';
+import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 
 // ---------------------------------------------------------------------------
 // Git binary resolution (R1.3 — resolved once at module load)
@@ -20,9 +25,7 @@ function resolveGitBinary(): string {
     if (!bin) throw new Error('git not found');
     return bin;
   } catch {
-    throw new Error(
-      'git binary not found in PATH — install git before using Séance',
-    );
+    throw new Error('git binary not found in PATH — install git before using Séance');
   }
 }
 
@@ -42,7 +45,7 @@ export type RawBlameEntry = {
   sha: string;
   author: string;
   email: string;
-  date: string;      // ISO 8601
+  date: string; // ISO 8601
   summary: string;
   filename: string;
   lineStart: number;
@@ -60,7 +63,7 @@ export type RawCommit = {
   sha: string;
   author: string;
   email: string;
-  date: string;      // ISO 8601
+  date: string; // ISO 8601
   subject: string;
   body: string;
   renames: RenameEvent[];
@@ -89,10 +92,7 @@ export async function runGit(
     return result.stdout;
   } catch (err: unknown) {
     // execa wraps timeout and non-zero exits
-    const message =
-      err instanceof Error
-        ? err.message
-        : `git ${args[0] ?? ''} failed`;
+    const message = err instanceof Error ? err.message : `git ${args[0] ?? ''} failed`;
     throw new GitError(message);
   }
 }
@@ -106,7 +106,10 @@ export async function runGit(
  * A block starts with a 40-char SHA line, followed by metadata key-value lines.
  */
 const RawBlameEntrySchema = z.object({
-  sha: z.string().length(40).regex(/^[0-9a-f]+$/),
+  sha: z
+    .string()
+    .length(40)
+    .regex(/^[0-9a-f]+$/),
   author: z.string().min(1),
   email: z.string().min(1),
   date: z.string().datetime(),
@@ -129,11 +132,17 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
 
   while (i < lines.length) {
     const line = lines[i];
-    if (!line) { i++; continue; }
+    if (!line) {
+      i++;
+      continue;
+    }
 
     // SHA header line: "<sha40> <orig> <final> <count>"
     const shaMatch = /^([0-9a-f]{40}) \d+ (\d+) (\d+)/.exec(line);
-    if (!shaMatch) { i++; continue; }
+    if (!shaMatch) {
+      i++;
+      continue;
+    }
 
     const sha = shaMatch[1] as string;
     const finalLine = parseInt(shaMatch[2] as string, 10);
@@ -144,8 +153,14 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
     i++;
     while (i < lines.length) {
       const kv = lines[i];
-      if (!kv) { i++; break; }
-      if (kv.startsWith('\t')) { i++; break; } // content line — end of block
+      if (!kv) {
+        i++;
+        break;
+      }
+      if (kv.startsWith('\t')) {
+        i++;
+        break;
+      } // content line — end of block
       const sep = kv.indexOf(' ');
       if (sep > 0) {
         const key = kv.slice(0, sep);
@@ -169,8 +184,7 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
         const abs = Math.abs(offsetMin);
         const hh = String(Math.floor(abs / 60)).padStart(2, '0');
         const mm = String(abs % 60).padStart(2, '0');
-        dateIso =
-          local.toISOString().replace('Z', '') + `${sign}${hh}:${mm}`;
+        dateIso = local.toISOString().replace('Z', '') + `${sign}${hh}:${mm}`;
       }
     }
 
@@ -219,10 +233,7 @@ export async function blame(
 ): Promise<RawBlameEntry[]> {
   let raw: string;
   try {
-    raw = await runGit(
-      ['blame', '--porcelain', `-L${start},${end}`, '--', file],
-      repo,
-    );
+    raw = await runGit(['blame', '--porcelain', `-L${start},${end}`, '--', file], repo);
   } catch (err) {
     // git blame exits non-zero for empty ranges
     if (err instanceof GitError && err.message.includes('no lines to blame')) {
@@ -249,7 +260,10 @@ function parseFullerHeader(
 
   for (const l of headerLines) {
     const commitMatch = /^commit ([0-9a-f]{40})/.exec(l);
-    if (commitMatch) { sha = commitMatch[1] as string; continue; }
+    if (commitMatch) {
+      sha = commitMatch[1] as string;
+      continue;
+    }
 
     const authorMatch = /^Author:\s+(.+?) <(.+?)>/.exec(l);
     if (authorMatch) {
@@ -282,14 +296,7 @@ export async function logL(
   let raw: string;
   try {
     raw = await runGit(
-      [
-        'log',
-        `-L${start},${end}:${file}`,
-        '--follow',
-        '--format=fuller',
-        '--',
-        file,
-      ],
+      ['log', `-L${start},${end}:${file}`, '--follow', '--format=fuller', '--', file],
       repo,
     );
   } catch {
@@ -323,7 +330,10 @@ function parseLogLOutput(raw: string, _file: string): RawCommit[] {
     // Find separator between headers and message body (blank line)
     for (let j = 0; j < lines.length; j++) {
       const l = lines[j] ?? '';
-      if (l.trim() === '' && j > 0) { bodyStart = j + 1; break; }
+      if (l.trim() === '' && j > 0) {
+        bodyStart = j + 1;
+        break;
+      }
       headerLines.push(l);
     }
 
@@ -339,14 +349,21 @@ function parseLogLOutput(raw: string, _file: string): RawCommit[] {
 
     for (let j = 0; j < remainder.length; j++) {
       const l = (remainder[j] ?? '').replace(/^    /, ''); // strip 4-space indent
-      if (!subject && l.trim()) { subject = l; continue; }
-      if (subject && l.startsWith('diff --git')) { hunkStart = j; break; }
+      if (!subject && l.trim()) {
+        subject = l;
+        continue;
+      }
+      if (subject && l.startsWith('diff --git')) {
+        hunkStart = j;
+        break;
+      }
       if (subject) bodyLines.push(l);
     }
 
     // Body: strip leading/trailing blank lines
     while (bodyLines.length && !(bodyLines[0] ?? '').trim()) bodyLines.shift();
-    while (bodyLines.length && !(bodyLines[bodyLines.length - 1] ?? '').trim()) bodyLines.pop();
+    while (bodyLines.length && !(bodyLines[bodyLines.length - 1] ?? '').trim())
+      bodyLines.pop();
     const body = bodyLines.join('\n');
 
     // Rename detection from diff headers
@@ -398,15 +415,14 @@ export async function showHunk(
   _end: number,
 ): Promise<string> {
   try {
-    const raw = await runGit(
-      ['show', '--unified=3', `${sha}`, '--', file],
-      repo,
-    );
+    const raw = await runGit(['show', '--unified=3', `${sha}`, '--', file], repo);
     // Extract the hunk from the unified diff
     const hunkMatch = /@@[^@]+@@[\s\S]*/.exec(raw);
     return hunkMatch ? hunkMatch[0] : raw;
   } catch (err) {
-    console.error(`[seance:showHunk] Failed for ${sha.slice(0, 7)}:${file} — ${String(err)}`);
+    console.error(
+      `[seance:showHunk] Failed for ${sha.slice(0, 7)}:${file} — ${String(err)}`,
+    );
     return '';
   }
 }
@@ -419,12 +435,170 @@ export async function showHunk(
  * Return the list of files changed in a commit.
  */
 export async function changedFiles(repo: string, sha: string): Promise<string[]> {
-  const raw = await runGit(
-    ['show', '--name-only', '--format=', sha],
-    repo,
-  );
+  const raw = await runGit(['show', '--name-only', '--format=', sha], repo);
   return raw
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Remote clone lifecycle (R8.2, R8.3, R8.4)
+// ---------------------------------------------------------------------------
+
+const execFileAsync = promisify(execFile);
+
+/** Resolved repo handle with a cleanup callback. */
+export type ResolvedRepo = {
+  /** Absolute path to the clone root. */
+  root: string;
+  /** Delete the temporary directory (idempotent). */
+  cleanup: () => Promise<void>;
+};
+
+/** Configurable caps (env overrides) */
+const CLONE_TIMEOUT_MS = Number(process.env['CLONE_TIMEOUT_MS'] ?? 30_000);
+const CLONE_MAX_MB = Number(process.env['CLONE_MAX_MB'] ?? 200);
+const CLONE_MAX_BYTES = CLONE_MAX_MB * 1024 * 1024;
+
+/** GitHub-only allowlist pattern (matches validated input from ledger.input.ts) */
+const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;
+
+/**
+ * Module-level in-flight clone cache: serialises concurrent clones for the same
+ * canonical URL (R8.4).  Entries are released once the clone resolves or rejects.
+ */
+const cloneCache = new Map<string, Promise<ResolvedRepo>>();
+
+/**
+ * Canonical URL: strip trailing `.git` so `owner/repo` and `owner/repo.git`
+ * share the same cache entry.
+ */
+function canonicalUrl(url: string): string {
+  return url.replace(/\.git$/, '');
+}
+
+/**
+ * Clone a public GitHub repository into a unique temp directory.
+ *
+ * - Validates the URL against the GitHub allowlist before cloning.
+ * - Applies a 30 s `AbortController` timeout; aborts with SIGKILL on expiry.
+ * - Polls working-tree size every 2 s; throws `CloneError` if > 200 MB.
+ * - Serialises concurrent clones for the same URL (module-level `Map` cache).
+ *
+ * The caller MUST call `cleanup()` in a `finally` block.
+ */
+export async function cloneRepo(url: string): Promise<ResolvedRepo> {
+  if (!GITHUB_URL_RE.test(url)) {
+    throw new CloneError(`cloneRepo: URL "${url}" does not match the GitHub allowlist`);
+  }
+
+  const key = canonicalUrl(url);
+  const inflight = cloneCache.get(key);
+  if (inflight) {
+    // Await the shared promise; caller receives its own handle because the
+    // returned ResolvedRepo.cleanup is per-invocation.
+    return inflight;
+  }
+
+  const promise = _doClone(url).finally(() => {
+    cloneCache.delete(key);
+  });
+  cloneCache.set(key, promise);
+  return promise;
+}
+
+async function _doClone(url: string): Promise<ResolvedRepo> {
+  const tmpDir = os.tmpdir();
+  const cloneDir = `${tmpDir}/seance-${crypto.randomUUID()}`;
+
+  // Cleanup helper — idempotent
+  let cleaned = false;
+  const cleanup = async (): Promise<void> => {
+    if (cleaned) return;
+    cleaned = true;
+    try {
+      await fs.rm(cloneDir, { recursive: true, force: true });
+    } catch {
+      // best-effort
+    }
+  };
+
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), CLONE_TIMEOUT_MS);
+
+  // Start size-polling as soon as the clone directory appears
+  let sizePoller: ReturnType<typeof setInterval> | undefined;
+
+  try {
+    // Kick off polling loop (runs every 2 s)
+    sizePoller = setInterval(() => {
+      void (async () => {
+        try {
+          const { stdout } = await execFileAsync('du', ['-sb', cloneDir], {
+            timeout: 5_000,
+          });
+          const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10);
+          if (!isNaN(bytes) && bytes > CLONE_MAX_BYTES) {
+            controller.abort();
+          }
+        } catch {
+          // directory not yet created or du failed — ignore
+        }
+      })();
+    }, 2_000);
+
+    // Run the clone
+    await new Promise<void>((resolve, reject) => {
+      const child = execFile(
+        GIT_BIN,
+        ['clone', '--filter=blob:none', '--depth', '100', url, cloneDir],
+        { timeout: 0 /* managed by AbortController */ },
+        (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        },
+      );
+
+      controller.signal.addEventListener('abort', () => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // already exited
+        }
+        reject(new CloneError(`Clone of "${url}" aborted: exceeded time or size limit`));
+      });
+    });
+
+    // Final size check after clone completes
+    try {
+      const { stdout } = await execFileAsync('du', ['-sb', cloneDir], {
+        timeout: 5_000,
+      });
+      const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10);
+      if (!isNaN(bytes) && bytes > CLONE_MAX_BYTES) {
+        await cleanup();
+        throw new CloneError(`Clone of "${url}" exceeds size cap (${CLONE_MAX_MB} MB)`);
+      }
+    } catch (err) {
+      if (err instanceof CloneError) throw err;
+      // du failure is non-fatal
+    }
+
+    return { root: cloneDir, cleanup };
+  } catch (err) {
+    clearTimeout(timeoutHandle);
+    if (sizePoller !== undefined) clearInterval(sizePoller);
+    await cleanup();
+    if (err instanceof CloneError) throw err;
+    throw new CloneError(
+      `Failed to clone "${url}": ${err instanceof Error ? err.message : String(err)}`,
+    );
+  } finally {
+    clearTimeout(timeoutHandle);
+    if (sizePoller !== undefined) clearInterval(sizePoller);
+  }
 }

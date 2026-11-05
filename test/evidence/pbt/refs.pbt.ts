@@ -10,7 +10,7 @@
  *   P5 — isSuspicious returns true for all known injection strings
  */
 
-import { describe, it } from 'vitest';
+import { describe, it as _it } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
 import { parseRefs, isSuspicious, mapLineRange } from '../../../src/evidence/refs.js';
@@ -23,17 +23,12 @@ import type { RenameEvent, LineRange } from '../../../src/evidence/refs.js';
 const renameEventArb: fc.Arbitrary<RenameEvent> = fc.record({
   fromFile: fc.string({ minLength: 1, maxLength: 64 }),
   toFile: fc.string({ minLength: 1, maxLength: 64 }),
-  commitSha: fc
-    .hexaString({ minLength: 40, maxLength: 40 })
-    .map((s) => s.toLowerCase()),
+  commitSha: fc.hexaString({ minLength: 40, maxLength: 40 }).map((s) => s.toLowerCase()),
   offset: fc.integer({ min: -200, max: 200 }),
 });
 
 const lineRangeArb: fc.Arbitrary<LineRange> = fc
-  .tuple(
-    fc.integer({ min: 1, max: 1000 }),
-    fc.integer({ min: 0, max: 500 }),
-  )
+  .tuple(fc.integer({ min: 1, max: 1000 }), fc.integer({ min: 0, max: 500 }))
   .map(([start, delta]) => ({ start, end: start + delta }));
 
 // ---------------------------------------------------------------------------
@@ -75,19 +70,16 @@ describe('P3 — parseRefs deduplication', () => {
       // Build a string that mentions each number multiple times
       return nums.flatMap((n) => [`#${n}`, `#${n}`]).join(' ');
     }),
-  ])(
-    'result.length <= unique ref count in input',
-    (text) => {
-      const unique = new Set<string>();
-      const re = /#(\d+)/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(text)) !== null) {
-        unique.add(`#${m[1]}`);
-      }
-      const refs = parseRefs(text);
-      return refs.length <= unique.size;
-    },
-  );
+  ])('result.length <= unique ref count in input', (text) => {
+    const unique = new Set<string>();
+    const re = /#(\d+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      unique.add(`#${m[1]}`);
+    }
+    const refs = parseRefs(text);
+    return refs.length <= unique.size;
+  });
 });
 
 // ---------------------------------------------------------------------------

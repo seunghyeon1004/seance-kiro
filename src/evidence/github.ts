@@ -21,10 +21,11 @@ const ALLOWED_HOST = 'api.github.com';
 
 const GitHubIssueSchema = z.object({
   title: z.string(),
-  body: z.string().nullable().transform((v) => v ?? ''),
+  body: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ''),
 });
-
-type GitHubIssue = z.infer<typeof GitHubIssueSchema>;
 
 // ---------------------------------------------------------------------------
 // parseGitHubRemote (R8.1)
@@ -36,9 +37,7 @@ const GITHUB_URL_RE = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?
  * Extract `{ owner, repo }` from a `https://github.com/…` URL.
  * Returns `null` for non-GitHub or malformed URLs.
  */
-export function parseGitHubRemote(
-  url: string,
-): { owner: string; repo: string } | null {
+export function parseGitHubRemote(url: string): { owner: string; repo: string } | null {
   const m = GITHUB_URL_RE.exec(url);
   if (!m) return null;
   const owner = m[1];
@@ -60,9 +59,7 @@ export function parseGitHubRemote(
  */
 function buildApiUrl(owner: string, repo: string, refNumber: string): URL {
   const n = refNumber.replace(/^#/, '');
-  const url = new URL(
-    `https://${ALLOWED_HOST}/repos/${owner}/${repo}/issues/${n}`,
-  );
+  const url = new URL(`https://${ALLOWED_HOST}/repos/${owner}/${repo}/issues/${n}`);
   if (url.hostname !== ALLOWED_HOST) {
     throw new SsrfError(
       `SSRF guard: API URL hostname "${url.hostname}" is not "${ALLOWED_HOST}"`,
@@ -131,9 +128,7 @@ export async function fetchGitHubRef(
   }
 
   if (!response.ok) {
-    console.warn(
-      `[seance:github] Non-OK response ${response.status} for ref ${ref}`,
-    );
+    console.warn(`[seance:github] Non-OK response ${response.status} for ref ${ref}`);
     return undefined;
   }
 

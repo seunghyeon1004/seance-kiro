@@ -61,16 +61,16 @@ Properties we test with PBT (fast-check): the verifier never accepts a citation 
 
 ## 6. Plan (Nov 5 to Dec 4)
 
-| When | Milestone |
-|------|-----------|
-| Nov 5-7 | Kiro CLI set up (done, logged in), repo, steering docs, specs for all four features |
-| Nov 8-12 | Evidence ledger + crypt sample repo + tests; verifier + PBT |
-| Nov 13-18 | Ghost (LLM) + API; exorcism score and plan |
-| Nov 19-25 | Spooky UI, accessibility pass, hosted deploy (Render, Docker with git), license, README |
-| Nov 26-30 | Demo video (under 3 min, YouTube public), write-up on Kiro use, blog post, social post with #KiroweenHackathon26 |
-| Dec 1 | Request 4,000 free Kiro credits BEFORE Dec 1 12:00 PT (Resources tab) |
-| Dec 2-3 | Buffer, final checks (license visible, .kiro committed, app URL up, video public) |
-| Dec 4 14:00 PT | Submit (deadline; in KST Dec 5 07:00) |
+| When           | Milestone                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Nov 5-7        | Kiro CLI set up (done, logged in), repo, steering docs, specs for all four features                              |
+| Nov 8-12       | Evidence ledger + crypt sample repo + tests; verifier + PBT                                                      |
+| Nov 13-18      | Ghost (LLM) + API; exorcism score and plan                                                                       |
+| Nov 19-25      | Spooky UI, accessibility pass, hosted deploy (Render, Docker with git), license, README                          |
+| Nov 26-30      | Demo video (under 3 min, YouTube public), write-up on Kiro use, blog post, social post with #KiroweenHackathon26 |
+| Dec 1          | Request 4,000 free Kiro credits BEFORE Dec 1 12:00 PT (Resources tab)                                            |
+| Dec 2-3        | Buffer, final checks (license visible, .kiro committed, app URL up, video public)                                |
+| Dec 4 14:00 PT | Submit (deadline; in KST Dec 5 07:00)                                                                            |
 
 ## 7. Risks and decisions
 

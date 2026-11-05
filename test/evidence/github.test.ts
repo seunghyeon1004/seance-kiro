@@ -33,7 +33,9 @@ function makeFetchMock(opts: FetchMockOptions) {
         ok: (opts.status ?? 200) >= 200 && (opts.status ?? 200) < 300,
         status: opts.status ?? 200,
         headers: mockHeaders,
-        json: async () => { throw new SyntaxError('bad json'); },
+        json: async () => {
+          throw new SyntaxError('bad json');
+        },
       } as unknown as Response;
     }
 
@@ -93,10 +95,7 @@ describe('fetchGitHubRef success', () => {
   });
 
   it('converts null body to empty string', async () => {
-    vi.stubGlobal(
-      'fetch',
-      makeFetchMock({ json: { title: 'No body', body: null } }),
-    );
+    vi.stubGlobal('fetch', makeFetchMock({ json: { title: 'No body', body: null } }));
 
     const result = await fetchGitHubRef('owner', 'repo', '#1');
     expect(result?.body).toBe('');
@@ -119,10 +118,7 @@ describe('fetchGitHubRef success', () => {
 
 describe('fetchGitHubRef network error → undefined', () => {
   it('returns undefined when fetch throws a network error', async () => {
-    vi.stubGlobal(
-      'fetch',
-      makeFetchMock({ throws: new TypeError('Failed to fetch') }),
-    );
+    vi.stubGlobal('fetch', makeFetchMock({ throws: new TypeError('Failed to fetch') }));
 
     const result = await fetchGitHubRef('owner', 'repo', '#5');
     expect(result).toBeUndefined();
@@ -191,10 +187,7 @@ describe('fetchGitHubRef SSRF → undefined (never rethrows)', () => {
     // is constructed internally. Instead test that a crafted owner/repo that
     // does not modify the host still hits api.github.com, confirming the guard.
     // The important assertion: the function never throws.
-    vi.stubGlobal(
-      'fetch',
-      makeFetchMock({ throws: new TypeError('redirect blocked') }),
-    );
+    vi.stubGlobal('fetch', makeFetchMock({ throws: new TypeError('redirect blocked') }));
     const result = await fetchGitHubRef('owner', 'repo', '#1');
     expect(result).toBeUndefined();
   });

@@ -24,7 +24,7 @@ numbered Evidence Ledger. No LLM is involved in this feature; all outputs are de
 ### R2 — Log-L history extraction
 
 4. **R2.1** When blame extraction is complete, the system SHALL run `git log -L <start>,<end>:<file>
-   --follow --format=fuller` to obtain the ordered commit history for the given line range,
+--follow --format=fuller` to obtain the ordered commit history for the given line range,
    including renames.
 
 5. **R2.2** The `--follow` flag SHALL be applied so that renames are tracked across the line-range

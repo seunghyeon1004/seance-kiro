@@ -4,6 +4,7 @@ Tasks are ordered so each one builds on the previous. Complete them top to botto
 Commit messages must use the format `exorcism-plan T<N>: <description>`.
 
 Pre-conditions:
+
 - `evidence-ledger` spec (T1–T11) is complete; `EvidenceItemSchema` and `LedgerResult` are in place.
 - `ghost-verifier` spec (T1–T11) is complete; `verify()`, `askGhost()`, all error classes, and the session map are in place.
 

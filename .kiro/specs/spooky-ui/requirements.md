@@ -13,6 +13,7 @@ Design tokens, animation rules, and the accessibility floor are defined in `.kir
 ### R1 — Summon form
 
 **R1.1** When a user visits the root URL, the system shall display a summon form containing:
+
 - a text input for a repository URL or local path (`repoUrl`),
 - a text input for the file path within the repository (`file`),
 - a numeric input for the start line (`startLine`, integer ≥ 1),
@@ -99,6 +100,7 @@ Design tokens, animation rules, and the accessibility floor are defined in `.kir
 **R5.2** The candle flicker shall be implemented via a CSS keyframe animation whose speed is controlled by the `--confidence` custom property, set from JavaScript after each `/api/ask` response; `--confidence` shall range from 0 (no recent response or score = 0) to 1 (score = 1).
 
 **R5.3** The animation-duration for the candle flicker shall be derived from `--confidence` such that:
+
 - at `--confidence = 1` the flicker cycle period is no shorter than 333 ms (3 Hz cap), and
 - at `--confidence = 0` the candle is near-static (very slow pulse, period ≥ 4 000 ms).
 
@@ -135,6 +137,7 @@ Design tokens, animation rules, and the accessibility floor are defined in `.kir
 **R7.2** When the user activates the Exorcise button, the system shall POST to `/api/exorcise` with `{ sessionId }`, disable the button, and display a loading indicator labeled "Performing exorcism…".
 
 **R7.3** When `/api/exorcise` returns HTTP 200, the system shall reveal the exorcism panel containing:
+
 - the haunting score displayed as an integer (0–100) with a visual severity indicator (text labels: 0–25 "Restless", 26–50 "Troubled", 51–75 "Haunted", 76–100 "Possessed"),
 - a signal breakdown table with one row per signal (signal name, raw value as a percentage, weighted contribution),
 - a "Marker locations" list of `{ sha7, lineText }` pairs (empty list shown as "No markers found"),
@@ -195,4 +198,3 @@ Design tokens, animation rules, and the accessibility floor are defined in `.kir
 **R10.2** When the page is loaded or reloaded, the UI shall start in the summon-form state with no remembered session; the user must summon again.
 
 **R10.3** If the server returns `SESSION_NOT_FOUND` on a `/api/ask` or `/api/exorcise` call, the UI shall display a notice "Session expired — please summon again" and return to the summon form state.
-

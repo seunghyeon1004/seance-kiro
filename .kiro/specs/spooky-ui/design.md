@@ -11,6 +11,7 @@ lives in a plain JS module (`public/js/app.js`). Three CSS files handle layout, 
 animations. No build step; files are served directly by Hono's static-file middleware.
 
 The UI has two top-level states:
+
 - **Summon state** — the summon form is visible; ledger crypt and chat are hidden.
 - **Séance state** — the form is hidden; ledger crypt, chat, candle, fog, planchette, and
   exorcism button are visible.
@@ -52,6 +53,7 @@ prevented. Client-side validation runs synchronously before the fetch; errors ar
 default and populated only on failure.
 
 State transitions driven by `app.js`:
+
 - Submit → disable button, show `#summon-loading` (aria-busy="true"), POST `/api/summon`.
 - 200 → hide `#summon-section`, show `#seance-section`, call `ledger.init(items)`, focus chat input.
 - Error → populate `#summon-error` notice, re-enable button.
@@ -62,6 +64,7 @@ A `<section aria-label="Ledger Crypt">` containing a `<ul id="ledger-list">` of 
 Each `<li>` has `id="ledger-item-{shortSha}"` and `tabindex="0"`.
 
 Each item renders:
+
 ```html
 <li id="ledger-item-{sha7}" tabindex="0" class="ledger-item">
   <span class="ledger-sha">{sha7}</span>
@@ -77,6 +80,7 @@ Each item renders:
 ```
 
 `ledger.js` exports:
+
 - `init(items: EvidenceItemSummary[])` — renders all rows from the summon response.
 - `highlightItem(sha7: string)` — adds `class="ledger-item--cited"` to the matching row;
   removes it from any previously highlighted row.
@@ -85,30 +89,42 @@ Each item renders:
   instant when `prefers-reduced-motion: reduce`.
 
 `EvidenceItemSummary` is the subset of ledger fields needed for display:
+
 ```ts
-{ shortSha: string; author: string; date: string; subject: string; body: string; hunk: string }
+{
+  shortSha: string;
+  author: string;
+  date: string;
+  subject: string;
+  body: string;
+  hunk: string;
+}
 ```
+
 (This type is only used in the browser; it is not a Zod schema.)
 
 ### 3.3 Séance chat (`#chat-panel`)
 
 A `<section aria-label="Séance Chat">`. Contains:
+
 - `<div id="chat-history" aria-live="polite" aria-relevant="additions">` — claim bubbles appended here.
 - `<form id="ask-form">` — textarea + submit button.
 - `<div id="verified-counter" aria-live="polite" aria-atomic="true">` — "N of M claims verified".
 
 `chat.js` exports:
+
 - `appendResponse(answer: VerifiedAnswerPayload)` — renders claim bubbles and updates the counter.
 - `showLoading()` / `hideLoading()` — show/hide the "ghost stirs" indicator.
 - `showError(message: string)` — append an error notice to chat history.
 
 `VerifiedAnswerPayload`:
+
 ```ts
 {
   voice: string;
   verified: Array<{
     text: string;
-    kind: "memory" | "speculation" | "silence";
+    kind: 'memory' | 'speculation' | 'silence';
     citations: Array<{ sha7: string; quote?: string }>;
     speculative: boolean;
   }>;
@@ -119,12 +135,19 @@ A `<section aria-label="Séance Chat">`. Contains:
 ```
 
 Claim bubble HTML template (memory kind):
+
 ```html
 <article class="claim claim--memory" aria-label="Verified memory claim">
   <p class="claim-text">{text}</p>
   <ul class="claim-citations" aria-label="Citations">
-    <li><a href="#ledger-item-{sha7}" class="citation-link"
-           aria-label="See commit {sha7} in crypt">[{sha7}]</a></li>
+    <li>
+      <a
+        href="#ledger-item-{sha7}"
+        class="citation-link"
+        aria-label="See commit {sha7} in crypt"
+        >[{sha7}]</a
+      >
+    </li>
   </ul>
 </article>
 ```
@@ -138,11 +161,13 @@ An SVG or PNG element with `aria-hidden="true"` positioned `position: fixed` or 
 absolute` relative to the ledger panel. Its rotation is a single CSS `transform: rotate({angle}deg)`.
 
 `planchette.js` exports:
+
 - `pointAt(sha7: string)` — compute target row's `getBoundingClientRect()`, compute angle from
   planchette centre to row midpoint, set `element.style.transform = rotate({angle}deg)`.
 - Called by `chat.js` on first citation in each response, and by citation link click handlers.
 
 Rotation computation:
+
 ```
 dy = targetMidY - planchetteCenterY
 dx = targetMidX - planchetteCenterX
@@ -163,20 +188,31 @@ One or more `<div class="candle" aria-hidden="true">` with a `<div class="flame"
 after each `/api/ask` response. Initial value: `0.5`.
 
 `animations.css` defines:
+
 ```css
 @keyframes flicker {
-  0%   { transform: scaleY(1)    rotate(-2deg); opacity: 0.9; }
-  33%  { transform: scaleY(1.05) rotate( 2deg); opacity: 1.0; }
-  66%  { transform: scaleY(0.97) rotate(-1deg); opacity: 0.85; }
-  100% { transform: scaleY(1)    rotate( 1deg); opacity: 0.9; }
+  0% {
+    transform: scaleY(1) rotate(-2deg);
+    opacity: 0.9;
+  }
+  33% {
+    transform: scaleY(1.05) rotate(2deg);
+    opacity: 1;
+  }
+  66% {
+    transform: scaleY(0.97) rotate(-1deg);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scaleY(1) rotate(1deg);
+    opacity: 0.9;
+  }
 }
 
 .flame {
   /* animation-duration controlled by --confidence */
   /* min duration 333ms (3 Hz cap), max duration 4000ms */
-  animation-duration: calc(
-    333ms + (1 - var(--confidence, 0.5)) * (4000ms - 333ms)
-  );
+  animation-duration: calc(333ms + (1 - var(--confidence, 0.5)) * (4000ms - 333ms));
   animation-name: flicker;
   animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
@@ -205,7 +241,8 @@ CSS-only cap means no JavaScript path can circumvent it.
 
 ```css
 .fog-layer {
-  position: fixed; inset: 0;
+  position: fixed;
+  inset: 0;
   pointer-events: none;
   background: radial-gradient(
     ellipse at center,
@@ -218,7 +255,9 @@ CSS-only cap means no JavaScript path can circumvent it.
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fog-layer { transition: none; }
+  .fog-layer {
+    transition: none;
+  }
 }
 ```
 
@@ -231,29 +270,37 @@ Initially `hidden`. Revealed (remove `hidden` attribute) when `/api/exorcise` re
 Rendered by `exorcism.js`.
 
 Top section: score integer + severity badge.
+
 ```html
 <div class="score-display">
   <span class="score-value" aria-label="Haunting score: {score} out of 100">{score}</span>
   <span class="score-severity score-severity--{level}">{label}</span>
 </div>
 ```
+
 Severity levels (text labels, not colour only): 0–25 → "Restless", 26–50 → "Troubled",
 51–75 → "Haunted", 76–100 → "Possessed". CSS class adds colour reinforcement.
 
 Signal breakdown: `<table>` with columns: Signal, Raw value (%), Weighted contribution.
 
 Refactor steps rendered as `<details>` cards:
+
 ```html
 <details class="step-card">
-  <summary>{n}. {description} <span class="badge badge--{reversible}">{label}</span></summary>
+  <summary>
+    {n}. {description} <span class="badge badge--{reversible}">{label}</span>
+  </summary>
   <p class="step-rationale">{rationale}</p>
-  <ul class="step-citations">…</ul>
+  <ul class="step-citations">
+    …
+  </ul>
 </details>
 ```
 
 Do-not-touch entries rendered similarly with line range shown.
 
 `exorcism.js` exports:
+
 - `render(response: ExorcisePayload)` — full render of the panel.
 - `ExorcisePayload` mirrors the `/api/exorcise` response shape.
 
@@ -309,6 +356,7 @@ SEANCE_ACTIVE
 ```
 
 State is stored in a module-level variable:
+
 ```js
 let state = { phase: 'summon', sessionId: null, hauntingScore: 0, lastConfidence: 0.5 };
 ```
@@ -320,15 +368,15 @@ function arguments and return rendered DOM or update CSS custom properties.
 
 ## 6. Error handling
 
-| Trigger | Handling |
-|---------|----------|
-| `/api/summon` non-200 | Show `error` field from response in `#summon-error`; re-enable button |
-| `/api/ask` non-200 | Append error notice to `#chat-history`; re-enable ask button |
-| `/api/ask` SESSION_NOT_FOUND | Show "Session expired" notice; reset to summon form |
-| `/api/exorcise` non-200 | Show error adjacent to Exorcise button; re-enable button |
-| `/api/exorcise` SESSION_NOT_FOUND | Same as ask SESSION_NOT_FOUND |
-| Network failure (fetch throws) | Treat as 500; display "Network error — please try again" |
-| Malformed JSON response | Treat as 500; display "Unexpected server response" |
+| Trigger                           | Handling                                                              |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `/api/summon` non-200             | Show `error` field from response in `#summon-error`; re-enable button |
+| `/api/ask` non-200                | Append error notice to `#chat-history`; re-enable ask button          |
+| `/api/ask` SESSION_NOT_FOUND      | Show "Session expired" notice; reset to summon form                   |
+| `/api/exorcise` non-200           | Show error adjacent to Exorcise button; re-enable button              |
+| `/api/exorcise` SESSION_NOT_FOUND | Same as ask SESSION_NOT_FOUND                                         |
+| Network failure (fetch throws)    | Treat as 500; display "Network error — please try again"              |
+| Malformed JSON response           | Treat as 500; display "Unexpected server response"                    |
 
 All error notices use `role="alert"` so they are announced immediately by screen readers.
 
@@ -342,6 +390,7 @@ Tests live in `test/ui/`. Each module (`ledger.js`, `chat.js`, `exorcism.js`, `p
 `candle.js`, `fog.js`) gets a companion test file.
 
 Key unit test cases:
+
 - `ledger.init` renders the correct number of `<li>` elements with correct `id` attributes.
 - `ledger.highlightItem` adds `ledger-item--cited` to exactly one row; a second call moves it.
 - `chat.appendResponse` renders one bubble per verified claim; renders no rejected bubbles when
@@ -358,6 +407,7 @@ Key unit test cases:
 
 The `.kiro/hooks/a11y-lint.json` hook runs on save of any `public/**` file. The command executes
 an accessibility lint script (`scripts/a11y-lint.sh`) that checks:
+
 - All `<img>` elements have `alt` attributes.
 - All `<input>` elements have associated `<label>` elements.
 - No `tabindex` values greater than 0 are present.
@@ -397,6 +447,7 @@ These tests live in `test/ui/pbt/ui.pbt.ts` and run under Vitest with fast-check
 ### 7.4 End-to-end smoke tests (manual / optional)
 
 Not automated in CI. The README documents a manual checklist:
+
 1. Open the page; tab through all form fields; submit with keyboard.
 2. Verify candle flicker is visible and below 3 Hz.
 3. Enable "Reduce motion" in OS accessibility settings; verify flicker replaced by opacity.
@@ -409,16 +460,16 @@ Not automated in CI. The README documents a manual checklist:
 
 ## 8. Design token reference
 
-| Token (CSS custom property) | Value | Usage |
-|-----------------------------|-------|-------|
-| `--color-bg` | `#0a0a0f` | Page background |
-| `--color-fog` | `#1a1a2e` | Fog / panel depth |
-| `--color-candle` | `#ff6b35` | Candle glow, flame |
-| `--color-verified` | `#c8ffc8` | Verified claim bubbles |
-| `--color-rejected` | `#6b6b6b` | Rejected claim text |
-| `--color-speculation` | `#9b59b6` | Speculation bubble |
-| `--confidence` | 0–1 (JS-set) | Drives candle duration formula |
-| `--haunting-score` | 0–100 (JS-set) | Drives fog opacity |
+| Token (CSS custom property) | Value          | Usage                          |
+| --------------------------- | -------------- | ------------------------------ |
+| `--color-bg`                | `#0a0a0f`      | Page background                |
+| `--color-fog`               | `#1a1a2e`      | Fog / panel depth              |
+| `--color-candle`            | `#ff6b35`      | Candle glow, flame             |
+| `--color-verified`          | `#c8ffc8`      | Verified claim bubbles         |
+| `--color-rejected`          | `#6b6b6b`      | Rejected claim text            |
+| `--color-speculation`       | `#9b59b6`      | Speculation bubble             |
+| `--confidence`              | 0–1 (JS-set)   | Drives candle duration formula |
+| `--haunting-score`          | 0–100 (JS-set) | Drives fog opacity             |
 
 All tokens are declared on `:root` in `theme.css`.
 
@@ -445,4 +496,3 @@ All tokens are declared on `:root` in `theme.css`.
 
 6. **`<details>`/`<summary>`** used for ledger item expansion and exorcism step cards — natively
    keyboard accessible without ARIA roles.
-
