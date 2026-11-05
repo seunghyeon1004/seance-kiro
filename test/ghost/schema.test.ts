@@ -428,3 +428,206 @@ describe('VerifiedAnswerResponseSchema', () => {
     expect(result.success).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// T1 Exorcism schema tests — appended per tasks.md T1
+// ---------------------------------------------------------------------------
+
+import {
+  ScoredResultSchema,
+  DoNotTouchEntrySchema,
+  RefactorPlanSchema,
+  ExorciseRequestSchema,
+} from '../../src/ghost/schema.js';
+
+// ── ScoredResultSchema ───────────────────────────────────────────────────────
+
+describe('ScoredResultSchema', () => {
+  const sixBreakdowns = (
+    ['age', 'churn', 'gone', 'marker', 'test', 'nesting'] as const
+  ).map((signal) => ({
+    signal,
+    rawValue: 0.5,
+    weightedContribution: 10,
+  }));
+
+  it('parses a valid ScoredResult with six breakdown entries', () => {
+    const result = ScoredResultSchema.safeParse({
+      score: 42,
+      signalBreakdown: sixBreakdowns,
+      markerLocations: [],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a ScoredResult whose signalBreakdown has fewer than six entries', () => {
+    const result = ScoredResultSchema.safeParse({
+      score: 42,
+      signalBreakdown: sixBreakdowns.slice(0, 3),
+      markerLocations: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a ScoredResult whose signalBreakdown has more than six entries', () => {
+    const result = ScoredResultSchema.safeParse({
+      score: 42,
+      signalBreakdown: [...sixBreakdowns, ...sixBreakdowns],
+      markerLocations: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a score outside [0, 100]', () => {
+    const result = ScoredResultSchema.safeParse({
+      score: 101,
+      signalBreakdown: sixBreakdowns,
+      markerLocations: [],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── DoNotTouchEntrySchema ────────────────────────────────────────────────────
+
+describe('DoNotTouchEntrySchema', () => {
+  const validEntry = {
+    lineRange: { start: 10, end: 20 },
+    reason: 'Critical external constraint from upstream API contract.',
+    claims: [
+      {
+        kind: 'memory',
+        text: 'This was required by the API contract.',
+        citations: [{ sha7: 'abc1234' }],
+      },
+    ],
+  };
+
+  it('accepts a valid DoNotTouchEntry', () => {
+    const result = DoNotTouchEntrySchema.safeParse(validEntry);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a DoNotTouchEntry where lineRange.end < lineRange.start', () => {
+    const result = DoNotTouchEntrySchema.safeParse({
+      ...validEntry,
+      lineRange: { start: 20, end: 10 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a DoNotTouchEntry where lineRange.end === lineRange.start', () => {
+    const result = DoNotTouchEntrySchema.safeParse({
+      ...validEntry,
+      lineRange: { start: 5, end: 5 },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── RefactorPlanSchema ───────────────────────────────────────────────────────
+
+describe('RefactorPlanSchema', () => {
+  const validStep = {
+    description: 'Extract the retry logic into a dedicated helper function.',
+    rationale: 'Reduces duplication across callers.',
+    claims: [
+      {
+        kind: 'memory',
+        text: 'The retry logic was added to handle flaky downstream calls.',
+        citations: [{ sha7: 'abc1234' }],
+      },
+    ],
+    reversible: true,
+  };
+
+  const validEntry = {
+    lineRange: { start: 10, end: 20 },
+    reason: 'Critical workaround for upstream API.',
+    claims: [
+      {
+        kind: 'memory',
+        text: 'This was required by the API contract.',
+        citations: [{ sha7: 'abc1234' }],
+      },
+    ],
+  };
+
+  it('parses a valid RefactorPlan with one step and one do-not-touch entry', () => {
+    const result = RefactorPlanSchema.safeParse({
+      characterizationTests: ['it should return 200 on valid input'],
+      steps: [validStep],
+      doNotTouchList: [validEntry],
+      summary: 'Extract retry logic and leave the workaround in place.',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a RefactorPlan with an empty steps array', () => {
+    const result = RefactorPlanSchema.safeParse({
+      characterizationTests: ['it should return 200 on valid input'],
+      steps: [],
+      doNotTouchList: [],
+      summary: 'No steps to take.',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a RefactorPlan with an empty characterizationTests array', () => {
+    const result = RefactorPlanSchema.safeParse({
+      characterizationTests: [],
+      steps: [validStep],
+      doNotTouchList: [],
+      summary: 'A plan without characterization tests.',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── ExorciseRequestSchema ────────────────────────────────────────────────────
+
+describe('ExorciseRequestSchema', () => {
+  it('parses a valid ExorciseRequest without authorGoneThresholdDays', () => {
+    const result = ExorciseRequestSchema.safeParse({
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.authorGoneThresholdDays).toBeUndefined();
+    }
+  });
+
+  it('parses a valid ExorciseRequest with authorGoneThresholdDays', () => {
+    const result = ExorciseRequestSchema.safeParse({
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+      authorGoneThresholdDays: 180,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.authorGoneThresholdDays).toBe(180);
+    }
+  });
+
+  it('rejects an ExorciseRequest with an empty sessionId', () => {
+    const result = ExorciseRequestSchema.safeParse({
+      sessionId: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an ExorciseRequest with negative authorGoneThresholdDays', () => {
+    const result = ExorciseRequestSchema.safeParse({
+      sessionId: 'some-session',
+      authorGoneThresholdDays: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an ExorciseRequest with zero authorGoneThresholdDays', () => {
+    const result = ExorciseRequestSchema.safeParse({
+      sessionId: 'some-session',
+      authorGoneThresholdDays: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+});

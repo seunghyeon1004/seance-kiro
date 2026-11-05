@@ -167,3 +167,105 @@ export const VerifiedAnswerResponseSchema = z.object({
 });
 
 export type VerifiedAnswerResponse = z.infer<typeof VerifiedAnswerResponseSchema>;
+
+// ── Exorcism score types ─────────────────────────────────────────────────────
+
+export const SignalNameSchema = z.enum([
+  'age',
+  'churn',
+  'gone',
+  'marker',
+  'test',
+  'nesting',
+]);
+export type SignalName = z.infer<typeof SignalNameSchema>;
+
+export const SignalBreakdownSchema = z.object({
+  signal: SignalNameSchema,
+  rawValue: z.number().min(0).max(1),
+  weightedContribution: z.number().min(0).max(25),
+});
+export type SignalBreakdown = z.infer<typeof SignalBreakdownSchema>;
+
+export const MarkerLocationSchema = z.object({
+  sha7: z
+    .string()
+    .length(7)
+    .regex(/^[0-9a-f]{7}$/),
+  lineText: z.string().max(256),
+});
+export type MarkerLocation = z.infer<typeof MarkerLocationSchema>;
+
+export const ScoreInputSchema = z.object({
+  authorGoneThresholdDays: z.number().int().positive().default(365),
+  nowMs: z.number().int().positive(),
+});
+export type ScoreInput = z.infer<typeof ScoreInputSchema>;
+
+export const ScoredResultSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  signalBreakdown: z.array(SignalBreakdownSchema).length(6),
+  markerLocations: z.array(MarkerLocationSchema),
+});
+export type ScoredResult = z.infer<typeof ScoredResultSchema>;
+
+// ── Exorcism plan types ──────────────────────────────────────────────────────
+
+export const RefactorStepSchema = z.object({
+  description: z.string().min(1).max(512),
+  rationale: z.string().min(1).max(256),
+  claims: z.array(ClaimSchema).min(1),
+  rejectedClaims: z.array(ClaimSchema).default([]),
+  reversible: z.boolean(),
+});
+export type RefactorStep = z.infer<typeof RefactorStepSchema>;
+
+export const DoNotTouchEntrySchema = z.object({
+  lineRange: z
+    .object({
+      start: z.number().int().positive(),
+      end: z.number().int().positive(),
+    })
+    .refine((r) => r.end >= r.start, { message: 'end must be >= start' }),
+  reason: z.string().min(1).max(512),
+  claims: z.array(ClaimSchema).min(1),
+  rejectedClaims: z.array(ClaimSchema).default([]),
+});
+export type DoNotTouchEntry = z.infer<typeof DoNotTouchEntrySchema>;
+
+export const RefactorPlanSchema = z.object({
+  characterizationTests: z.array(z.string().min(1).max(512)).min(1),
+  steps: z.array(RefactorStepSchema).min(1),
+  doNotTouchList: z.array(DoNotTouchEntrySchema),
+  summary: z.string().min(1).max(1024),
+});
+export type RefactorPlan = z.infer<typeof RefactorPlanSchema>;
+
+// After Verifier runs, rejectedClaims are populated
+export const VerifiedRefactorPlanSchema = RefactorPlanSchema.extend({
+  verifierScore: z.number().min(0).max(1),
+});
+export type VerifiedRefactorPlan = z.infer<typeof VerifiedRefactorPlanSchema>;
+
+// ── API response ─────────────────────────────────────────────────────────────
+
+export const ExorciseRequestSchema = z.object({
+  sessionId: z.string().min(1),
+  authorGoneThresholdDays: z.number().int().positive().optional(),
+});
+export type ExorciseRequest = z.infer<typeof ExorciseRequestSchema>;
+
+export const ExorciseResponseSchema = z.object({
+  sessionId: z.string().uuid(),
+  score: z.number().int().min(0).max(100),
+  signalBreakdown: z.array(SignalBreakdownSchema).length(6),
+  markerLocations: z.array(MarkerLocationSchema),
+  plan: z.object({
+    characterizationTests: z.array(z.string()),
+    steps: z.array(RefactorStepSchema),
+    doNotTouchList: z.array(DoNotTouchEntrySchema),
+    summary: z.string(),
+  }),
+  verifierScore: z.number().min(0).max(1),
+});
+export type ExorciseResponse = z.infer<typeof ExorciseResponseSchema>;

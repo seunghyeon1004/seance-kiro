@@ -14,7 +14,10 @@ import { buildLedger } from './evidence/ledger.js';
 import { buildPrompt } from './ghost/persona.js';
 import { askGhost } from './ghost/llm.js';
 import { verify } from './ghost/verifier.js';
+import { computeScore } from './exorcism/score.js';
+import { buildPlan } from './exorcism/plan.js';
 import type { LedgerResult } from './ghost/schema.js';
+import { ExorciseRequestSchema, ExorciseResponseSchema } from './ghost/schema.js';
 import {
   ValidationError,
   GitError,
@@ -233,6 +236,91 @@ app.post('/api/ask', async (c) => {
       })),
       score: verifierResult.score,
     });
+  } catch (err: unknown) {
+    const { status, code, message } = toHttpError(err);
+    return c.json({ code, message }, status as 400 | 404 | 503 | 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/exorcise
+// ---------------------------------------------------------------------------
+
+app.post('/api/exorcise', async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      { code: 'VALIDATION_ERROR', message: 'Request body must be valid JSON' },
+      400,
+    );
+  }
+
+  const parsed = ExorciseRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((i) => i.message).join('; ');
+    return c.json({ code: 'VALIDATION_ERROR', message }, 400);
+  }
+
+  const { sessionId, authorGoneThresholdDays } = parsed.data;
+
+  try {
+    // Look up session (throw SessionNotFoundError if absent or expired)
+    const session = sessions.get(sessionId);
+    if (!session || Date.now() > session.expiresAt) {
+      if (session) sessions.delete(sessionId);
+      throw new SessionNotFoundError(`Session "${sessionId}" not found or has expired`);
+    }
+
+    const nowMs = Date.now();
+    const scoredResult = computeScore(
+      session.ledger,
+      { authorGoneThresholdDays: authorGoneThresholdDays ?? 365, nowMs },
+      nowMs,
+    );
+
+    const plan = await buildPlan(session.ledger, scoredResult, sessionId);
+
+    // Reset session expiry (sliding window)
+    session.expiresAt = nowMs + SESSION_TTL_MS;
+
+    const isProduction = process.env['NODE_ENV'] === 'production';
+
+    // In production, redact rejected claim text in steps and doNotTouchList
+    const redactedSteps = plan.steps.map((step) => ({
+      ...step,
+      rejectedClaims: step.rejectedClaims.map((claim) =>
+        isProduction
+          ? { ...claim, text: '[claim redacted — failed verification]' }
+          : claim,
+      ),
+    }));
+
+    const redactedDoNotTouchList = plan.doNotTouchList.map((entry) => ({
+      ...entry,
+      rejectedClaims: entry.rejectedClaims.map((claim) =>
+        isProduction
+          ? { ...claim, text: '[claim redacted — failed verification]' }
+          : claim,
+      ),
+    }));
+
+    return c.json(
+      ExorciseResponseSchema.parse({
+        sessionId,
+        score: scoredResult.score,
+        signalBreakdown: scoredResult.signalBreakdown,
+        markerLocations: scoredResult.markerLocations,
+        plan: {
+          characterizationTests: plan.characterizationTests,
+          steps: redactedSteps,
+          doNotTouchList: redactedDoNotTouchList,
+          summary: plan.summary,
+        },
+        verifierScore: plan.verifierScore,
+      }),
+    );
   } catch (err: unknown) {
     const { status, code, message } = toHttpError(err);
     return c.json({ code, message }, status as 400 | 404 | 503 | 500);
