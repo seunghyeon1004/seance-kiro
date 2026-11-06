@@ -102,6 +102,23 @@ export async function askGhost(
   client?: AnthropicClient,
   opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
 ): Promise<GhostAnswer> {
+  try {
+    return await askGhostOnce(prompt, sessionId, client, opts);
+  } catch (err) {
+    // The model occasionally answers in prose or breaks the schema; one retry is cheap and invisible to the user.
+    if (err instanceof ParseError && process.env['ANTHROPIC_FIXTURE'] !== '1') {
+      return askGhostOnce(prompt, sessionId, client, opts);
+    }
+    throw err;
+  }
+}
+
+async function askGhostOnce(
+  prompt: string,
+  sessionId: string,
+  client?: AnthropicClient,
+  opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
+): Promise<GhostAnswer> {
   const planMode = opts.tool === 'refactor_plan';
   // Fixture mode — no network call
   if (process.env['ANTHROPIC_FIXTURE'] === '1') {
