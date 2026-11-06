@@ -151,7 +151,7 @@ Rules:
 2. List characterization tests FIRST — the developer must write these before any modification.
 3. Any line whose commit history shows a deliberate workaround or external constraint must
    appear in doNotTouchList with a cited reason.
-4. Use kind="silence" when the ledger does not explain why a line exists.
+4. Use kind="speculation" (with a citation to the nearest related commit) when the ledger does not explain why a line exists; never present it as memory.
 5. Use kind="speculation" (labelled) when inferring intent beyond the evidence.
 6. Respond with a single JSON object conforming to RefactorPlanSchema.`;
 }

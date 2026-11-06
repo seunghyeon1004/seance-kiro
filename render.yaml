@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: seance
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false

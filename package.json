@@ -11,7 +11,9 @@
     "dev": "tsx watch src/server.ts",
     "test": "vitest --run",
     "lint": "eslint . && prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "npm run crypt && tsx src/server.ts",
+    "crypt": "bash scripts/make-crypt.sh data/crypt"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.32.1",

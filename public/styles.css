@@ -80,8 +80,10 @@ textarea { resize: vertical; min-height: 4.2rem; line-height: 1.5; font-family: 
 .candle-stage { display: grid; place-items: center; min-height: 22rem; }
 .candle { --confidence: 0.55; position: relative; width: 6.5rem; height: 16rem; display: grid; justify-items: center; align-content: end; }
 .candle.small { width: 2.2rem; height: 4.6rem; flex: none; }
-.wax { width: 100%; height: 66%; border-radius: 0.5rem 0.5rem 0.2rem 0.2rem; background: linear-gradient(90deg, var(--color-paper-3), var(--color-ink-2) 38%, var(--color-paper-3)); opacity: 0.92; }
-.wick { width: 3px; height: 14%; background: var(--color-paper); margin-bottom: -1px; }
+.candle.small .wax { height: 2.4rem; }
+.candle.small .wick { height: 0.7rem; }
+.wax { width: 100%; height: 10.5rem; border-radius: 0.5rem 0.5rem 0.2rem 0.2rem; background: linear-gradient(90deg, var(--color-paper-3), var(--color-ink-2) 38%, var(--color-paper-3)); opacity: 0.92; }
+.wick { width: 3px; height: 1.6rem; background: var(--color-paper); margin-bottom: -1px; }
 .flame {
   position: absolute; top: 4%; left: 50%; width: 38%; height: 28%; margin-left: -19%;
   border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
@@ -117,8 +119,8 @@ h3 { font-size: var(--text-title); font-weight: 400; margin-top: var(--space-lg)
   position: absolute; top: 0; right: 0.5rem; width: 3.6rem; height: 4.4rem;
   transform-origin: 50% 60%; transition: transform 400ms var(--ease-out);
 }
-.planchette span { position: absolute; inset: 0; background: var(--color-paper-3); border: var(--rule-hair) solid var(--color-muted); border-radius: 50% 50% 50% 50% / 75% 75% 25% 25%; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.planchette::after { content: ""; position: absolute; left: 50%; top: 52%; width: 1.1rem; height: 1.1rem; margin: -0.55rem 0 0 -0.55rem; border-radius: 50%; border: 2px solid var(--color-accent); }
+.planchette span { position: absolute; inset: 0; background: var(--color-muted); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.planchette::after { content: ""; position: absolute; left: 50%; top: 52%; width: 1.1rem; height: 1.1rem; margin: -0.55rem 0 0 -0.55rem; border-radius: 50%; border: 2px solid var(--color-accent); background: var(--color-paper); }
 
 .ledger { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-height: 68vh; overflow: auto; border-top: var(--rule-hair) solid var(--color-rule); }
 .ledger li { padding: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); scroll-margin-block: var(--space-lg); }
