@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Evidence-rules staged diff review",
+      "description": "User-triggered: asks the agent to review the staged git diff against the evidence-rules invariants — every claim must have a citation, and the verifier may not change unless a spec task is referenced.",
+      "trigger": "UserPromptSubmit",
+      "matcher": "^/review-evidence\\b",
+      "action": {
+        "type": "agent",
+        "prompt": "The user has requested an evidence-rules review of the current staged diff.\n\n1. Run: git diff --cached\n2. Read: .kiro/steering/evidence-rules.md\n3. Check EVERY changed line in src/ghost/verifier.ts against the invariants listed there — reject any change that weakens a verifier invariant unless the commit message references a spec task ID.\n4. For any GhostAnswer or EvidenceItem changes, confirm that all claims still require at least one { sha7, quote? } citation.\n5. Output a short checklist: ✅ or ❌ per invariant, with the offending line if failing."
+      }
+    }
+  ]
+}

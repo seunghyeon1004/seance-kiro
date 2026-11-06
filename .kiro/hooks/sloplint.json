@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Hallmark sloplint on public save",
+      "description": "Run the atmospheric sloplint check on the frontend assets after any public/ file is saved.",
+      "trigger": "PostFileSave",
+      "matcher": "public/",
+      "action": {
+        "type": "command",
+        "command": "node ~/.claude/skills/hallmark/scripts/sloplint.mjs public/index.html public/styles.css public/app.js --genre atmospheric 2>&1"
+      }
+    }
+  ]
+}

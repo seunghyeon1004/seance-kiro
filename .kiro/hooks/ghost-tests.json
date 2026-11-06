@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Ghost tests on save",
+      "description": "Run the ghost test suite whenever a ghost source file is saved.",
+      "trigger": "PostFileSave",
+      "matcher": "src/ghost/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "npx vitest run test/ghost 2>&1"
+      }
+    }
+  ]
+}
