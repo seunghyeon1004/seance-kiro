@@ -181,7 +181,7 @@ describe('buildPlan — fixture mode via mocked askGhost', () => {
             {
               kind: 'memory',
               text: 'This claim has a bad SHA.',
-              citations: [{ sha7: 'zzz9999' }], // not in ledger
+              citations: [{ sha7: 'deadbee' }], // valid hex, not in ledger
             },
           ],
           reversible: false,
