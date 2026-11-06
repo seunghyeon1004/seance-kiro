@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Séance: ask the one who wrote it</title>
+<meta name="description" content="Séance reads the git history of a line of code and lets its author's ghost answer, with every claim checked against the commits.">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="fog" id="fog" aria-hidden="true"></div>
+
+<header class="bar">
+  <div class="container bar-in">
+    <a class="mark" href="./">Séance</a>
+    <nav aria-label="Sections">
+      <a href="#summon">Summon</a>
+      <a href="#how">How it works</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="summon" aria-labelledby="h-hero">
+    <div class="container hero-in">
+      <div class="hero-copy">
+        <h1 id="h-hero">Ask the one who wrote it.</h1>
+        <p class="lede">The ghost behind any line of code answers from its commits.</p>
+
+        <form id="summon-form" class="summon" novalidate>
+          <div class="field wide">
+            <label for="repo">Repository</label>
+            <input id="repo" name="repoUrl" value="crypt" autocomplete="off" spellcheck="false" aria-describedby="repo-help" list="repo-list">
+            <datalist id="repo-list"><option value="crypt"></option></datalist>
+            <p class="help" id="repo-help">crypt is the sample repo. Or paste a public https://github.com/owner/repo.</p>
+          </div>
+          <div class="field wide">
+            <label for="file">File</label>
+            <input id="file" name="file" value="legacy/tax.js" autocomplete="off" spellcheck="false">
+            <p class="err" id="file-err" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="start">From line</label>
+            <input id="start" name="startLine" type="number" min="1" value="7" inputmode="numeric">
+            <p class="err" id="start-err" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="end">To line</label>
+            <input id="end" name="endLine" type="number" min="1" value="7" inputmode="numeric">
+            <p class="err" id="end-err" role="alert" hidden></p>
+          </div>
+          <details class="field wide token">
+            <summary>GitHub token for pull request text</summary>
+            <label for="token" class="visually-hidden">GitHub token</label>
+            <input id="token" name="githubToken" type="password" autocomplete="off" placeholder="Optional">
+          </details>
+          <div class="field wide actions">
+            <button class="btn" id="summon-btn" type="submit">Summon</button>
+            <span class="status" id="summon-status" role="status" aria-live="polite"></span>
+          </div>
+          <p class="err form-err" id="summon-err" role="alert" hidden></p>
+        </form>
+      </div>
+
+      <div class="candle-stage" aria-hidden="true">
+        <div class="candle" id="candle-hero">
+          <span class="flame"></span><span class="wick"></span><span class="wax"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="seance" id="seance" aria-label="Séance" hidden>
+    <div class="container seance-in">
+      <aside class="crypt" aria-labelledby="h-crypt">
+        <div class="crypt-head">
+          <h2 id="h-crypt">The crypt</h2>
+          <p class="meta" id="crypt-meta"></p>
+        </div>
+        <div class="planchette" id="planchette" aria-hidden="true"><span></span></div>
+        <ol class="ledger" id="ledger"></ol>
+      </aside>
+
+      <section class="talk" aria-labelledby="h-talk">
+        <div class="talk-head">
+          <div class="candle small" id="candle" aria-hidden="true"><span class="flame"></span><span class="wick"></span><span class="wax"></span></div>
+          <div>
+            <h2 id="h-talk">The ghost</h2>
+            <p class="meta" id="ghost-name">Speaks only from the commits.</p>
+          </div>
+        </div>
+
+        <div class="log" id="log" aria-live="off"></div>
+
+        <form id="ask-form" class="ask">
+          <label for="q">Your question</label>
+          <textarea id="q" rows="2" placeholder="Why is there a three second wait here?" required></textarea>
+          <div class="ask-actions">
+            <button class="btn" id="ask-btn" type="submit">Ask the ghost</button>
+            <button class="btn ghost" id="exorcise-btn" type="button">Run the exorcism</button>
+            <span class="status" id="ask-status" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <details class="plant" id="plant">
+          <summary>Plant a false memory</summary>
+          <p class="help">Send a claim straight to the ward and watch it refuse what the commits do not support.</p>
+          <div class="plant-presets">
+            <button class="btn small ghost" type="button" data-preset="invent">Invent a citation</button>
+            <button class="btn small ghost" type="button" data-preset="misquote">Misquote a real commit</button>
+          </div>
+          <label for="plant-text">Claim</label>
+          <input id="plant-text" value="I added this wait so Windows XP clients would not time out.">
+          <div class="plant-row">
+            <div class="field"><label for="plant-sha">Cited commit</label><input id="plant-sha" value="deadbee" maxlength="7" spellcheck="false"></div>
+            <div class="field grow"><label for="plant-quote">Quote from it (optional)</label><input id="plant-quote" placeholder="Exact words from the commit"></div>
+          </div>
+          <button class="btn small" id="plant-btn" type="button">Send it through the ward</button>
+        </details>
+      </section>
+    </div>
+
+    <div class="container" id="exorcism-wrap" hidden>
+      <section class="exorcism" id="exorcism" aria-labelledby="h-ex" tabindex="-1">
+        <h2 id="h-ex">The exorcism</h2>
+        <div class="ex-top">
+          <p class="score"><span class="num" id="ex-score">0</span><span class="of"> of 100 haunted</span></p>
+          <ul class="signals" id="ex-signals"></ul>
+        </div>
+        <p class="summary" id="ex-summary"></p>
+        <p class="meta" id="ex-verified" role="status" aria-live="polite"></p>
+        <h3>Write these tests first</h3>
+        <ol class="tests" id="ex-tests"></ol>
+        <h3>Then, in order</h3>
+        <ol class="steps" id="ex-steps"></ol>
+        <h3>Do not touch</h3>
+        <ul class="dnt" id="ex-dnt"></ul>
+      </section>
+    </div>
+  </section>
+
+  <section class="how" id="how" aria-labelledby="h-how">
+    <div class="container how-in">
+      <h2 id="h-how">Three rules the ghost cannot break</h2>
+      <ol class="rules">
+        <li><strong>It remembers only commits.</strong> Messages, diffs, authors and dates from git history, nothing else.</li>
+        <li><strong>Every claim cites a commit.</strong> A short hash and, where it can, the exact words.</li>
+        <li><strong>The ward checks both.</strong> A hash that does not exist or a quote that is not there is struck out.</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="container foot-in">
+    <p>Séance, open source under the MIT license. Built with Kiro for Kiroween 2026.</p>
+  </div>
+</footer>
+
+<script src="./app.js" defer></script>
+</body>
+</html>
