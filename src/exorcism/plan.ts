@@ -53,7 +53,7 @@ export async function buildPlan(
   const prompt = buildPlanPrompt(ledger, scoredResult);
 
   // Call the LLM (or load fixture when ANTHROPIC_FIXTURE=1)
-  const ghostAnswer = await askGhost(prompt, sessionId);
+  const ghostAnswer = await askGhost(prompt, sessionId, undefined, { tool: 'refactor_plan' });
 
   // The LLM wraps the plan JSON as a text claim inside GhostAnswer
   // Extract the raw plan JSON from the first claim's text field

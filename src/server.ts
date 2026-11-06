@@ -115,6 +115,7 @@ function toHttpError(err: unknown): { status: number; code: string; message: str
   if (err instanceof ConfigError) {
     return { status: 503, code: err.code, message: err.message };
   }
+  console.error('[seance] unexpected error:', err instanceof Error ? err.stack ?? err.message : String(err));
   return { status: 500, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' };
 }
 
