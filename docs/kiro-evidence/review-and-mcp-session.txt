@@ -1,0 +1,46 @@
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=8
+I'll handle the hook's evidence-rules review first, then attempt the git MCP call.
+[tool] Get staged diff
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+The staged diff touches only `.kiro/README.md` — no changes to `src/ghost/verifier.ts`, `EvidenceItem`, or `GhostAnswer`.
+
+---
+
+**Evidence-rules review checklist**
+
+The diff adds documentation lines to `.kiro/README.md` only. No source files changed.
+
+| Invariant | Status |
+|---|---|
+| Verified citation's SHA present in ledger — reject otherwise | ✅ No change |
+| Verified quote is substring of cited evidence text — reject otherwise | ✅ No change |
+| Author/date in claim match cited item's fields | ✅ No change |
+| `score = verified / total` ∈ [0, 1]; total includes silence & speculation | ✅ No change |
+| Verifier is pure and deterministic | ✅ No change |
+| Every ghost claim carries at least one `{ sha7, quote? }` citation | ✅ No change |
+| `GhostAnswer` / `EvidenceItem` shapes unchanged | ✅ No change |
+
+No failing invariants. The staged commit is safe to proceed.
+
+---
+
+Now the git MCP call:
+[tool] status: Completed
+
+[tool] @git/git_log
+[tool] status: InProgress
+[tool] status: Completed
+**MCP tool called:** `git::git_log`
+
+5 most recent commits:
+
+1. `2fe89598` — kiro: add archaeologist custom agent, save/prompt hooks and workspace MCP config (2026-11-06)
+2. `a6a8a230` — Retry the model call once on a parse failure; refresh screenshots (2026-11-06)
+3. `b8c4a224` — README, Dockerfile, Render blueprint, env example (2026-11-06)
+4. `27202275` — UI: spooky séance page (summon, crypt, ghost chat, ward test, exorcism) (2026-11-06)
+5. `6319ea5c` — Make the LLM calls work with claude-sonnet-5-5 (2026-11-06)

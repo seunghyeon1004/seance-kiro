@@ -43,3 +43,9 @@ Output is a ✅ / ❌ checklist per invariant.
 Both servers are read-oriented. The filesystem server root is pinned to the repo directory so agents cannot access files outside it.
 
 List them: `kiro-cli mcp list workspace`
+
+## What fires where (checked, not assumed)
+
+- **Prompt hook (`evidence-review.json`)**: verified in Kiro CLI sessions by typing `/review-evidence`; see `docs/kiro-evidence/`.
+- **Save hooks (`ghost-tests.json`, `sloplint.json`)**: written for Kiro's `PostFileSave` trigger. They have not been observed firing in the CLI (non-interactive runs do not emit file-save events), so treat them as IDE-side automation until shown otherwise.
+- **MCP servers**: the git server was called from a CLI session; see `docs/kiro-evidence/`.
