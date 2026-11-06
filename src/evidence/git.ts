@@ -85,6 +85,9 @@ export async function runGit(
   try {
     const result = await execa(GIT_BIN, args, {
       cwd,
+      // stable English output regardless of the machine's locale (the parsers depend on it)
+      env: { LC_ALL: 'C', LANG: 'C' },
+      extendEnv: true,
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: timeoutMs,
       reject: true,
@@ -177,14 +180,8 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
     if (epochStr) {
       const epoch = parseInt(epochStr, 10);
       if (!isNaN(epoch)) {
-        // Produce a proper ISO 8601 with offset from the tz field
-        const offsetMin = tzToOffsetMinutes(tz);
-        const local = new Date((epoch + offsetMin * 60) * 1000);
-        const sign = offsetMin >= 0 ? '+' : '-';
-        const abs = Math.abs(offsetMin);
-        const hh = String(Math.floor(abs / 60)).padStart(2, '0');
-        const mm = String(abs % 60).padStart(2, '0');
-        dateIso = local.toISOString().replace('Z', '') + `${sign}${hh}:${mm}`;
+        // Commit instants are normalised to UTC ISO 8601 (the offset is presentation only)
+        dateIso = new Date(epoch * 1000).toISOString();
       }
     }
 
@@ -296,7 +293,8 @@ export async function logL(
   let raw: string;
   try {
     raw = await runGit(
-      ['log', `-L${start},${end}:${file}`, '--follow', '--format=fuller', '--', file],
+      // -L follows renames by itself; it rejects --follow and an extra pathspec
+      ['log', `-L${start},${end}:${file}`, '--date=iso-strict', '--format=fuller'],
       repo,
     );
   } catch {

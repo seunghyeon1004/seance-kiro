@@ -9,11 +9,16 @@
  */
 
 import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { buildLedger } from './evidence/ledger.js';
 import { buildPrompt } from './ghost/persona.js';
 import { askGhost } from './ghost/llm.js';
 import { verify } from './ghost/verifier.js';
+import { GhostAnswerSchema } from './ghost/schema.js';
 import { computeScore } from './exorcism/score.js';
 import { buildPlan } from './exorcism/plan.js';
 import type { LedgerResult } from './ghost/schema.js';
@@ -117,6 +122,26 @@ function toHttpError(err: unknown): { status: number; code: string; message: str
 // Hono app
 // ---------------------------------------------------------------------------
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const CRYPT_DIR = process.env['CRYPT_DIR'] ?? path.join(ROOT, 'data', 'crypt');
+const ALLOW_LOCAL = process.env['ALLOW_LOCAL'] === '1';
+/** Reject-claim text is shown by default (it is the point of the ward); set REDACT_REJECTED=1 to hide it. */
+const REDACT = process.env['REDACT_REJECTED'] === '1';
+const REDACTED_TEXT = '[claim redacted - failed verification]';
+
+/** "crypt" is the bundled sample repo. Local paths are refused unless ALLOW_LOCAL=1 (hosted demos must not read the server disk). */
+function resolveRepo(repoUrl: string): string {
+  if (repoUrl === 'crypt') {
+    if (!fs.existsSync(path.join(CRYPT_DIR, '.git'))) {
+      throw new ValidationError('The sample crypt has not been built; run scripts/make-crypt.sh');
+    }
+    return CRYPT_DIR;
+  }
+  if (/^https:\/\//.test(repoUrl)) return repoUrl;
+  if (!ALLOW_LOCAL) throw new ValidationError('Use the sample crypt or a https://github.com/<owner>/<repo> URL');
+  return repoUrl;
+}
+
 const app = new Hono();
 
 // ---------------------------------------------------------------------------
@@ -152,7 +177,7 @@ app.post('/api/summon', async (c) => {
 
   try {
     const ledger = await buildLedger({
-      repoUrl: input.repoUrl,
+      repoUrl: resolveRepo(input.repoUrl),
       file: input.file,
       startLine: input.startLine,
       endLine: input.endLine,
@@ -170,6 +195,11 @@ app.post('/api/summon', async (c) => {
       ledgerSize: ledger.items.length,
       truncated: ledger.truncated,
       buildDurationMs: ledger.buildDurationMs,
+      items: ledger.items.map((i) => ({
+        id: i.id, sha: i.sha, shortSha: i.shortSha, author: i.author, date: i.date,
+        subject: i.subject, body: i.body, hunk: i.hunk.slice(0, 4000), files: i.files, refs: i.refs,
+        pr: i.pr, suspiciousMessage: i.suspiciousMessage,
+      })),
     });
   } catch (err: unknown) {
     const { status, code, message } = toHttpError(err);
@@ -218,7 +248,7 @@ app.post('/api/ask', async (c) => {
     // Reset session expiry (sliding window)
     entry.expiresAt = Date.now() + SESSION_TTL_MS;
 
-    const isProduction = process.env['NODE_ENV'] === 'production';
+    const isProduction = REDACT;
 
     return c.json({
       sessionId,
@@ -230,7 +260,7 @@ app.post('/api/ask', async (c) => {
         speculative: v.speculative,
       })),
       rejected: verifierResult.rejected.map((r) => ({
-        text: isProduction ? '[claim redacted — failed verification]' : r.claim.text,
+        text: isProduction ? REDACTED_TEXT : r.claim.text,
         kind: r.claim.kind,
         reason: r.reason,
       })),
@@ -285,14 +315,14 @@ app.post('/api/exorcise', async (c) => {
     // Reset session expiry (sliding window)
     session.expiresAt = nowMs + SESSION_TTL_MS;
 
-    const isProduction = process.env['NODE_ENV'] === 'production';
+    const isProduction = REDACT;
 
     // In production, redact rejected claim text in steps and doNotTouchList
     const redactedSteps = plan.steps.map((step) => ({
       ...step,
       rejectedClaims: step.rejectedClaims.map((claim) =>
         isProduction
-          ? { ...claim, text: '[claim redacted — failed verification]' }
+          ? { ...claim, text: REDACTED_TEXT }
           : claim,
       ),
     }));
@@ -301,7 +331,7 @@ app.post('/api/exorcise', async (c) => {
       ...entry,
       rejectedClaims: entry.rejectedClaims.map((claim) =>
         isProduction
-          ? { ...claim, text: '[claim redacted — failed verification]' }
+          ? { ...claim, text: REDACTED_TEXT }
           : claim,
       ),
     }));
@@ -328,6 +358,49 @@ app.post('/api/exorcise', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/ward : run any claim set through the Verifier (used by the "plant a false memory" demo)
+// ---------------------------------------------------------------------------
+
+app.post('/api/ward', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { sessionId?: string; answer?: unknown } | null;
+  const entry = body?.sessionId ? sessions.get(body.sessionId) : undefined;
+  if (!entry || Date.now() > entry.expiresAt) {
+    return c.json({ code: 'SESSION_NOT_FOUND', message: 'Session not found or expired' }, 404);
+  }
+  const parsed = GhostAnswerSchema.safeParse(body?.answer);
+  if (!parsed.success) {
+    return c.json({ code: 'VALIDATION_ERROR', message: parsed.error.issues.map((i) => i.message).join('; ') }, 400);
+  }
+  const r = verify(entry.ledger.items, parsed.data);
+  return c.json({
+    voice: parsed.data.voice,
+    verified: r.verified.map((v) => ({ text: v.claim.text, kind: v.claim.kind, citations: v.claim.citations, speculative: v.speculative })),
+    rejected: r.rejected.map((x) => ({ text: REDACT ? REDACTED_TEXT : x.claim.text, kind: x.claim.kind, reason: x.reason })),
+    score: r.score,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Static UI
+// ---------------------------------------------------------------------------
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
+};
+app.get('/*', (c) => {
+  const base = path.join(ROOT, 'public');
+  const p = new URL(c.req.url).pathname;
+  const target = path.resolve(base, '.' + path.posix.normalize('/' + (p === '/' ? 'index.html' : p)));
+  if (!target.startsWith(base + path.sep)) return c.text('not found', 404);
+  try {
+    return new Response(fs.readFileSync(target), { headers: { 'content-type': MIME[path.extname(target)] ?? 'application/octet-stream', 'cache-control': 'no-cache' } });
+  } catch {
+    return c.text('not found', 404);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Export for testing + optional server start
 // ---------------------------------------------------------------------------
 
@@ -336,6 +409,7 @@ export { app, sessions };
 // Start server when run directly
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/^.*\//, ''))) {
   const port = process.env['PORT'] ? parseInt(process.env['PORT'], 10) : 3000;
+  serve({ fetch: app.fetch, port });
   console.log(`Séance listening on http://localhost:${port}`);
 }
 

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.32.1",
+    "@hono/node-server": "^1.19.18",
     "execa": "9.6.1",
     "hono": "4.13.16",
     "zod": "3.23.8"
