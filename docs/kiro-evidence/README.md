@@ -11,7 +11,7 @@ Every file here is CLI output from a real run in this repository. The only edits
 
 ## Credits
 
-Free plan, 50 credits a month. The four 2026-11-09 runs used 4.4 credits in total (3.37 used before, 7.77 after, read with `/usage`). One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
+Free plan, 50 credits a month. The 2026-11-09 runs used about 4.6 credits in total (3.37 used before, 7.92 after, read with `/usage`; the meter settles a few minutes late). One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
 
 ## Not proven
 
