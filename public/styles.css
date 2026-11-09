@@ -324,7 +324,9 @@ textarea {
     color-mix(in oklab, var(--color-accent) 38%, transparent);
   transform-origin: 50% 100%;
   opacity: calc(0.35 + 0.65 * var(--confidence));
-  animation: flicker calc(1.7s - 1s * var(--confidence)) ease-in-out infinite alternate;
+  /* P1: formula yields 4000ms at confidence=0, 333ms at confidence=1 (≥333ms for all values) */
+  animation: flicker calc(333ms + (1 - var(--confidence, 0.5)) * 3667ms) ease-in-out
+    infinite alternate;
 }
 .candle.small .flame {
   top: 0;
@@ -347,6 +349,9 @@ textarea {
   .flame {
     animation: none !important;
     transform: none;
+    /* P2: static opacity driven by --confidence; smooth transition instead of animation */
+    opacity: calc(0.3 + var(--confidence, 0.5) * 0.7);
+    transition: opacity 0.5s ease;
   }
   .fog {
     transition: none;

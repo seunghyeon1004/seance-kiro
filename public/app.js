@@ -26,7 +26,7 @@ function el(tag, props = {}, children = []) {
     else if (k === 'text') n.textContent = v;
     else if (
       k.startsWith('data-') ||
-      k === 'aria-label' ||
+      k.startsWith('aria-') ||
       k === 'role' ||
       k === 'tabindex' ||
       k === 'id' ||
@@ -51,16 +51,19 @@ async function api(path, body) {
   } catch {
     /* non-JSON error page */
   }
-  if (!res.ok)
-    throw new Error(
-      (data && (data.message || data.error)) || `The request failed (${res.status}).`,
-    );
+  if (!res.ok) {
+    const msg =
+      (data && (data.message || data.error)) || `The request failed (${res.status}).`;
+    const err = new Error(msg);
+    if (data && data.code) err.code = data.code;
+    throw err;
+  }
   return data;
 }
 
 function setConfidence(v) {
   const c = Math.max(0, Math.min(1, Number(v) || 0));
-  $('candle').style.setProperty('--confidence', String(c));
+  $('candle').style.setProperty('--confidence', String(c)); // .candle declares its own --confidence, so it must be set on the element
 }
 function setHaunting(score) {
   const s = Math.max(0, Math.min(100, Number(score) || 0));
@@ -77,9 +80,11 @@ function fieldError(id, msg) {
 
 function validate() {
   let ok = true;
+  const repoUrl = $('repo').value.trim();
   const file = $('file').value.trim();
   const start = parseInt($('start').value, 10);
   const end = parseInt($('end').value, 10);
+  fieldError('repo-err', repoUrl ? '' : 'Enter a repository URL or "crypt".');
   fieldError('file-err', file ? '' : 'Enter the file path inside the repository.');
   fieldError(
     'start-err',
@@ -91,11 +96,10 @@ function validate() {
       ? ''
       : 'End line must not come before the start.',
   );
-  if (!file || !(start >= 1) || !(end >= start)) ok = false;
-  if (!$('repo').value.trim()) ok = false;
+  if (!repoUrl || !file || !(start >= 1) || !(end >= start)) ok = false;
   return ok
     ? {
-        repoUrl: $('repo').value.trim(),
+        repoUrl,
         file,
         startLine: start,
         endLine: end,
@@ -117,6 +121,7 @@ $('summon-form').addEventListener('submit', async (e) => {
   state.busy = true;
   $('summon-btn').disabled = true;
   $('summon-status').textContent = 'Gathering evidence…';
+  $('summon-form').setAttribute('aria-busy', 'true');
   try {
     const data = await api('/api/summon', input);
     state.sessionId = data.sessionId;
@@ -142,6 +147,7 @@ $('summon-form').addEventListener('submit', async (e) => {
   } finally {
     state.busy = false;
     $('summon-btn').disabled = false;
+    $('summon-form').removeAttribute('aria-busy');
   }
 });
 
@@ -246,7 +252,7 @@ function claimNode(c, rejected) {
       : c.kind === 'silence'
         ? 'The record is silent'
         : null;
-  const node = el('div', { class: `claim ${kind}` });
+  const node = el('article', { class: `claim ${kind}` });
   if (label) node.append(el('span', { class: 'lab', text: label }));
   node.append(el('span', { class: 'txt', text: c.text }));
   if (rejected && c.reason)
@@ -264,10 +270,19 @@ function renderAnswer(data, question) {
   const total = data.verified.length + data.rejected.length;
   for (const c of data.verified) turn.append(claimNode(c, false));
   for (const r of data.rejected) turn.append(claimNode(r, true));
-  const tally = el('p', { class: 'tally', role: 'status', 'aria-live': 'polite' }, [
-    el('strong', { text: `${data.verified.length} of ${total}` }),
-    document.createTextNode(' claims verified by the ward.'),
-  ]);
+  const tally = el(
+    'p',
+    {
+      class: 'tally',
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-atomic': 'true',
+    },
+    [
+      el('strong', { text: `${data.verified.length} of ${total}` }),
+      document.createTextNode(' claims verified by the ward.'),
+    ],
+  );
   turn.append(tally);
   $('log').append(turn);
   setConfidence(data.score);
@@ -305,17 +320,26 @@ $('ask-form').addEventListener('submit', async (e) => {
   state.busy = true;
   $('ask-btn').disabled = true;
   $('ask-status').textContent = 'The ghost stirs…';
+  $('log').setAttribute('aria-busy', 'true');
   try {
     const data = await api('/api/ask', { sessionId: state.sessionId, question: q });
     ghostName(data.voice);
     renderAnswer(data, q);
     $('q').value = '';
   } catch (err) {
+    if (err.code === 'SESSION_NOT_FOUND') {
+      $('seance').hidden = true;
+      $('summon-err').textContent = 'The séance has ended. Summon the ghost again.';
+      $('summon-err').hidden = false;
+      $('repo').focus();
+      return;
+    }
     $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
   } finally {
     state.busy = false;
     $('ask-btn').disabled = false;
     $('ask-status').textContent = '';
+    $('log').removeAttribute('aria-busy');
   }
 });
 $('q').addEventListener('keydown', (e) => {
@@ -419,6 +443,7 @@ $('exorcise-btn').addEventListener('click', async () => {
   state.busy = true;
   $('exorcise-btn').disabled = true;
   $('ask-status').textContent = 'Reading the haunting…';
+  $('exorcism-wrap').setAttribute('aria-busy', 'true');
   try {
     const d = await api('/api/exorcise', { sessionId: state.sessionId });
     $('ex-score').textContent = String(d.score);
@@ -480,10 +505,18 @@ $('exorcise-btn').addEventListener('click', async () => {
     });
     $('exorcism').focus({ preventScroll: true });
   } catch (err) {
+    if (err.code === 'SESSION_NOT_FOUND') {
+      $('seance').hidden = true;
+      $('summon-err').textContent = 'The séance has ended. Summon the ghost again.';
+      $('summon-err').hidden = false;
+      $('repo').focus();
+      return;
+    }
     $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
   } finally {
     state.busy = false;
     $('exorcise-btn').disabled = false;
     $('ask-status').textContent = '';
+    $('exorcism-wrap').removeAttribute('aria-busy');
   }
 });

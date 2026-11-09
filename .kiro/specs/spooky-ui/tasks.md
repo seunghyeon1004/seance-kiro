@@ -1,5 +1,7 @@
 # Spooky UI — Implementation Tasks
 
+Audited and completed by Kiro on 2026-11-09; see docs/kiro-evidence/spooky-ui-audit.md. Unticked items are open.
+
 Spec ID: `spooky-ui`
 Tasks are ordered so each builds on the previous. Complete top to bottom.
 Commit messages must use the format `spooky-ui T<N>: <description>`.
@@ -67,10 +69,10 @@ Satisfies: R5.2–R5.5, R6.4–R6.5, R4.4–R4.5, R8.3–R8.4; design §3.5, §3
 
 ## T4 — HTML skeleton (`public/index.html`)
 
-- [ ] Create `public/index.html` with `<!DOCTYPE html>`, `<html lang="en">`, `<head>`, `<body>`.
+- [x] Create `public/index.html` with `<!DOCTYPE html>`, `<html lang="en">`, `<head>`, `<body>`.
 - [ ] In `<head>`: `<meta charset="utf-8">`, `<meta name="viewport" content="width=device-width,
   initial-scale=1">`, `<title>Séance</title>`, links to the three CSS files.
-- [ ] Add semantic structure: `<main>`, `<h1>Séance</h1>`.
+- [x] Add semantic structure: `<main>`, `<h1>Séance</h1>`.
 - [ ] Add `<section id="summon-section">` containing `<form id="summon-form">` with: - `<label for="repo-url">Repository URL or path</label>` + `<input id="repo-url" …>` +
       `<span class="field-error" id="repo-url-error" aria-live="polite"></span>` - Same pattern for `file`, `start-line` (type="number" min="1"), `end-line`
       (type="number" min="1"), `github-token` (type="password"). - `<div id="summon-error" role="alert" class="error-notice hidden"></div>` - `<div id="summon-loading" aria-live="polite" hidden>Gathering evidence…</div>` - `<button type="submit" id="summon-btn">Summon</button>`
@@ -81,8 +83,8 @@ Satisfies: R5.2–R5.5, R6.4–R6.5, R4.4–R4.5, R8.3–R8.4; design §3.5, §3
 - [ ] Add `<section id="exorcism-panel" hidden>` with `<h2>Exorcism Report</h2>` and placeholder
       containers for score, signals, characterization tests, steps, and do-not-touch list.
 - [ ] Add `<script type="module" src="js/app.js"></script>` before `</body>`.
-- [ ] Confirm every `<input>` has a corresponding `<label>` with matching `for`/`id`.
-- [ ] Confirm `<h1>` → `<h2>` → `<h3>` heading hierarchy is maintained.
+- [x] Confirm every `<input>` has a corresponding `<label>` with matching `for`/`id`.
+- [x] Confirm `<h1>` → `<h2>` → `<h3>` heading hierarchy is maintained.
 
 Satisfies: R1.1, R1.6, R2.1–R2.3, R3.1, R7.1, R7.3, R8.5–R8.6, R9.1–R9.2; design §3.1–3.7.
 
