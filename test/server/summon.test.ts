@@ -138,6 +138,20 @@ describe('POST /api/summon', () => {
     expect(body.code).toBe('GIT_ERROR');
   });
 
+  it('returns 400 + VALIDATION_ERROR when endLine < startLine (inverted range)', async () => {
+    const req = new Request('http://localhost/api/summon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody, startLine: 9, endLine: 2 }),
+    });
+
+    const res = await app.fetch(req);
+    expect(res.status).toBe(400);
+
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe('VALIDATION_ERROR');
+  });
+
   it('returns 400 + VALIDATION_ERROR for invalid JSON body', async () => {
     const req = new Request('http://localhost/api/summon', {
       method: 'POST',

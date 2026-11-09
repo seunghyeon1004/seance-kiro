@@ -70,25 +70,35 @@ setInterval(() => {
 
 const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;
 
-const SummonRequestSchema = z.object({
-  repoUrl: z
-    .string()
-    .min(1)
-    .refine(
-      (url) => {
-        // If it looks like a URL, it must be a GitHub URL
-        if (url.startsWith('http://') || url.startsWith('https://')) {
-          return GITHUB_URL_RE.test(url);
-        }
-        return true;
-      },
-      { message: 'remote URLs must be https://github.com/<owner>/<repo>' },
-    ),
-  file: z.string().min(1),
-  startLine: z.number().int().min(1),
-  endLine: z.number().int().min(1),
-  githubToken: z.string().optional(),
-});
+const SummonRequestSchema = z
+  .object({
+    repoUrl: z
+      .string()
+      .min(1)
+      .refine(
+        (url) => {
+          // If it looks like a URL, it must be a GitHub URL
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+            return GITHUB_URL_RE.test(url);
+          }
+          return true;
+        },
+        { message: 'remote URLs must be https://github.com/<owner>/<repo>' },
+      ),
+    file: z.string().min(1),
+    startLine: z.number().int().min(1),
+    endLine: z.number().int().min(1),
+    githubToken: z.string().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.endLine < val.startLine) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endLine'],
+        message: `endLine (${val.endLine}) must be >= startLine (${val.startLine})`,
+      });
+    }
+  });
 
 const AskRequestSchema = z.object({
   sessionId: z.string().min(1),
