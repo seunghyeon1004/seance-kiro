@@ -8,7 +8,12 @@
 import { renderEvidenceBlock } from '../ghost/persona.js';
 import { askGhost } from '../ghost/llm.js';
 import { verify } from '../ghost/verifier.js';
-import type { LedgerResult, ScoredResult, VerifiedRefactorPlan, RefactorPlan, Claim } from '../ghost/schema.js';
+import type {
+  LedgerResult,
+  ScoredResult,
+  VerifiedRefactorPlan,
+  RefactorPlan,
+} from '../ghost/schema.js';
 import { RefactorPlanSchema } from '../ghost/schema.js';
 import type { EvidenceItem } from '../ghost/schema.js';
 import { ParseError } from '../errors.js';
@@ -24,7 +29,10 @@ import { ParseError } from '../errors.js';
  * @param scoredResult - Pre-computed haunting score.
  * @returns Deterministic prompt string.
  */
-export function buildPlanPrompt(ledger: LedgerResult, scoredResult: ScoredResult): string {
+export function buildPlanPrompt(
+  ledger: LedgerResult,
+  scoredResult: ScoredResult,
+): string {
   const systemBlock = buildSystemBlock();
   const evidenceBlock = buildEvidenceSectionBlock(ledger.items);
   const scoreBlock = buildScoreBlock(scoredResult);
@@ -53,7 +61,9 @@ export async function buildPlan(
   const prompt = buildPlanPrompt(ledger, scoredResult);
 
   // Call the LLM (or load fixture when ANTHROPIC_FIXTURE=1)
-  const ghostAnswer = await askGhost(prompt, sessionId, undefined, { tool: 'refactor_plan' });
+  const ghostAnswer = await askGhost(prompt, sessionId, undefined, {
+    tool: 'refactor_plan',
+  });
 
   // The LLM wraps the plan JSON as a text claim inside GhostAnswer
   // Extract the raw plan JSON from the first claim's text field
@@ -66,7 +76,9 @@ export async function buildPlan(
   try {
     planJson = JSON.parse(firstClaim.text);
   } catch {
-    throw new ParseError(`LLM plan claim text is not valid JSON: ${firstClaim.text.slice(0, 200)}`);
+    throw new ParseError(
+      `LLM plan claim text is not valid JSON: ${firstClaim.text.slice(0, 200)}`,
+    );
   }
 
   const parsed = RefactorPlanSchema.safeParse(planJson);
@@ -83,7 +95,10 @@ export async function buildPlan(
 // verifyPlanClaims — unexported helper
 // ---------------------------------------------------------------------------
 
-function verifyPlanClaims(ledger: LedgerResult, plan: RefactorPlan): VerifiedRefactorPlan {
+function verifyPlanClaims(
+  ledger: LedgerResult,
+  plan: RefactorPlan,
+): VerifiedRefactorPlan {
   let totalVerified = 0;
   let totalRejected = 0;
 

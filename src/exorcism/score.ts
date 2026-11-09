@@ -6,7 +6,12 @@
  */
 
 import type { LedgerResult } from '../ghost/schema.js';
-import type { ScoredResult, ScoreInput, MarkerLocation, SignalBreakdown } from '../ghost/schema.js';
+import type {
+  ScoredResult,
+  ScoreInput,
+  MarkerLocation,
+  SignalBreakdown,
+} from '../ghost/schema.js';
 
 // ---------------------------------------------------------------------------
 // Compile-time signal weight constants
@@ -44,10 +49,7 @@ function msPerDay(): number {
 // Signal implementations (each returns rawValue ∈ [0, 1])
 // ---------------------------------------------------------------------------
 
-function computeAgeSignal(
-  newestDateMs: number,
-  nowMs: number,
-): { rawValue: number } {
+function computeAgeSignal(newestDateMs: number, nowMs: number): { rawValue: number } {
   const ageDays = (nowMs - newestDateMs) / msPerDay();
   return { rawValue: clamp(ageDays / AGE_FULL_DAYS, 0, 1) };
 }
@@ -95,9 +97,10 @@ function computeGoneSignal(
 
 const MARKER_PATTERN = /\b(TODO|FIXME|HACK)\b/gi;
 
-function computeMarkerSignal(
-  items: LedgerResult['items'],
-): { rawValue: number; markerLocations: MarkerLocation[] } {
+function computeMarkerSignal(items: LedgerResult['items']): {
+  rawValue: number;
+  markerLocations: MarkerLocation[];
+} {
   let totalCount = 0;
   const markerLocations: MarkerLocation[] = [];
 
@@ -235,7 +238,11 @@ export function computeScore(
 
   const signalBreakdown: SignalBreakdown[] = [
     { signal: 'age', rawValue: rawAge, weightedContribution: rawAge * AGE_WEIGHT },
-    { signal: 'churn', rawValue: rawChurn, weightedContribution: rawChurn * CHURN_WEIGHT },
+    {
+      signal: 'churn',
+      rawValue: rawChurn,
+      weightedContribution: rawChurn * CHURN_WEIGHT,
+    },
     { signal: 'gone', rawValue: rawGone, weightedContribution: rawGone * GONE_WEIGHT },
     {
       signal: 'marker',

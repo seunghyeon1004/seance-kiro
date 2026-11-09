@@ -38,7 +38,10 @@ const sha40Arb: fc.Arbitrary<string> = fc
   .map((s) => s.toLowerCase());
 
 const iso8601Arb: fc.Arbitrary<string> = fc
-  .date({ min: new Date('2010-01-01T00:00:00.000Z'), max: new Date('2024-01-01T00:00:00.000Z') })
+  .date({
+    min: new Date('2010-01-01T00:00:00.000Z'),
+    max: new Date('2024-01-01T00:00:00.000Z'),
+  })
   .map((d) => d.toISOString());
 
 const evidenceItemArb: fc.Arbitrary<EvidenceItem> = fc
@@ -67,24 +70,31 @@ const evidenceItemArb: fc.Arbitrary<EvidenceItem> = fc
 /** Ledger with 0–50 items */
 const ledgerArb: fc.Arbitrary<LedgerResult> = fc
   .array(evidenceItemArb, { minLength: 0, maxLength: 50 })
-  .map((items): LedgerResult => ({
-    items: items as unknown as readonly EvidenceItem[],
-    truncated: false,
-    buildDurationMs: 0,
-  }));
+  .map(
+    (items): LedgerResult => ({
+      items: items as unknown as readonly EvidenceItem[],
+      truncated: false,
+      buildDurationMs: 0,
+    }),
+  );
 
 /** Non-empty ledger */
 const nonEmptyLedgerArb: fc.Arbitrary<LedgerResult> = fc
   .array(evidenceItemArb, { minLength: 1, maxLength: 50 })
-  .map((items): LedgerResult => ({
-    items: items as unknown as readonly EvidenceItem[],
-    truncated: false,
-    buildDurationMs: 0,
-  }));
+  .map(
+    (items): LedgerResult => ({
+      items: items as unknown as readonly EvidenceItem[],
+      truncated: false,
+      buildDurationMs: 0,
+    }),
+  );
 
 const scoreInputArb: fc.Arbitrary<ScoreInput> = fc.record({
   authorGoneThresholdDays: fc.integer({ min: 1, max: 3650 }),
-  nowMs: fc.integer({ min: new Date('2024-01-01').getTime(), max: new Date('2030-01-01').getTime() }),
+  nowMs: fc.integer({
+    min: new Date('2024-01-01').getTime(),
+    max: new Date('2030-01-01').getTime(),
+  }),
 });
 
 // ---------------------------------------------------------------------------
@@ -93,11 +103,7 @@ const scoreInputArb: fc.Arbitrary<ScoreInput> = fc.record({
 
 describe('PS1 — Score bounds', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoreInputArb.map((input) => ({ ledger, input })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoreInputArb.map((input) => ({ ledger, input })))],
     fcParams,
   )('score is always in [0, 100]', ({ ledger, input }) => {
     const result = computeScore(ledger, input, input.nowMs);
@@ -155,29 +161,40 @@ describe('PS3 — Marker signal monotone', () => {
     [
       // Build a non-empty ledger, then add one more TODO hunk line to get a variant
       nonEmptyLedgerArb.chain((ledger) => {
-        const input: ScoreInput = { authorGoneThresholdDays: 365, nowMs: new Date('2026-11-05').getTime() };
+        const input: ScoreInput = {
+          authorGoneThresholdDays: 365,
+          nowMs: new Date('2026-11-05').getTime(),
+        };
         return fc.constant({ ledger, input });
       }),
     ],
     fcParams,
-  )('appending a TODO line → markerSignal.rawValue non-decreasing', ({ ledger, input }) => {
-    const original = computeScore(ledger, input, input.nowMs);
+  )(
+    'appending a TODO line → markerSignal.rawValue non-decreasing',
+    ({ ledger, input }) => {
+      const original = computeScore(ledger, input, input.nowMs);
 
-    // Create a variant by modifying the first item's hunk to include a TODO
-    const items = [...ledger.items];
-    const firstItem = items[0]!;
-    const variantItems: EvidenceItem[] = [
-      { ...firstItem, hunk: firstItem.hunk + '\n+// TODO: added marker for test\n' },
-      ...items.slice(1),
-    ];
-    const variantLedger: LedgerResult = { ...ledger, items: variantItems as unknown as readonly EvidenceItem[] };
-    const variant = computeScore(variantLedger, input, input.nowMs);
+      // Create a variant by modifying the first item's hunk to include a TODO
+      const items = [...ledger.items];
+      const firstItem = items[0]!;
+      const variantItems: EvidenceItem[] = [
+        { ...firstItem, hunk: firstItem.hunk + '\n+// TODO: added marker for test\n' },
+        ...items.slice(1),
+      ];
+      const variantLedger: LedgerResult = {
+        ...ledger,
+        items: variantItems as unknown as readonly EvidenceItem[],
+      };
+      const variant = computeScore(variantLedger, input, input.nowMs);
 
-    const markerOriginal = original.signalBreakdown.find((s) => s.signal === 'marker')!;
-    const markerVariant = variant.signalBreakdown.find((s) => s.signal === 'marker')!;
+      const markerOriginal = original.signalBreakdown.find((s) => s.signal === 'marker')!;
+      const markerVariant = variant.signalBreakdown.find((s) => s.signal === 'marker')!;
 
-    expect(markerVariant.rawValue).toBeGreaterThanOrEqual(markerOriginal.rawValue - 1e-9);
-  });
+      expect(markerVariant.rawValue).toBeGreaterThanOrEqual(
+        markerOriginal.rawValue - 1e-9,
+      );
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -186,11 +203,7 @@ describe('PS3 — Marker signal monotone', () => {
 
 describe('PS4 — Determinism', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoreInputArb.map((input) => ({ ledger, input })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoreInputArb.map((input) => ({ ledger, input })))],
     fcParams,
   )('same inputs → deepEqual ScoredResults', ({ ledger, input }) => {
     const result1 = computeScore(ledger, input, input.nowMs);
@@ -221,8 +234,8 @@ describe('PS5 — verifierScore bounds on VerifiedRefactorPlan', () => {
 
   const verifierScoreArb = fc.float({ min: 0, max: 1, noNaN: true });
 
-  const verifiedRefactorPlanArb: fc.Arbitrary<VerifiedRefactorPlan> = verifierScoreArb.map(
-    (verifierScore) => ({
+  const verifiedRefactorPlanArb: fc.Arbitrary<VerifiedRefactorPlan> =
+    verifierScoreArb.map((verifierScore) => ({
       characterizationTests: ['it should behave correctly'],
       steps: [
         {
@@ -243,8 +256,7 @@ describe('PS5 — verifierScore bounds on VerifiedRefactorPlan', () => {
       ],
       summary: 'Refactor legacy code carefully.',
       verifierScore,
-    }),
-  );
+    }));
 
   test.prop([verifiedRefactorPlanArb], fcParams)(
     'verifierScore is always in [0, 1]',

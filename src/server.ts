@@ -116,7 +116,10 @@ function toHttpError(err: unknown): { status: number; code: string; message: str
   if (err instanceof ConfigError) {
     return { status: 503, code: err.code, message: err.message };
   }
-  console.error('[seance] unexpected error:', err instanceof Error ? err.stack ?? err.message : String(err));
+  console.error(
+    '[seance] unexpected error:',
+    err instanceof Error ? (err.stack ?? err.message) : String(err),
+  );
   return { status: 500, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' };
 }
 
@@ -135,12 +138,17 @@ const REDACTED_TEXT = '[claim redacted - failed verification]';
 function resolveRepo(repoUrl: string): string {
   if (repoUrl === 'crypt') {
     if (!fs.existsSync(path.join(CRYPT_DIR, '.git'))) {
-      throw new ValidationError('The sample crypt has not been built; run scripts/make-crypt.sh');
+      throw new ValidationError(
+        'The sample crypt has not been built; run scripts/make-crypt.sh',
+      );
     }
     return CRYPT_DIR;
   }
   if (/^https:\/\//.test(repoUrl)) return repoUrl;
-  if (!ALLOW_LOCAL) throw new ValidationError('Use the sample crypt or a https://github.com/<owner>/<repo> URL');
+  if (!ALLOW_LOCAL)
+    throw new ValidationError(
+      'Use the sample crypt or a https://github.com/<owner>/<repo> URL',
+    );
   return repoUrl;
 }
 
@@ -212,9 +220,18 @@ app.post('/api/summon', async (c) => {
       truncated: ledger.truncated,
       buildDurationMs: ledger.buildDurationMs,
       items: ledger.items.map((i) => ({
-        id: i.id, sha: i.sha, shortSha: i.shortSha, author: i.author, date: i.date,
-        subject: i.subject, body: i.body, hunk: i.hunk.slice(0, 4000), files: i.files, refs: i.refs,
-        pr: i.pr, suspiciousMessage: i.suspiciousMessage,
+        id: i.id,
+        sha: i.sha,
+        shortSha: i.shortSha,
+        author: i.author,
+        date: i.date,
+        subject: i.subject,
+        body: i.body,
+        hunk: i.hunk.slice(0, 4000),
+        files: i.files,
+        refs: i.refs,
+        pr: i.pr,
+        suspiciousMessage: i.suspiciousMessage,
       })),
     });
   } catch (err: unknown) {
@@ -337,18 +354,14 @@ app.post('/api/exorcise', async (c) => {
     const redactedSteps = plan.steps.map((step) => ({
       ...step,
       rejectedClaims: step.rejectedClaims.map((claim) =>
-        isProduction
-          ? { ...claim, text: REDACTED_TEXT }
-          : claim,
+        isProduction ? { ...claim, text: REDACTED_TEXT } : claim,
       ),
     }));
 
     const redactedDoNotTouchList = plan.doNotTouchList.map((entry) => ({
       ...entry,
       rejectedClaims: entry.rejectedClaims.map((claim) =>
-        isProduction
-          ? { ...claim, text: REDACTED_TEXT }
-          : claim,
+        isProduction ? { ...claim, text: REDACTED_TEXT } : claim,
       ),
     }));
 
@@ -378,20 +391,41 @@ app.post('/api/exorcise', async (c) => {
 // ---------------------------------------------------------------------------
 
 app.post('/api/ward', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { sessionId?: string; answer?: unknown } | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    sessionId?: string;
+    answer?: unknown;
+  } | null;
   const entry = body?.sessionId ? sessions.get(body.sessionId) : undefined;
   if (!entry || Date.now() > entry.expiresAt) {
-    return c.json({ code: 'SESSION_NOT_FOUND', message: 'Session not found or expired' }, 404);
+    return c.json(
+      { code: 'SESSION_NOT_FOUND', message: 'Session not found or expired' },
+      404,
+    );
   }
   const parsed = GhostAnswerSchema.safeParse(body?.answer);
   if (!parsed.success) {
-    return c.json({ code: 'VALIDATION_ERROR', message: parsed.error.issues.map((i) => i.message).join('; ') }, 400);
+    return c.json(
+      {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error.issues.map((i) => i.message).join('; '),
+      },
+      400,
+    );
   }
   const r = verify(entry.ledger.items, parsed.data);
   return c.json({
     voice: parsed.data.voice,
-    verified: r.verified.map((v) => ({ text: v.claim.text, kind: v.claim.kind, citations: v.claim.citations, speculative: v.speculative })),
-    rejected: r.rejected.map((x) => ({ text: REDACT ? REDACTED_TEXT : x.claim.text, kind: x.claim.kind, reason: x.reason })),
+    verified: r.verified.map((v) => ({
+      text: v.claim.text,
+      kind: v.claim.kind,
+      citations: v.claim.citations,
+      speculative: v.speculative,
+    })),
+    rejected: r.rejected.map((x) => ({
+      text: REDACT ? REDACTED_TEXT : x.claim.text,
+      kind: x.claim.kind,
+      reason: x.reason,
+    })),
     score: r.score,
   });
 });
@@ -401,16 +435,30 @@ app.post('/api/ward', async (c) => {
 // ---------------------------------------------------------------------------
 
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.txt': 'text/plain; charset=utf-8',
 };
 app.get('/*', (c) => {
   const base = path.join(ROOT, 'public');
   const p = new URL(c.req.url).pathname;
-  const target = path.resolve(base, '.' + path.posix.normalize('/' + (p === '/' ? 'index.html' : p)));
+  const target = path.resolve(
+    base,
+    '.' + path.posix.normalize('/' + (p === '/' ? 'index.html' : p)),
+  );
   if (!target.startsWith(base + path.sep)) return c.text('not found', 404);
   try {
-    return new Response(fs.readFileSync(target), { headers: { 'content-type': MIME[path.extname(target)] ?? 'application/octet-stream', 'cache-control': 'no-cache' } });
+    return new Response(fs.readFileSync(target), {
+      headers: {
+        'content-type': MIME[path.extname(target)] ?? 'application/octet-stream',
+        'cache-control': 'no-cache',
+      },
+    });
   } catch {
     return c.text('not found', 404);
   }

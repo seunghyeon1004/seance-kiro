@@ -41,7 +41,10 @@ const sha7Arb: fc.Arbitrary<string> = fc
   .map((s) => s.toLowerCase());
 
 const iso8601Arb: fc.Arbitrary<string> = fc
-  .date({ min: new Date('2010-01-01T00:00:00.000Z'), max: new Date('2024-01-01T00:00:00.000Z') })
+  .date({
+    min: new Date('2010-01-01T00:00:00.000Z'),
+    max: new Date('2024-01-01T00:00:00.000Z'),
+  })
   .map((d) => d.toISOString());
 
 const evidenceItemArb: fc.Arbitrary<EvidenceItem> = fc
@@ -70,20 +73,24 @@ const evidenceItemArb: fc.Arbitrary<EvidenceItem> = fc
 /** Ledger with 0–50 items */
 const ledgerArb: fc.Arbitrary<LedgerResult> = fc
   .array(evidenceItemArb, { minLength: 0, maxLength: 50 })
-  .map((items): LedgerResult => ({
-    items: items as unknown as readonly EvidenceItem[],
-    truncated: false,
-    buildDurationMs: 0,
-  }));
+  .map(
+    (items): LedgerResult => ({
+      items: items as unknown as readonly EvidenceItem[],
+      truncated: false,
+      buildDurationMs: 0,
+    }),
+  );
 
 /** Non-empty ledger */
 const nonEmptyLedgerArb: fc.Arbitrary<LedgerResult> = fc
   .array(evidenceItemArb, { minLength: 1, maxLength: 50 })
-  .map((items): LedgerResult => ({
-    items: items as unknown as readonly EvidenceItem[],
-    truncated: false,
-    buildDurationMs: 0,
-  }));
+  .map(
+    (items): LedgerResult => ({
+      items: items as unknown as readonly EvidenceItem[],
+      truncated: false,
+      buildDurationMs: 0,
+    }),
+  );
 
 const signalBreakdownArb: fc.Arbitrary<SignalBreakdown> = fc.record({
   signal: fc.constantFrom(
@@ -165,11 +172,7 @@ describe('PP2 — buildPlanPrompt always includes evidence block', () => {
 
 describe('PP3 — buildPlanPrompt always includes score block', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
     fcParams,
   )('prompt always contains [SCORE] block', ({ ledger, scored }) => {
     const prompt = buildPlanPrompt(ledger, scored);
@@ -184,11 +187,7 @@ describe('PP3 — buildPlanPrompt always includes score block', () => {
 
 describe('PP4 — buildPlanPrompt always includes response format', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
     fcParams,
   )('prompt always contains [RESPONSE FORMAT] block', ({ ledger, scored }) => {
     const prompt = buildPlanPrompt(ledger, scored);
@@ -203,11 +202,7 @@ describe('PP4 — buildPlanPrompt always includes response format', () => {
 
 describe('PP5 — buildPlanPrompt score value serialization', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
     fcParams,
   )('prompt score attribute matches ScoredResult.score', ({ ledger, scored }) => {
     const prompt = buildPlanPrompt(ledger, scored);
@@ -229,20 +224,13 @@ describe('PP5 — buildPlanPrompt score value serialization', () => {
 
 describe('PP6 — buildPlanPrompt includes citation enforcement warning', () => {
   test.prop(
-    [
-      ledgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
+    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
     fcParams,
-  )(
-    'prompt contains system-level warning about citations',
-    ({ ledger, scored }) => {
-      const prompt = buildPlanPrompt(ledger, scored);
+  )('prompt contains system-level warning about citations', ({ ledger, scored }) => {
+    const prompt = buildPlanPrompt(ledger, scored);
 
-      // Ensure the system block warns about SHA citations
-      expect(prompt).toContain('[SYSTEM]');
-      expect(prompt).toMatch(/claim must cite.*SHA/i);
-    },
-  );
+    // Ensure the system block warns about SHA citations
+    expect(prompt).toContain('[SYSTEM]');
+    expect(prompt).toMatch(/claim must cite.*SHA/i);
+  });
 });

@@ -89,8 +89,35 @@ export default [
     },
   },
 
-  // Ignore generated and installed files
+  // Browser front end (plain ES modules served from public/)
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'test/fixtures/**'],
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.browser },
+    },
+  },
+
+  // Node scripts
+  {
+    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs,ts}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
+  // Ignore generated and installed files, and the bundled sample repository
+  // (data/crypt is deliberately old CommonJS "haunted" code for the demo)
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'test/fixtures/**',
+      'data/crypt/**',
+    ],
   },
 ];

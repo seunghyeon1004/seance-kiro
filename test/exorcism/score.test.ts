@@ -47,7 +47,11 @@ const NOW_2026 = new Date('2026-11-05T00:00:00.000Z').getTime();
 
 describe('computeScore — empty ledger', () => {
   it('returns score === 0, all six rawValues === 0, markerLocations === []', () => {
-    const result = computeScore(makeLedger([]), { authorGoneThresholdDays: 365, nowMs: NOW_2026 }, NOW_2026);
+    const result = computeScore(
+      makeLedger([]),
+      { authorGoneThresholdDays: 365, nowMs: NOW_2026 },
+      NOW_2026,
+    );
 
     expect(result.score).toBe(0);
     expect(result.markerLocations).toEqual([]);
@@ -68,7 +72,11 @@ describe('computeScore — age signal', () => {
     // Two years = 730 days before nowMs
     const twoYearsAgoMs = NOW_2026 - 730 * 86_400_000;
     const item = makeItem({ date: new Date(twoYearsAgoMs).toISOString() });
-    const result = computeScore(makeLedger([item]), { authorGoneThresholdDays: 365, nowMs: NOW_2026 }, NOW_2026);
+    const result = computeScore(
+      makeLedger([item]),
+      { authorGoneThresholdDays: 365, nowMs: NOW_2026 },
+      NOW_2026,
+    );
 
     const ageBreakdown = result.signalBreakdown.find((s) => s.signal === 'age');
     expect(ageBreakdown?.rawValue).toBe(1);
@@ -77,7 +85,11 @@ describe('computeScore — age signal', () => {
   it('item with very recent date → ageSignal.rawValue close to 0', () => {
     const oneDayAgoMs = NOW_2026 - 86_400_000;
     const item = makeItem({ date: new Date(oneDayAgoMs).toISOString() });
-    const result = computeScore(makeLedger([item]), { authorGoneThresholdDays: 365, nowMs: NOW_2026 }, NOW_2026);
+    const result = computeScore(
+      makeLedger([item]),
+      { authorGoneThresholdDays: 365, nowMs: NOW_2026 },
+      NOW_2026,
+    );
 
     const ageBreakdown = result.signalBreakdown.find((s) => s.signal === 'age');
     expect(ageBreakdown?.rawValue).toBeLessThan(0.01);
@@ -131,7 +143,8 @@ describe('computeScore — marker signal', () => {
   });
 
   it('10 TODO lines → markerSignal.rawValue === 1', () => {
-    const hunk = Array.from({ length: 10 }, (_, i) => `+// TODO: item ${i}`).join('\n') + '\n';
+    const hunk =
+      Array.from({ length: 10 }, (_, i) => `+// TODO: item ${i}`).join('\n') + '\n';
     const item = makeItem({ hunk });
     const result = computeScore(
       makeLedger([item]),
@@ -182,12 +195,20 @@ describe('computeScore — gone signal', () => {
     const ledger = makeLedger([item]);
 
     // With threshold = 1 day: author is gone (5 > 1)
-    const result1 = computeScore(ledger, { authorGoneThresholdDays: 1, nowMs: NOW_2026 }, NOW_2026);
+    const result1 = computeScore(
+      ledger,
+      { authorGoneThresholdDays: 1, nowMs: NOW_2026 },
+      NOW_2026,
+    );
     const gone1 = result1.signalBreakdown.find((s) => s.signal === 'gone');
     expect(gone1?.rawValue).toBe(1);
 
     // With threshold = 365 days: author is not gone (5 < 365)
-    const result2 = computeScore(ledger, { authorGoneThresholdDays: 365, nowMs: NOW_2026 }, NOW_2026);
+    const result2 = computeScore(
+      ledger,
+      { authorGoneThresholdDays: 365, nowMs: NOW_2026 },
+      NOW_2026,
+    );
     const gone2 = result2.signalBreakdown.find((s) => s.signal === 'gone');
     expect(gone2?.rawValue).toBe(0);
   });
@@ -313,7 +334,10 @@ describe('computeScore — all signals at maximum → score === 100', () => {
         shortSha: 'aaa1234',
         date: oldDate,
         author: 'Old Dev',
-        hunk: '+// TODO: fix 1\n+// TODO: fix 2\n+// TODO: fix 3\n+// TODO: fix 4\n+// TODO: fix 5\n+// TODO: fix 6\n+// TODO: fix 7\n+// TODO: fix 8\n+// TODO: fix 9\n+// TODO: fix 10\n+' + ' '.repeat(32) + 'nested\n',
+        hunk:
+          '+// TODO: fix 1\n+// TODO: fix 2\n+// TODO: fix 3\n+// TODO: fix 4\n+// TODO: fix 5\n+// TODO: fix 6\n+// TODO: fix 7\n+// TODO: fix 8\n+// TODO: fix 9\n+// TODO: fix 10\n+' +
+          ' '.repeat(32) +
+          'nested\n',
         files: [],
       }),
       makeItem({
@@ -402,7 +426,11 @@ describe('computeScore — does not call Date.now()', () => {
     const dateNowSpy = vi.spyOn(globalThis.Date, 'now');
 
     const item = makeItem();
-    computeScore(makeLedger([item]), { authorGoneThresholdDays: 365, nowMs: NOW_2026 }, NOW_2026);
+    computeScore(
+      makeLedger([item]),
+      { authorGoneThresholdDays: 365, nowMs: NOW_2026 },
+      NOW_2026,
+    );
 
     expect(dateNowSpy).not.toHaveBeenCalled();
   });

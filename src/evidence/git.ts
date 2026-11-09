@@ -175,7 +175,6 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
 
     // Normalise author-time epoch to ISO 8601
     const epochStr = meta['author-time'];
-    const tz = meta['author-tz'] ?? '+0000';
     let dateIso = '';
     if (epochStr) {
       const epoch = parseInt(epochStr, 10);
@@ -208,14 +207,6 @@ function parsePorcelainBlame(raw: string): RawBlameEntry[] {
   }
 
   return entries;
-}
-
-/** Convert a git timezone offset string like "+0530" to minutes */
-function tzToOffsetMinutes(tz: string): number {
-  const m = /^([+-])(\d{2})(\d{2})$/.exec(tz);
-  if (!m) return 0;
-  const sign = m[1] === '+' ? 1 : -1;
-  return sign * (parseInt(m[2] as string, 10) * 60 + parseInt(m[3] as string, 10));
 }
 
 /**

@@ -32,13 +32,13 @@ Docker (Render ready): `docker build -t seance . && docker run -p 3000:3000 -e A
 
 ## API
 
-| Route | Body | Returns |
-| ----- | ---- | ------- |
-| `POST /api/summon` | `{repoUrl, file, startLine, endLine, githubToken?}` | `{sessionId, items[], truncated}` |
-| `POST /api/ask` | `{sessionId, question}` | `{verified[], rejected[], score, voice}` |
-| `POST /api/ward` | `{sessionId, answer}` | same shape; verifies any claim set |
-| `POST /api/exorcise` | `{sessionId}` | `{score, signalBreakdown, plan, verifierScore}` |
-| `GET /api/health` | | `{status}` |
+| Route                | Body                                                | Returns                                         |
+| -------------------- | --------------------------------------------------- | ----------------------------------------------- |
+| `POST /api/summon`   | `{repoUrl, file, startLine, endLine, githubToken?}` | `{sessionId, items[], truncated}`               |
+| `POST /api/ask`      | `{sessionId, question}`                             | `{verified[], rejected[], score, voice}`        |
+| `POST /api/ward`     | `{sessionId, answer}`                               | same shape; verifies any claim set              |
+| `POST /api/exorcise` | `{sessionId}`                                       | `{score, signalBreakdown, plan, verifierScore}` |
+| `GET /api/health`    |                                                     | `{status}`                                      |
 
 `repoUrl` is `crypt` or a `https://github.com/owner/repo` URL. Local paths are refused unless `ALLOW_LOCAL=1`. Commit text reaches the model wrapped as untrusted data.
 

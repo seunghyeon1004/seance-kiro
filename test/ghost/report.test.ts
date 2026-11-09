@@ -93,10 +93,16 @@ describe('renderWardReport', () => {
   it('contains the count line with correct N and M', () => {
     const result = makeResult({
       verified: [
-        { claim: { kind: 'memory', text: 'A fact', citations: [{ sha7: 'a1b2c3d' }] }, speculative: false },
+        {
+          claim: { kind: 'memory', text: 'A fact', citations: [{ sha7: 'a1b2c3d' }] },
+          speculative: false,
+        },
       ],
       rejected: [
-        { claim: { kind: 'memory', text: 'Bad claim', citations: [{ sha7: 'dead000' }] }, reason: 'sha dead000 not in ledger' },
+        {
+          claim: { kind: 'memory', text: 'Bad claim', citations: [{ sha7: 'dead000' }] },
+          reason: 'sha dead000 not in ledger',
+        },
       ],
       score: 0.5,
     });
@@ -128,7 +134,9 @@ describe('renderWardReport', () => {
     expect(report).toContain('`a1b2c3d`');
     expect(report).toContain('"vendor returns 429"');
     // full item line
-    expect(report).toContain('- [memory] Retry after 3 s — `a1b2c3d` "vendor returns 429"');
+    expect(report).toContain(
+      '- [memory] Retry after 3 s — `a1b2c3d` "vendor returns 429"',
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -151,7 +159,9 @@ describe('renderWardReport', () => {
       score: 1,
     });
     const report = renderWardReport(result);
-    expect(report).toContain('[silence] The record is silent Reason: no commit mentions the timeout');
+    expect(report).toContain(
+      '[silence] The record is silent Reason: no commit mentions the timeout',
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -226,7 +236,10 @@ describe('renderWardReport', () => {
 
   it('includes file and line range when meta is provided', () => {
     const result = makeResult();
-    const report = renderWardReport(result, { file: 'legacy/tax.js', lines: { start: 7, end: 12 } });
+    const report = renderWardReport(result, {
+      file: 'legacy/tax.js',
+      lines: { start: 7, end: 12 },
+    });
     expect(report).toContain('File: legacy/tax.js lines 7–12');
   });
 

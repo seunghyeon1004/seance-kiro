@@ -16,7 +16,12 @@ import { describe, expect } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
 import { renderWardReport, escapeMd } from '../../../src/ghost/report.js';
-import type { VerifierResult, VerifiedClaim, RejectedClaim, Claim } from '../../../src/ghost/schema.js';
+import type {
+  VerifierResult,
+  VerifiedClaim,
+  RejectedClaim,
+  Claim,
+} from '../../../src/ghost/schema.js';
 
 // ---------------------------------------------------------------------------
 // fast-check configuration
@@ -80,17 +85,15 @@ const claimArb: fc.Arbitrary<Claim> = fc.oneof(
   silenceClaimArb,
 );
 
-const verifiedClaimArb: fc.Arbitrary<VerifiedClaim> = fc
-  .record({
-    claim: claimArb,
-    speculative: fc.boolean(),
-  });
+const verifiedClaimArb: fc.Arbitrary<VerifiedClaim> = fc.record({
+  claim: claimArb,
+  speculative: fc.boolean(),
+});
 
-const rejectedClaimArb: fc.Arbitrary<RejectedClaim> = fc
-  .record({
-    claim: claimArb,
-    reason: fc.string({ minLength: 1, maxLength: 200 }),
-  });
+const rejectedClaimArb: fc.Arbitrary<RejectedClaim> = fc.record({
+  claim: claimArb,
+  reason: fc.string({ minLength: 1, maxLength: 200 }),
+});
 
 /** A VerifierResult with arbitrary verified / rejected arrays */
 const verifierResultArb: fc.Arbitrary<VerifierResult> = fc
@@ -154,13 +157,10 @@ describe('P2 — rejected claims rendered with ~~ and heading iff non-empty', ()
 // ---------------------------------------------------------------------------
 
 describe('P3 — escapeMd output is free of newlines and unescaped structural chars', () => {
-  test.prop([fc.string()], fcParams)(
-    'output has no \\n, \\r',
-    (input) => {
-      const out = escapeMd(input);
-      expect(out).not.toMatch(/[\n\r]/);
-    },
-  );
+  test.prop([fc.string()], fcParams)('output has no \\n, \\r', (input) => {
+    const out = escapeMd(input);
+    expect(out).not.toMatch(/[\n\r]/);
+  });
 
   /**
    * "Unescaped" means the character appears without a preceding backslash.
@@ -173,29 +173,29 @@ describe('P3 — escapeMd output is free of newlines and unescaped structural ch
   const STRUCTURAL = ['`', '~', '*', '_', '[', ']', '<', '>', '|'] as const;
 
   for (const ch of STRUCTURAL) {
-    test.prop([fc.string()], fcParams)(
-      `output has no unescaped '${ch}'`,
-      (input) => {
-        const out = escapeMd(input);
-        // An unescaped structural char is one NOT preceded by a backslash.
-        // We match the char, then verify every occurrence is preceded by \.
-        const positions: number[] = [];
-        for (let i = 0; i < out.length; i++) {
-          if (out[i] === ch) positions.push(i);
+    test.prop([fc.string()], fcParams)(`output has no unescaped '${ch}'`, (input) => {
+      const out = escapeMd(input);
+      // An unescaped structural char is one NOT preceded by a backslash.
+      // We match the char, then verify every occurrence is preceded by \.
+      const positions: number[] = [];
+      for (let i = 0; i < out.length; i++) {
+        if (out[i] === ch) positions.push(i);
+      }
+      for (const pos of positions) {
+        // Count consecutive preceding backslashes
+        let backslashes = 0;
+        let p = pos - 1;
+        while (p >= 0 && out[p] === '\\') {
+          backslashes++;
+          p--;
         }
-        for (const pos of positions) {
-          // Count consecutive preceding backslashes
-          let backslashes = 0;
-          let p = pos - 1;
-          while (p >= 0 && out[p] === '\\') {
-            backslashes++;
-            p--;
-          }
-          // An even number of backslashes means the char is unescaped
-          expect(backslashes % 2, `char '${ch}' at pos ${pos} in "${out}" is unescaped`).toBe(1);
-        }
-      },
-    );
+        // An even number of backslashes means the char is unescaped
+        expect(
+          backslashes % 2,
+          `char '${ch}' at pos ${pos} in "${out}" is unescaped`,
+        ).toBe(1);
+      }
+    });
   }
 });
 

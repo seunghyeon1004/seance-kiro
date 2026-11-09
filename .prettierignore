@@ -7,3 +7,8 @@ DESIGN.md
 dist/
 node_modules/
 coverage/
+
+# Recorded fixtures and raw Kiro CLI session logs are kept byte-for-byte
+test/fixtures/
+docs/kiro-evidence/
+data/crypt/

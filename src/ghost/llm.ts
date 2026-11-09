@@ -136,7 +136,9 @@ async function askGhostOnce(
   const resolvedClient = client ?? makeDefaultClient(apiKey);
 
   // Build JSON schema from GhostAnswerSchema for tool-use JSON mode
-  const toolInputSchema = planMode ? buildRefactorPlanJsonSchema() : buildGhostAnswerJsonSchema();
+  const toolInputSchema = planMode
+    ? buildRefactorPlanJsonSchema()
+    : buildGhostAnswerJsonSchema();
 
   // AbortController for timeout
   const timeoutMs = process.env['LLM_TIMEOUT_MS']
@@ -156,7 +158,8 @@ async function askGhostOnce(
           planMode
             ? {
                 name: 'refactor_plan',
-                description: 'The exorcism plan: characterization tests, small reversible steps and a do-not-touch list, every claim cited to the Evidence Ledger.',
+                description:
+                  'The exorcism plan: characterization tests, small reversible steps and a do-not-touch list, every claim cited to the Evidence Ledger.',
                 input_schema: toolInputSchema,
               }
             : {
@@ -167,7 +170,12 @@ async function askGhostOnce(
               },
         ],
         // claude-sonnet-5-5 rejects forced tool_choice, so the prompt tells it to call the tool exactly once
-        messages: [{ role: 'user', content: `${prompt}\n\nAnswer by calling the ${planMode ? 'refactor_plan' : 'ghost_answer'} tool exactly once. Do not reply in prose.` }],
+        messages: [
+          {
+            role: 'user',
+            content: `${prompt}\n\nAnswer by calling the ${planMode ? 'refactor_plan' : 'ghost_answer'} tool exactly once. Do not reply in prose.`,
+          },
+        ],
       },
       { signal: controller.signal },
     );
@@ -212,7 +220,13 @@ async function askGhostOnce(
     return {
       voice: 'exorcist',
       sessionId,
-      claims: [{ kind: 'memory', text: JSON.stringify(toolUseBlock.input), citations: [{ sha7: '0000000' }] }],
+      claims: [
+        {
+          kind: 'memory',
+          text: JSON.stringify(toolUseBlock.input),
+          citations: [{ sha7: '0000000' }],
+        },
+      ],
     } as GhostAnswer;
   }
 
@@ -268,7 +282,10 @@ async function loadFixture(prompt: string): Promise<GhostAnswer> {
 const CITATION_SCHEMA = {
   type: 'object',
   required: ['sha7'],
-  properties: { sha7: { type: 'string', pattern: '^[0-9a-f]{7}$' }, quote: { type: 'string', minLength: 1 } },
+  properties: {
+    sha7: { type: 'string', pattern: '^[0-9a-f]{7}$' },
+    quote: { type: 'string', minLength: 1 },
+  },
 };
 const PLAN_CLAIM_SCHEMA = {
   type: 'object',
@@ -286,7 +303,11 @@ function buildRefactorPlanJsonSchema(): { type: 'object'; [k: string]: unknown }
     type: 'object',
     required: ['characterizationTests', 'steps', 'doNotTouchList', 'summary'],
     properties: {
-      characterizationTests: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1, maxLength: 512 } },
+      characterizationTests: {
+        type: 'array',
+        minItems: 1,
+        items: { type: 'string', minLength: 1, maxLength: 512 },
+      },
       steps: {
         type: 'array',
         minItems: 1,
@@ -307,7 +328,14 @@ function buildRefactorPlanJsonSchema(): { type: 'object'; [k: string]: unknown }
           type: 'object',
           required: ['lineRange', 'reason', 'claims'],
           properties: {
-            lineRange: { type: 'object', required: ['start', 'end'], properties: { start: { type: 'integer', minimum: 1 }, end: { type: 'integer', minimum: 1 } } },
+            lineRange: {
+              type: 'object',
+              required: ['start', 'end'],
+              properties: {
+                start: { type: 'integer', minimum: 1 },
+                end: { type: 'integer', minimum: 1 },
+              },
+            },
             reason: { type: 'string', minLength: 1, maxLength: 512 },
             claims: { type: 'array', minItems: 1, items: PLAN_CLAIM_SCHEMA },
           },
