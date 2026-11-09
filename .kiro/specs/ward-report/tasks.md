@@ -15,5 +15,5 @@ Pre-condition: `ghost-verifier` is complete (`VerifierResult` and claim schemas 
 
 ## T3 — API field and copy button
 
-- [ ] Add `report` to the `/api/ask` and `/api/ward` responses and their schemas; extend `test/server/ask.test.ts`.
-- [ ] Add a "Copy ward report" button to the ghost panel in `public/index.html` and `public/app.js` (clipboard API, status text in the existing `role="status"` element).
+- [x] Add `report` to the `/api/ask` and `/api/ward` responses and their schemas; extend `test/server/ask.test.ts`.
+- [x] Add a "Copy ward report" button to the ghost panel in `public/index.html` and `public/app.js` (clipboard API, status text in the existing `role="status"` element).

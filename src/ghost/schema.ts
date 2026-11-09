@@ -164,6 +164,7 @@ export const VerifiedAnswerResponseSchema = z.object({
     }),
   ),
   score: z.number().min(0).max(1),
+  report: z.string(),
 });
 
 export type VerifiedAnswerResponse = z.infer<typeof VerifiedAnswerResponseSchema>;

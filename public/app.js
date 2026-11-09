@@ -11,7 +11,13 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 });
 
-const state = { sessionId: null, items: new Map(), lastCited: null, busy: false };
+const state = {
+  sessionId: null,
+  items: new Map(),
+  lastCited: null,
+  busy: false,
+  lastReport: null,
+};
 
 function el(tag, props = {}, children = []) {
   const n = document.createElement(tag);
@@ -274,6 +280,13 @@ function renderAnswer(data, question) {
     behavior: reduceMotion.matches ? 'auto' : 'smooth',
     block: 'nearest',
   });
+  // T3: store latest report and enable copy button
+  if (typeof data.report === 'string' && data.report.length > 0) {
+    state.lastReport = data.report;
+    const btn = $('copy-report-btn');
+    btn.disabled = false;
+    btn.removeAttribute('aria-disabled');
+  }
 }
 
 function ghostName(voice) {
@@ -361,6 +374,28 @@ $('plant-btn').addEventListener('click', async () => {
   } finally {
     state.busy = false;
   }
+});
+
+// ---- Copy ward report ---------------------------------------------------------------------
+
+$('copy-report-btn').addEventListener('click', async () => {
+  if (!state.lastReport) return;
+  try {
+    await navigator.clipboard.writeText(state.lastReport);
+    $('ask-status').textContent = 'Ward report copied.';
+  } catch {
+    $('ask-status').textContent = 'Copy failed — your browser blocked clipboard access.';
+  }
+  // Clear the status message after 3 seconds
+  setTimeout(() => {
+    if (
+      $('ask-status').textContent === 'Ward report copied.' ||
+      $('ask-status').textContent ===
+        'Copy failed — your browser blocked clipboard access.'
+    ) {
+      $('ask-status').textContent = '';
+    }
+  }, 3000);
 });
 
 // ---- Exorcism -----------------------------------------------------------------------------

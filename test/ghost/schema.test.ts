@@ -424,6 +424,7 @@ describe('VerifiedAnswerResponseSchema', () => {
       ],
       rejected: [],
       score: 1,
+      report: '# Ward report\n**1 of 1 claims verified**',
     });
     expect(result.success).toBe(true);
   });

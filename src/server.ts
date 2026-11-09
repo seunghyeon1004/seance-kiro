@@ -20,6 +20,8 @@ import { buildPrompt } from './ghost/persona.js';
 import { askGhost } from './ghost/llm.js';
 import { verify } from './ghost/verifier.js';
 import { GhostAnswerSchema } from './ghost/schema.js';
+import { renderWardReport } from './ghost/report.js';
+import type { WardReportMeta } from './ghost/report.js';
 import { computeScore } from './exorcism/score.js';
 import { buildPlan } from './exorcism/plan.js';
 import type { LedgerResult } from './ghost/schema.js';
@@ -45,6 +47,9 @@ const SESSION_TTL_MS = process.env['SESSION_TTL_MS']
 type SessionEntry = {
   ledger: LedgerResult;
   expiresAt: number;
+  file?: string;
+  startLine?: number;
+  endLine?: number;
 };
 
 const sessions = new Map<string, SessionEntry>();
@@ -212,6 +217,9 @@ app.post('/api/summon', async (c) => {
     sessions.set(sessionId, {
       ledger,
       expiresAt: Date.now() + SESSION_TTL_MS,
+      file: input.file,
+      startLine: input.startLine,
+      endLine: input.endLine,
     });
 
     return c.json({
@@ -278,6 +286,16 @@ app.post('/api/ask', async (c) => {
     const ghostAnswer = await askGhost(prompt, sessionId);
     const verifierResult = verify(ledger.items, ghostAnswer);
 
+    // Build the ward report (R1.1, R1.3)
+    const reportMeta: WardReportMeta = {};
+    if (entry.file !== undefined) {
+      reportMeta.file = entry.file;
+      if (entry.startLine !== undefined && entry.endLine !== undefined) {
+        reportMeta.lines = { start: entry.startLine, end: entry.endLine };
+      }
+    }
+    const report = renderWardReport(verifierResult, reportMeta);
+
     // Reset session expiry (sliding window)
     entry.expiresAt = Date.now() + SESSION_TTL_MS;
 
@@ -298,6 +316,7 @@ app.post('/api/ask', async (c) => {
         reason: r.reason,
       })),
       score: verifierResult.score,
+      report,
     });
   } catch (err: unknown) {
     const { status, code, message } = toHttpError(err);
@@ -413,6 +432,14 @@ app.post('/api/ward', async (c) => {
     );
   }
   const r = verify(entry.ledger.items, parsed.data);
+  const wardMeta: WardReportMeta = {};
+  if (entry.file !== undefined) {
+    wardMeta.file = entry.file;
+    if (entry.startLine !== undefined && entry.endLine !== undefined) {
+      wardMeta.lines = { start: entry.startLine, end: entry.endLine };
+    }
+  }
+  const wardReport = renderWardReport(r, wardMeta);
   return c.json({
     voice: parsed.data.voice,
     verified: r.verified.map((v) => ({
@@ -427,6 +454,7 @@ app.post('/api/ward', async (c) => {
       reason: x.reason,
     })),
     score: r.score,
+    report: wardReport,
   });
 });
 

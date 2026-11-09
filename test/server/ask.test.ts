@@ -131,6 +131,7 @@ describe('POST /api/ask', () => {
       verified: unknown[];
       rejected: unknown[];
       score: number;
+      report: string;
     };
 
     expect(body.sessionId).toBe(KNOWN_SESSION_ID);
@@ -139,6 +140,10 @@ describe('POST /api/ask', () => {
     expect(Array.isArray(body.rejected)).toBe(true);
     expect(body.score).toBeGreaterThanOrEqual(0);
     expect(body.score).toBeLessThanOrEqual(1);
+    // T3: report field is a ward report Markdown string
+    expect(typeof body.report).toBe('string');
+    expect(body.report).toMatch(/^# Ward report/);
+    expect(body.report).toMatch(/\*\*\d+ of \d+ claims verified\*\*/);
   });
 
   it('returns 404 + SESSION_NOT_FOUND for an unknown sessionId', async () => {
