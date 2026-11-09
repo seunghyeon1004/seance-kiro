@@ -12,6 +12,18 @@ It answers questions about git history and code provenance using only `git log`,
 
 ---
 
+## agents/warden.json
+
+A builder agent (V2 engine) for small fixes: failing test first, then the smallest change. Its CLI agent hooks are the ones proven to fire from the command line:
+
+- `postToolUse` with matcher `fs_write`: runs `npx tsc --noEmit` after every file write and prints the result back to the agent.
+- `stop`: runs the full vitest suite when the agent finishes.
+- `agentSpawn`: prints `git log` and `git status`. It did not log anything in non-interactive runs, so it is unproven.
+
+Each hook appends a line to `docs/kiro-evidence/warden-hook-fires.log`. In the run that fixed the inverted line range bug it logged two `postToolUse fs_write` entries (typecheck exit 0) and one `stop` entry (287 tests passed).
+
+Gotcha we hit: with `--agent warden`, `--trust-tools` on the command line did not widen the agent's own `allowedTools`. With only `fs_read` allowed, every write was denied, and Kiro's final summary still reported test results that never ran. Both runs are in `docs/kiro-evidence/warden-hooks-session.txt`.
+
 ## hooks/
 
 ### ghost-tests.json — `PostFileSave` on `src/ghost/**/*.ts`
@@ -38,15 +50,15 @@ Output is a ✅ / ❌ checklist per invariant.
 | Server | Command | Purpose |
 |---|---|---|
 | `git` | `uvx mcp-server-git --repository .` | Read-only git access for agents and tools (log, blame, show, diff) |
-| `filesystem` | `uvx mcp-server-filesystem@latest <repo>` | Sandboxed file reads scoped to this repository root |
+| `filesystem` | `npx -y @modelcontextprotocol/server-filesystem@2.0.1 .` | File access scoped to this repository root |
 
-Both servers are read-oriented. The filesystem server root is pinned to the repo directory so agents cannot access files outside it.
+The filesystem server root is the repo directory, so agents cannot reach files outside it. It used to point at `uvx mcp-server-filesystem@latest`, a package that does not exist, so it never started. Kiro diagnosed and fixed that on 2026-11-09 (`docs/kiro-evidence/mcp-filesystem-fix-session.txt`).
 
 List them: `kiro-cli mcp list workspace`
 
 ## specs/ — five specs
 
-`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (built during the first week) and `ward-report` (added 2026-11-09). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented its T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests) from the spec and ticked the boxes. T3 (API field and copy button) is still open.
+`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (built during the first week) and `ward-report` (added 2026-11-09). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented all three tasks from the spec and ticked the boxes: T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests), then T3 (a `report` field on `/api/ask` and `/api/ward` and a "Copy ward report" button).
 
 ## Powers — Context7
 
@@ -71,4 +83,6 @@ The second subagent waited in the queue for a few seconds because the machine wa
 
 - **Prompt hook (`evidence-review.json`)**: fired in a Kiro CLI 3.0.0 session when `/review-evidence` was typed (`docs/kiro-evidence/review-and-mcp-session.txt`). In the CLI 3.1.0 V3 engine it also fired on prompts that do not match `^/review-evidence` (seen on `/powers` and on a normal task prompt), so the matcher does not seem to be applied there.
 - **Save hooks (`ghost-tests.json`, `sloplint.json`)**: written for Kiro's `PostFileSave` trigger. They have not been seen firing in the CLI (non-interactive runs do not emit file-save events), so treat them as IDE-side automation until shown otherwise.
-- **MCP servers**: the git server was called from a CLI session (`@git/git_log`) and connected again in the V3 runs. The `filesystem` server fails to start (`Connection closed` in the MCP log); it is not used by anything that was run.
+- **CLI agent hooks (`warden.json`)**: `postToolUse` and `stop` fired in a non-interactive V2 run (`docs/kiro-evidence/warden-hook-fires.log`). `agentSpawn` did not log.
+- **MCP servers**: the git server was called from a CLI session (`@git/git_log`) and connected again in the V3 runs. After the fix, the filesystem server was called through `@filesystem/list_directory` and `@filesystem/read_text_file`.
+- **Archaeologist in V3**: the review pass found a real defect, but its `git` shell and `@git` MCP calls were denied in non-interactive V3, so it cited no commits.
