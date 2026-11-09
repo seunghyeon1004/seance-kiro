@@ -1,0 +1,115 @@
+# Kiro CLI 3.1.0 (V2 engine), 2026-11-09: Kiro diagnoses and fixes the workspace filesystem MCP server, then calls it. Unedited output; only the home directory prefix is replaced with ~.
+
+$ kiro-cli chat --no-interactive --trust-tools=fs_read,fs_write,execute_bash "The workspace MCP server filesystem ... never starts ... Diagnose it ... Fix .kiro/settings/mcp.json ..."
+[tool] Creating task list: Fix filesystem MCP server in .kiro/settings/mcp.json
+[tool] status: Completed
+[tool] Reading mcp.json:1
+[tool] status: Completed
+[tool] Completing #1
+[tool] status: Completed
+Now let me run the uvx command by hand and check the npm registry simultaneously:
+[tool] Running: uvx mcp-server-filesystem@latest . 2>&1; echo "EXIT: $?"
+[tool] Running: npm view @modelcontextprotocol/server-filesystem time --json 2>&1
+[tool] status: Completed
+[tool] status: Completed
+[tool] Completing #2, #3
+[tool] status: Completed
+Today is 2026-11-09. 14 days before = 2026-10-26. Looking at the versions:
+- `2.1.0` published `2026-10-28` — that's only 12 days before, too recent
+- `2.0.1` published `2026-10-25` — that's 15 days before ✓ → **newest version published ≥ 14 days before today**
+[tool] Completing #4
+[tool] status: Completed
+Now update mcp.json — changing only the `filesystem` entry, leaving `git` unchanged:
+[tool] Editing mcp.json
+[tool] status: Completed
+[tool] Reading mcp.json:1
+[tool] status: Completed
+[tool] Completing #5
+[tool] status: Completed
+Now check the kiro-cli mcp status command options and run it:
+[tool] Running: kiro-cli mcp status --help 2>&1
+[tool] status: Completed
+[tool] Running: kiro-cli mcp status --name filesystem 2>&1
+[tool] status: Completed
+[tool] Completing #6
+[tool] status: Completed
+Here's what I found and fixed:
+
+**What was wrong**
+
+The `filesystem` server was configured to use `uvx` (a Python/uv tool runner) with `mcp-server-filesystem@latest`. Running it by hand confirmed the problem immediately:
+
+```
+× No solution found when resolving tool dependencies:
+╰─▶ Because mcp-server-filesystem was not found in the package registry
+    and you require mcp-server-filesystem, we can conclude that your
+    requirements are unsatisfiable.
+```
+
+`uvx` looks in PyPI — `mcp-server-filesystem` doesn't exist there. The package is `@modelcontextprotocol/server-filesystem` on npm, so it must be run with `npx`.
+
+**Version selection**
+
+From `npm view @modelcontextprotocol/server-filesystem time --json`, the relevant recent versions:
+- `2.2.0` — 2026-11-04 (5 days ago — too recent)
+- `2.1.0` — 2026-10-28 (12 days ago — too recent)
+- `2.0.1` — **2026-10-25 (15 days ago — qualifies ✓)**
+
+Pinned to `2.0.1`.
+
+**The fix** (only `filesystem` changed, `git` left alone):
+
+```json
+"filesystem": {
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem@2.0.1", "."],
+  "env": {}
+}
+```
+
+**`kiro-cli mcp status --name filesystem` output:**
+
+```
+─────────────
+Scope   : 🤖 default
+Agent   : kiro_default
+Command : npx
+Timeout : 120000 ms
+Disabled: false
+Env Vars:
+
+─────────────
+Scope   : 📄 workspace
+Agent   : archaeologist
+Command : npx
+Timeout : 120000 ms
+Disabled: false
+Env Vars:
+```
+
+Both scopes now show `Command: npx` — the server is no longer trying to launch via `uvx`.
+
+$ kiro-cli chat --no-interactive --model claude-haiku-4.5 --trust-tools=@filesystem "Using only the filesystem MCP server tools ... list the directory src/ghost and read the first 6 lines of src/ghost/report.ts ..."
+I'll list the `src/ghost` directory and read the first 6 lines of `src/ghost/report.ts` using only filesystem MCP tools.
+[tool] Running: @filesystem/list_directory
+[tool] Running: @filesystem/read_text_file
+[tool] status: Completed
+[tool] status: Completed
+**Directory listing (src/ghost):**
+```
+[FILE] llm.ts
+[FILE] persona.ts
+[FILE] report.ts
+[FILE] schema.ts
+[FILE] verifier.ts
+```
+
+**First 6 lines of src/ghost/report.ts:**
+```typescript
+/**
+ * Ward report renderer — pure, deterministic Markdown output from a VerifierResult.
+ *
+ * R1.1  renderWardReport(result, meta) → Markdown string
+ * R1.7  Pure: no I/O, no clock reads, no mutation.
+ */
+```
