@@ -32,7 +32,7 @@ Runs `npx vitest run test/ghost` automatically whenever you save a ghost source 
 
 ### sloplint.json — `PostFileSave` on `public/**`
 
-Runs the Hallmark atmospheric linter (`sloplint.mjs --genre atmospheric`) over `public/index.html`, `public/styles.css`, and `public/app.js` whenever any frontend asset is saved. Keeps the UI copy on-brand and free of generic filler.
+Runs the Hallmark atmospheric linter (`sloplint.mjs --genre atmospheric`) over `public/index.html`, `public/styles.css`, and `public/app.js` whenever any frontend asset is saved. Keeps the UI copy on-brand and free of generic filler. It calls a linter from a local Hallmark install that is not part of this repo, so on another machine it will not run as is.
 
 ### evidence-review.json — `UserPromptSubmit` matcher `/review-evidence`
 
@@ -63,6 +63,18 @@ List them: `kiro-cli mcp list workspace`
 ### spooky-ui: hand-written first, then audited and finished by Kiro
 
 The `spooky-ui` page was first written by hand on 2026-11-06: Kiro's batch run of that spec stopped on the free plan's monthly limit. On 2026-11-09, with credits available again, Kiro went back to it in three steps. First, it audited `public/` against all 52 requirements (27 met, 20 partial, 5 missing; `docs/kiro-evidence/spooky-ui-audit.md`). Second, the warden agent fixed the gaps that change nothing on screen, and added `test/ui/spooky-ui.test.ts`. The fixes: `aria-busy` while loading; an opacity substitute for the flicker under reduced motion; a candle flicker whose half-period runs from 4 s down to a 333 ms floor (at most 1.5 cycles a second); a "séance has ended" path for expired sessions; an inline error for an empty repository field; atomic tally announcements; and claim bubbles as `article` elements. One Kiro change was reverted in review: moving `--confidence` to the root element, which `.candle`'s own value shadows. Third, Kiro ticked only the 4 task items it could verify at that point. The other 84 described a module layout (`public/js/*`, three CSS files) that the hand-written UI never had. It did not implement hiding rejected claims in production (R3.7, R7.7), because showing them struck through is the product's point. Severity labels, step badges and collapsible steps were left for later at first, so the demo captures would stay valid. Then, after a user decision to match the spec fully (the demo video is re-rendered), the warden agent added the visible parts it had left out: a severity label next to the haunting score (Restless, Troubled, Haunted, Possessed), Reversible ✓ / Irreversible ⚠ badges on refactor steps, steps and do-not-touch entries as keyboard-collapsible `details` (open by default), a running "N of M claims verified this séance" counter, a "Performing exorcism…" status, and a contrast check (`scripts/contrast.mjs`, `npm run contrast`, 11 token pairs, all at least 4.5:1). That session also ended on a throttle. By hand: prettier, and a CSS fix where the list number overlapped the disclosure triangle. Kiro then rewrote `tasks.md` to describe the real files (one `app.js`, flat CSS) instead of the module split. In review I reopened four ticks that were reasoned rather than tested, fixed one wrong id, and corrected its reason for R3.7/R7.7. Now 116 items are verified and 4 are open. The module split was not done: it would put a working UI at risk near the deadline.
+
+### Task lists checked against the code (2026-11-09)
+
+Every `tasks.md` was re-checked against the code and tests.
+
+- **exorcism-plan:** Kiro verified the tasks, then implemented the two that were missing: API tests for `/api/exorcise` and recorded plan fixtures with a fixture loader. Review caught two problems:
+  - Kiro loosened the model-output schema to fix a real bug, a step whose claims were all rejected. The fix now applies only to the verified plan.
+  - Its fixture test mocked the very loader it was meant to prove. I rewrote it.
+- **evidence-ledger:** two items named files that never existed. They now point at what was built: `scripts/make-crypt.sh` and `test/evidence/crypt.test.ts`.
+- **Steering:** `tech.md` now lists the real routes, files and commands.
+
+All six specs are fully ticked except four `spooky-ui` items, which are listed in that file.
 
 ## Powers — Context7
 

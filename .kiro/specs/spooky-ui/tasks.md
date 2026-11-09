@@ -230,7 +230,7 @@ Satisfies: R8.1; design §7.4.
 
 - [x] `npm run typecheck` passes (TypeScript strict mode, no errors).
 - [x] `npm run lint` passes (ESLint + Prettier, no issues).
-- [x] `npm test` passes (348 tests, all passing).
+- [x] `npm test` passes (348 tests when this was written; 405 as of the exorcism-plan T6/T7 work).
 - [x] Uncompressed `public/` size ≤ 150 KB (HTML + CSS + JS): app.js + styles.css + tokens.css + base.css + index.html.
 - [x] `window.ENV` is set via server or HTML meta tag (set to "development" in dev builds, "production" in release).
 - [x] All required aria attributes present: aria-live on chat history and counters, aria-atomic on verified-counter, role="alert" on errors, aria-hidden="true" on decorative elements.

@@ -278,8 +278,8 @@ Concurrent clones for the same canonical URL are serialised via an in-process `M
 | `ledger.test.ts` | size caps: total hunk > 512 KB → hunk truncated; body/subject length caps   |
 | `github.test.ts` | fetch success; network error → undefined; SSRF rejection; Zod parse failure |
 
-All git calls in tests are mocked via a fixture layer (`test/fixtures/git-outputs/`); no real git
-subprocess is spawned in CI.
+Unit tests mock git calls (as built: with `vi.mock`, not a `test/fixtures/git-outputs/` layer). One
+integration test, `test/evidence/crypt.test.ts`, does spawn real git on a generated sample repository.
 
 ### Property-based tests (`test/evidence/pbt/`) — fast-check
 

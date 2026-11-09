@@ -40,7 +40,7 @@ Applies when editing files under `public/`. Vanilla HTML/CSS/JS only — no fram
 - Planchette: CSS `transform: rotate()` transition pointing at an active ledger item
 
 ## Design floor (anti-template rules, checked with `sloplint`)
-These come from the Hallmark design skill and are enforced by `node ~/.claude/skills/hallmark/scripts/sloplint.mjs public/*.html public/*.css --render`. The spooky concept stays; the generic-AI-page defaults go.
+These come from the Hallmark design skill and were checked with its local linter (`sloplint.mjs`, not part of this repo); `npm run contrast` and `test/ui/spooky-ui.test.ts` are the checks that live in the repo. The spooky concept stays; the generic-AI-page defaults go.
 - Every colour and every font is a CSS custom property declared at `:root`; no literal colours or `font-family` below the token block. First CSS line is the Hallmark stamp comment, then a critique line.
 - No `transition: all`; never animate `width`, `height`, `top`, `left` (use `transform` and `opacity`).
 - Never one italic word inside a roman heading. `overflow-x: clip` on `html` and `body` (never `hidden`, never `100vw`).

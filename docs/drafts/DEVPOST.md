@@ -22,7 +22,7 @@ On the bundled sample, `git blame` on line 7 of `legacy/tax.js` points at a 2024
 
 ## How we built it
 
-TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. There are 395 tests, including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
+TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. There are 405 tests, including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
 
 ## How Kiro was used
 
@@ -114,7 +114,7 @@ The second queued briefly because the machine was low on memory, then both finis
 
 ### Credits
 
-This all ran on the free plan. The 2026-11-09 work (Powers, Crew, the ward-report and model-rate-limit specs, both custom agents, the MCP fix, the spooky-ui audit and completion) went from 3.37 to 41.52 of 50 credits on `/usage`.
+This all ran on the free plan. The 2026-11-09 work (Powers, Crew, the ward-report and model-rate-limit specs, both custom agents, the MCP fix, the spooky-ui audit and completion, the exorcism-plan task check, its API tests and plan fixtures) went from 3.37 to 48.58 of 50 credits on `/usage`.
 
 ## Challenges
 
