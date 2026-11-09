@@ -56,9 +56,13 @@ The filesystem server root is the repo directory, so agents cannot reach files o
 
 List them: `kiro-cli mcp list workspace`
 
-## specs/ — five specs
+## specs/ — six specs
 
-`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (built during the first week) and `ward-report` (added 2026-11-09). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented all three tasks from the spec and ticked the boxes: T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests), then T3 (a `report` field on `/api/ask` and `/api/ward` and a "Copy ward report" button).
+`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (written during the first week), `ward-report` and `model-rate-limit` (both added 2026-11-09). `model-rate-limit` was implemented by the warden agent, with two fixes by hand (pruning, socket-address fallback). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented all three tasks from the spec and ticked the boxes: T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests), then T3 (a `report` field on `/api/ask` and `/api/ward` and a "Copy ward report" button).
+
+### spooky-ui: hand-written first, then audited and finished by Kiro
+
+The `spooky-ui` page was first written by hand on 2026-11-06: Kiro's batch run of that spec stopped on the free plan's monthly limit. On 2026-11-09, with credits available again, Kiro went back to it in three steps. First, it audited `public/` against all 52 requirements (27 met, 20 partial, 5 missing; `docs/kiro-evidence/spooky-ui-audit.md`). Second, the warden agent fixed the gaps that change nothing on screen, and added `test/ui/spooky-ui.test.ts`. The fixes: `aria-busy` while loading; an opacity substitute for the flicker under reduced motion; a candle flicker whose half-period runs from 4 s down to a 333 ms floor (at most 1.5 cycles a second); a "séance has ended" path for expired sessions; an inline error for an empty repository field; atomic tally announcements; and claim bubbles as `article` elements. One Kiro change was reverted in review: moving `--confidence` to the root element, which `.candle`'s own value shadows. Third, Kiro ticked only the 4 task items it could verify. The other 84 describe a module layout (`public/js/*`, three CSS files) that the hand-written UI never had, so they stay open. It did not implement hiding rejected claims in production (R3.7, R7.7), because showing them struck through is the product's point. Severity labels, step badges and collapsible steps were left for later, so the demo captures stay valid.
 
 ## Powers — Context7
 

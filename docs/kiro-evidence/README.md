@@ -12,10 +12,12 @@ Every file here is CLI output from a real run in this repository. The only edits
 | `archaeologist-review-session.txt` | 2026-11-09, Kiro CLI 3.1.0 V3 | The archaeologist custom agent reviewing `src/` against the specs. It found that `/api/summon` accepted `endLine < startLine` (R9.2). Its git calls were denied, so it cites no commits. |
 | `warden-hooks-session.txt`, `warden-hook-fires.log` | 2026-11-09, Kiro CLI 3.1.0 V2 | The warden custom agent fixing that defect, test first. Run 1 was denied (agent `allowedTools` too narrow) and its summary invented results. Run 2 succeeded, and its `postToolUse` and `stop` hooks wrote the log. Commit `1d4ada1`. |
 | `mcp-filesystem-fix-session.txt` | 2026-11-09, Kiro CLI 3.1.0 | Kiro diagnosing the broken filesystem MCP server (`uvx` cannot resolve the package), pinning the npm package, then calling `@filesystem/list_directory` and `@filesystem/read_text_file`. Commit `b5e677f`. |
+| `rate-limit-session.txt` | 2026-11-09, Kiro CLI 3.1.0 V2 | The warden agent implementing `model-rate-limit` T1 and T2. Pruning and the socket-address fallback were added by hand. Commit `d64c7a9`. |
+| `spooky-ui-audit.md`, `spooky-ui-completion-session.txt` | 2026-11-09, Kiro CLI 3.1.0 V2 | Kiro's audit of the hand-written UI against all 52 `spooky-ui` requirements. Then the warden agent's fixes and UI tests (ended by a service throttle; two retries failed the same way), the hand revert of P13, and Kiro ticking only the 4 task items it verified. Commits `66684ce`, `1c0044d`. |
 
 ## Credits
 
-Free plan, 50 credits a month, read with `/usage` (the meter settles a few minutes late). First round on 2026-11-09: 3.37 to 7.92. Second round (T3, archaeologist review, warden fix, MCP fix): 7.92 to 16.78. One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
+Free plan, 50 credits a month, read with `/usage` (the meter settles a few minutes late). First round on 2026-11-09: 3.37 to 7.92. Second round (T3, archaeologist review, warden fix, MCP fix): 7.92 to 16.78. Rate limit: 16.78 to 21.75. spooky-ui audit and completion: 21.75 to 31.61. One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
 
 ## Not proven
 
