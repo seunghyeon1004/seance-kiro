@@ -37,7 +37,7 @@ npm install
 cp .env.example .env      # add ANTHROPIC_API_KEY (or set ANTHROPIC_FIXTURE=1)
 set -a; . ./.env; set +a
 npm start                 # builds data/crypt, serves http://localhost:3000
-npm test                  # 348 tests incl. property-based tests and a real-git integration test
+npm test                  # 395 tests incl. property-based tests and a real-git integration test
 ```
 
 Docker (Render ready): `docker build -t seance . && docker run -p 3000:3000 -e ANTHROPIC_API_KEY=... seance`. `render.yaml` is a Render blueprint.
