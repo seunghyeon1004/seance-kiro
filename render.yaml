@@ -7,3 +7,9 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: RATE_LIMIT_MAX
+        value: 10
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 600000
+      - key: MAX_MODEL_CALLS_PER_DAY
+        value: 300

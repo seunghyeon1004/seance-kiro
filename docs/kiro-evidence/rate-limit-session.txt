@@ -1,0 +1,131 @@
+# Kiro CLI 3.1.0 (V2, warden agent), 2026-11-09: implement model-rate-limit T1-T2. Unedited output; only the home directory prefix is replaced with ~.
+# Afterwards, by hand: added periodic pruning of expired client keys plus a test, and the socket address fallback via getConnInfo (Kiro had passed undefined).
+
+$ kiro-cli chat --agent warden --no-interactive --trust-tools=fs_read,fs_write,execute_bash "Implement tasks T1 and T2 of the spec in .kiro/specs/model-rate-limit/ ..."
+Let me read all the relevant files first.
+[tool] Reading requirements.md:1, design.md:1, tasks.md:1
+[tool] status: Completed
+[tool] Reading server.ts:1, ask.test.ts:1, .env.example:1
+[tool] status: Completed
+Now let me check the render.yaml and existing test structure:
+[tool] Reading render.yaml:1, listing test
+[tool] status: Completed
+Good. Now let me look at how the existing server tests import and use the app, so the new tests follow the same pattern:
+[tool] Reading summon.test.ts:1, health.test.ts:1
+[tool] status: Completed
+I have a complete picture. Now I'll write the tests first, then the implementation.
+
+**T1: `test/ratelimit.test.ts` and `src/ratelimit.ts`**
+
+**T2: `test/server/ratelimit.test.ts` and server wiring**
+[tool] Creating ratelimit.test.ts
+[tool] status: Completed
+Now write `src/ratelimit.ts`:
+[tool] Creating ratelimit.ts
+[tool] status: Completed
+Run just the unit tests first to see if the logic is correct:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx vitest run test/ratelimit.test.ts 2>&1
+[tool] status: Completed
+22/22 passing. Now write the server integration test (T2 — tests first):
+[tool] Creating ratelimit.test.ts
+[tool] status: Completed
+Now wire the limiter into `src/server.ts`. I need to:
+1. Import `createModelLimiter` and `clientKey`
+2. Create the `modelLimiter` instance from env vars
+3. Add a middleware on `/api/ask` and `/api/exorcise`
+4. Export `modelLimiter` for tests
+[tool] Editing server.ts
+[tool] status: Completed
+Now add the limiter instance after the session map setup and before the request schemas:
+[tool] Editing server.ts
+[tool] status: Completed
+Now I need to apply the middleware to `/api/ask` and `/api/exorcise`. The middleware references `app` before it's defined — I need to check the type. Let me look at the exact app definition and fix the middleware signature:
+[tool] Reading server.ts:121-200
+[tool] status: Completed
+The `app` variable is defined after the middleware function. I need to use Hono's proper middleware type. Let me fix the approach — use `MiddlewareHandler` from Hono, and attach the middleware after `app` is defined using `app.use`:
+[tool] Editing server.ts
+[tool] status: Completed
+Now find where `const app = new Hono()` is and add the rate limit middleware registration right after `secureHeaders`:
+[tool] Reading server.ts:191-220
+[tool] status: Completed
+[tool] Editing server.ts
+[tool] status: Completed
+Now add `modelLimiter` to the export at the bottom:
+[tool] Editing server.ts
+[tool] status: Completed
+Now run typecheck to catch any issues before running tests:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx tsc --noEmit 2>&1
+[tool] status: Completed
+Two issues: (1) `app.use` with `string[]` — Hono's overload only takes a single string path, not an array; (2) duplicate `export`. Let me fix both:
+[tool] Reading server.ts:199-228
+[tool] status: Completed
+[tool] Reading server.ts:69-93
+[tool] status: Completed
+The `export const modelLimiter` is at line 78 and the `export { app, sessions, modelLimiter }` at line 548 are both exporting it. Fix: keep the `export const` at line 78 (which exports it at declaration), and remove it from the named export at the bottom. Also fix the `app.use` with array by registering the middleware twice (once per path):
+[tool] Editing server.ts
+[tool] status: Completed
+Now fix the duplicate export:
+[tool] Editing server.ts
+[tool] status: Completed
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx tsc --noEmit 2>&1
+[tool] status: Completed
+Clean. Now run the new server tests:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx vitest run test/server/ratelimit.test.ts 2>&1
+[tool] status: Completed
+`SESSION_ID` is used in the `VALID_GHOST_ANSWER` fixture before the `const SESSION_ID` declaration. Fix by moving the constant above the fixture:
+[tool] Editing ratelimit.test.ts
+[tool] status: Completed
+Also remove the duplicate `const SESSION_ID` declaration further down in the file:
+[tool] Editing ratelimit.test.ts
+[tool] status: Completed
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx vitest run test/server/ratelimit.test.ts 2>&1
+[tool] status: Completed
+8/8 tests pass. The stderr noise is from the exorcise test hitting a Zod validation error because `ExorciseRequestSchema` requires a UUID for `sessionId` — that's just the expected behaviour when the session has a non-UUID id (a route that gets past the rate limit and then correctly returns a 500 because of the invalid session ID format). The tests themselves all pass.
+
+Let me check — the exorcise test uses `SESSION_ID = 'ratelimit-test-session'` which isn't a UUID. Let me look at `ExorciseRequestSchema`:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && grep -n "ExorciseRequestSchema" src/ghost/schema.ts | head -5
+[tool] status: Completed
+[tool] Reading schema.ts:253-260
+[tool] status: Completed
+It's `ExorciseResponseSchema` that requires UUID, not the request schema. The `ZodError` in stderr is from `ExorciseResponseSchema.parse(...)` in the route handler because the response `sessionId` is `'ratelimit-test-session'` (not a UUID). This only happens in the tests within the window (before hitting 429), and the tests themselves check for 429 response and pass. The stderr errors are expected noise from the 500 paths — but actually since tests pass we're fine. However, I should use a proper UUID session ID in the exorcise test to avoid those spurious errors and get clean test output.
+
+Let me use a UUID for `SESSION_ID` in the test file:
+[tool] Editing ratelimit.test.ts
+[tool] status: Completed
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx vitest run test/server/ratelimit.test.ts 2>&1
+[tool] status: Completed
+Clean. Now run the full test suite to make sure nothing is broken:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npm test 2>&1
+[tool] status: Completed
+317/317 tests passing. Now run typecheck and lint:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx tsc --noEmit && npm run lint 2>&1
+[tool] status: Completed
+Formatting only — run Prettier on the two changed files:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npx prettier --write src/ratelimit.ts test/ratelimit.test.ts test/server/ratelimit.test.ts src/server.ts 2>&1
+[tool] status: Completed
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npm run lint 2>&1
+[tool] status: Completed
+Now update `.env.example` and `render.yaml`:
+[tool] Editing .env.example
+[tool] status: Completed
+[tool] Editing render.yaml
+[tool] status: Completed
+Final full run to confirm everything is still clean:
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && npm test && npx tsc --noEmit && npm run lint 2>&1
+[tool] status: Completed
+All green. Now tick the checkboxes in `tasks.md`:
+[tool] Editing tasks.md
+[tool] status: Completed
+Here's what the command output showed:
+
+**`npm test`** — 317 tests passed (24 test files), 0 failures. New tests: 22 unit tests in `test/ratelimit.test.ts` and 8 integration tests in `test/server/ratelimit.test.ts`. All 287 pre-existing tests still pass.
+
+**`npx tsc --noEmit`** — clean, exit 0.
+
+**`npm run lint`** — clean, exit 0. Prettier reformatted `src/ratelimit.ts` and `test/ratelimit.test.ts` (trailing comma style); both files then passed the check.
+
+What was built:
+
+- `src/ratelimit.ts` — `createModelLimiter` (sliding window + UTC-day cap, injectable clock, prunes expired entries, `reset()`), and `clientKey` (X-Forwarded-For first hop → remoteAddr → `"unknown"`).
+- `src/server.ts` — `export const modelLimiter` built from env vars with safe defaults; `modelRateLimit` middleware wired to `/api/ask` and `/api/exorcise` only via `app.use`; 429 responses carry `Retry-After`, `code: "RATE_LIMITED"`, and the app-voice error strings from R1.5.
+- `.env.example` and `render.yaml` — three new env vars documented.

@@ -10,6 +10,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { secureHeaders } from 'hono/secure-headers';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,6 +36,7 @@ import {
   ConfigError,
   ParseError,
 } from './errors.js';
+import { createModelLimiter, clientKey } from './ratelimit.js';
 
 // ---------------------------------------------------------------------------
 // Session map
@@ -63,6 +65,22 @@ setInterval(() => {
     }
   }
 }, 60_000).unref(); // .unref() so it doesn't prevent process exit in tests
+
+// ---------------------------------------------------------------------------
+// Model rate limiter (R1.2, R1.4) — no new dependencies, in-memory
+// ---------------------------------------------------------------------------
+
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+export const modelLimiter = createModelLimiter({
+  max: parsePositiveInt(process.env['RATE_LIMIT_MAX'], 10),
+  windowMs: parsePositiveInt(process.env['RATE_LIMIT_WINDOW_MS'], 600_000),
+  dailyMax: parsePositiveInt(process.env['MAX_MODEL_CALLS_PER_DAY'], 300),
+});
 
 // ---------------------------------------------------------------------------
 // Request schemas
@@ -182,6 +200,39 @@ app.use(
     },
   }),
 );
+
+// Apply model rate limit to LLM-calling routes only (R1.1).
+async function modelRateLimit(
+  c: Parameters<Parameters<(typeof app)['use']>[1]>[0],
+  next: Parameters<Parameters<(typeof app)['use']>[1]>[1],
+): Promise<Response | void> {
+  const xff = c.req.header('x-forwarded-for');
+  let remote: string | undefined;
+  try {
+    remote = getConnInfo(c).remote.address;
+  } catch {
+    remote = undefined; // app.fetch() in tests has no socket
+  }
+  const key = clientKey(xff, remote);
+  const result = modelLimiter.check(key);
+  if (!result.ok) {
+    const error =
+      result.reason === 'daily'
+        ? 'The séance is closed for tonight. The spirits will answer again tomorrow.'
+        : 'The spirits are tired. Let them rest a few minutes before you call again.';
+    return c.newResponse(JSON.stringify({ error, code: 'RATE_LIMITED' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': String(result.retryAfterSec),
+      },
+    });
+  }
+  await next();
+}
+
+app.use('/api/ask', modelRateLimit);
+app.use('/api/exorcise', modelRateLimit);
 
 // ---------------------------------------------------------------------------
 // GET /api/health
