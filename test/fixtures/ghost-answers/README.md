@@ -12,30 +12,18 @@ When `ANTHROPIC_FIXTURE=1` is set, `askGhost()` in `src/ghost/llm.ts`:
 3. Parses it with `GhostAnswerSchema`.
 4. Returns the typed `GhostAnswer`.
 
-## Canonical fixture for integration tests
+## Canonical fixture: `ebfa44af.json`
 
-The canonical fixture used in `test/ghost/ask.integration.ts` is generated from:
+- **Recorded from a real model call** on 2026-11-09 with `npx tsx scripts/record-plan-fixture.ts --ghost`. Nothing was edited afterwards.
+- **Ledger:** the sample crypt from `scripts/make-crypt.sh`, `legacy/tax.js` line 7. The commit hashes are stable because the script fixes authors and dates.
+- **Question:** "Why does taxFor wait 3 seconds before calling the vendor?" The session id is `fixture-session`.
+- **Used by:** `test/ghost/ask.fixture.test.ts`, which rebuilds the crypt with real git and runs buildPrompt, then askGhost in fixture mode, then verify.
 
-- **Ledger source:** `test/fixtures/crypt/haunted.ts` (lines 1–5)
-- **Question:** `"Why is there a hardcoded 3000ms delay in hauntedSleep?"`
+Print the hash without a model call:
 
-To regenerate the fixture hash, run the integration test helper with `INTEGRATION=1`:
+    npx tsx scripts/record-plan-fixture.ts --ghost --hash-only
 
-```
-INTEGRATION=1 npx tsx test/ghost/ask.integration.ts
-```
-
-Or compute manually:
-
-```ts
-import { createHash } from 'node:crypto';
-import { buildPrompt } from '../../src/ghost/persona.js';
-// ... build ledger from crypt fixture, then:
-const hash = createHash('sha256')
-  .update(buildPrompt(ledger.items, question, sessionId))
-  .digest('hex')
-  .slice(0, 8);
-```
+The other entries here (`c2b57afa.json`, `286eb0a0.json`) are synthetic answers that `test/ghost/llm.test.ts` writes and reads for its own unit tests.
 
 ## Adding new fixtures
 

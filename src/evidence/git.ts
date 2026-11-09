@@ -485,9 +485,11 @@ export async function cloneRepo(url: string): Promise<ResolvedRepo> {
   const key = canonicalUrl(url);
   const inflight = cloneCache.get(key);
   if (inflight) {
-    // Await the shared promise; caller receives its own handle because the
-    // returned ResolvedRepo.cleanup is per-invocation.
-    return inflight;
+    // Serialise: wait for the running clone, then make our own. Sharing its
+    // ResolvedRepo would let the first caller's cleanup() delete the second
+    // caller's working tree.
+    await inflight.catch(() => undefined);
+    return cloneRepo(url);
   }
 
   const promise = _doClone(url).finally(() => {
@@ -524,10 +526,10 @@ async function _doClone(url: string): Promise<ResolvedRepo> {
     sizePoller = setInterval(() => {
       void (async () => {
         try {
-          const { stdout } = await execFileAsync('du', ['-sb', cloneDir], {
+          const { stdout } = await execFileAsync('du', ['-sk', cloneDir], {
             timeout: 5_000,
           });
-          const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10);
+          const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10) * 1024; // du -sk works on GNU and BSD/macOS (-b is GNU-only)
           if (!isNaN(bytes) && bytes > CLONE_MAX_BYTES) {
             controller.abort();
           }
@@ -564,10 +566,10 @@ async function _doClone(url: string): Promise<ResolvedRepo> {
 
     // Final size check after clone completes
     try {
-      const { stdout } = await execFileAsync('du', ['-sb', cloneDir], {
+      const { stdout } = await execFileAsync('du', ['-sk', cloneDir], {
         timeout: 5_000,
       });
-      const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10);
+      const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '0', 10) * 1024; // du -sk works on GNU and BSD/macOS (-b is GNU-only)
       if (!isNaN(bytes) && bytes > CLONE_MAX_BYTES) {
         await cleanup();
         throw new CloneError(`Clone of "${url}" exceeds size cap (${CLONE_MAX_MB} MB)`);

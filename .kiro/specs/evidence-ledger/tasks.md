@@ -4,6 +4,8 @@ Tasks are ordered so that each one builds on the previous. Complete them top to 
 Each task references the requirement numbers it satisfies.
 Commit messages must use the format `evidence-ledger T<N>: <description>`.
 
+Re-verified line by line against code and tests on 2026-11-09; notes in parentheses record where the build differs from the plan or what was fixed then.
+
 ---
 
 ## T1 — Project scaffold and shared types
@@ -48,7 +50,8 @@ Satisfies: R9.1, R9.2, R9.3, R8.1.
 - [x] Implement `blame(repo, file, start, end)`: calls `git blame --porcelain -L start,end file`
       and returns `RawBlameEntry[]`.
 - [x] Implement `logL(repo, file, start, end)`: calls
-      `git log -L start,end:file --follow --format=fuller` and returns `RawCommit[]`.
+      `git log -L start,end:file --format=fuller` and returns `RawCommit[]`. (As built: no
+      `--follow`. `git log -L` rejects it and follows renames itself; the real-git test caught this.)
 - [x] Implement `showHunk(repo, sha, file, start, end)`: calls `git show` and returns the raw
       unified-diff hunk string; returns `""` on failure (logs error).
 - [x] Implement `changedFiles(repo, sha)`: calls `git show --name-only --format=` and returns
@@ -62,7 +65,8 @@ Satisfies: R1.1, R1.2, R1.3, R2.1, R2.2, R2.3, R4.2, R4.3, R9.4, R12.1.
 
 ## T4 — Reference parsing and line-range mapping (`src/evidence/refs.ts`)
 
-- [x] Implement `parseRefs(text: string): string[]` with the five regex patterns
+- [x] Implement `parseRefs(text: string): string[]` with the five regex patterns (as built: two
+      regexes that cover all five forms)
       (`#\d+`, `Fixes #\d+`, `Closes #\d+`, `Resolves #\d+`, `Fix #\d+`, case-insensitive prefix);
       deduplicate by reference number; order by first appearance.
 - [x] Implement `isSuspicious(text: string): boolean` checking for known prompt-injection
@@ -99,12 +103,17 @@ Satisfies: R6.1, R6.2, R6.3, R6.4.
       `ResolvedRepo = { root: string; cleanup: () => Promise<void> }`.
 - [x] Use a random UUID subdirectory under `os.tmpdir()`.
 - [x] Apply `AbortController` with 30 s timeout; on abort: SIGKILL, then `cleanup()`.
-- [x] Poll directory size with `du` every 2 s after clone starts; SIGKILL + cleanup + throw
+- [x] Poll directory size with `du -sk` every 2 s after clone starts; SIGKILL + cleanup + throw
       `CloneError` if working tree exceeds 200 MB.
 - [x] Serialise concurrent clones for the same canonical URL using a `Map<string, Promise>` module-
       level cache; release the entry when the clone resolves or rejects.
 - [x] Write unit tests: URL validation rejects non-GitHub; AbortController fires on simulated
-      timeout; size-cap polling triggers `CloneError`.
+      timeout; size-cap polling triggers `CloneError`. (Re-verified 2026-11-09: these tests did not
+      exist, since `cloneRepo` was only ever mocked. Added `test/evidence/clone.test.ts`, written by hand,
+      with `child_process` mocked. Two bugs fixed along the way: `du -sb` is GNU-only, so the size cap
+      never ran on macOS and now uses `du -sk`; and concurrent callers shared one clone, so the first
+      `cleanup()` deleted the second caller's tree. Clones of the same URL are now serialised, each
+      with its own directory.)
 
 Satisfies: R8.2, R8.3, R8.4.
 
@@ -178,6 +187,8 @@ integration test).
 - [x] Confirm `npm run lint` exits 0.
 - [x] Confirm `npm test` exits 0 (all Vitest unit + PBT tests pass).
 - [x] Add a `.env.example` listing `GITHUB_TOKEN`, `GIT_CALL_TIMEOUT_MS`, `CLONE_TIMEOUT_MS`,
-      `CLONE_MAX_MB`, `INTEGRATION`.
+      `CLONE_MAX_MB`, `INTEGRATION`. (Re-verified 2026-11-09: none were listed. Added
+      `GIT_CALL_TIMEOUT_MS`, `CLONE_TIMEOUT_MS` and `CLONE_MAX_MB`. `GITHUB_TOKEN` is not read from
+      the environment, since the token comes with the request, and `INTEGRATION` is no longer used.)
 
 Satisfies: R12.2, R9.4, and overall code-quality requirements from tech steering.

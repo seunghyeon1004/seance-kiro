@@ -79,6 +79,14 @@ All six specs are now fully ticked: 308 of 308 task items, each checked against 
 - The canonical plan fixture, `test/fixtures/exorcism-plans/5de303db.json`. It was recorded from a real model call on the sample crypt with `scripts/record-plan-fixture.ts`. It replaces the hand-made fixture Kiro had written for a toy ledger, and its test rebuilds the crypt with real git.
 - The four `spooky-ui` property tests.
 
+The ticks in `ghost-verifier` and `evidence-ledger` were then re-checked line by line against code and tests. Five ticked items turned out not to be true, and each was fixed and annotated in its `tasks.md`:
+
+- `cloneRepo` had no tests (it was always mocked). Writing them exposed two bugs: the size cap used GNU-only `du -sb`, and concurrent clones shared one directory.
+- The ghost integration test pointed at a missing crypt and never ran. It was replaced by a test on the real sample crypt with an answer recorded from the model.
+- `.env.example` was missing the documented variables.
+
+Redaction of rejected claims is opt-in (`REDACT_REJECTED`), not tied to production, and `git log -L` runs without `--follow`.
+
 ## Powers — Context7
 
 Installed with `kiro-cli powers install context7` (Kiro CLI 3.1.0). What was observed, in `docs/kiro-evidence/powers-context7-session.txt`:

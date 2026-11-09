@@ -7,6 +7,9 @@ Commit messages must use the format `ghost-verifier T<N>: <description>`.
 Pre-condition: the `evidence-ledger` feature (T1–T11) is complete; `EvidenceItemSchema`,
 `LedgerResult`, and the error base classes are already in place.
 
+
+Re-verified line by line against code and tests on 2026-11-09; notes in parentheses record differences and fixes.
+
 ---
 
 ## T1 — Extend `src/ghost/schema.ts` with claim and answer schemas
@@ -152,7 +155,9 @@ Satisfies: R7.1–R7.7, R10.1, R10.3.
       absent or expired); call `buildPrompt`; call `askGhost`; call `verify`; reset
       `expiresAt`; format and return `VerifiedAnswerResponseSchema`-shaped JSON.
 - [x] In `production`, replace rejected claims' `text` with `"[claim redacted — failed
-  verification]"`; in other environments leave `text` intact.
+  verification]"`; in other environments leave `text` intact. (As built: opt-in through
+  `REDACT_REJECTED=1` in any environment. By default the text is shown struck through, which is the
+  point of the ward.)
 - [x] Map errors: `ValidationError` → 400, `SessionNotFoundError` → 404,
       `LLM_ERROR`/`TimeoutError` → 503, others → 500.
 - [x] The route MUST NOT return unverified claims (Verifier runs before response is sent).
@@ -178,10 +183,15 @@ Satisfies: R9.1.
 - [x] Create `test/fixtures/ghost-answers/` directory.
 - [x] Add at least one canonical fixture file `<hash>.json` whose hash corresponds to the prompt
       generated from the crypt sample ledger + a known question (document the question in a
-      `README` in the fixture directory).
-- [x] Write `test/ghost/ask.integration.ts` (skipped unless `INTEGRATION=1`): load the crypt
-      sample ledger via `buildLedger`, call `buildPrompt` + `askGhost` (fixture mode) + `verify`,
-      assert a valid `VerifierResult` with `score` in [0, 1] and at least one verified claim.
+      `README` in the fixture directory). (Re-verified 2026-11-09: the old fixture was synthetic
+      and the crypt it named did not exist. Replaced by `ebfa44af.json`, recorded from a real model
+      call by `scripts/record-plan-fixture.ts --ghost`.)
+- [x] Integration test on the crypt sample: `buildLedger` → `buildPrompt` → `askGhost` (fixture
+      mode) → `verify`, asserting a valid `VerifierResult` with `score` in [0, 1] and at least one
+      verified claim. (Re-verified 2026-11-09: `test/ghost/ask.integration.ts` pointed at a missing
+      `test/fixtures/crypt`, wrote its own fixture, and was not matched by the vitest include
+      pattern, so it never ran. Replaced by `test/ghost/ask.fixture.test.ts`, which runs on every
+      `npm test` with real git.)
 
 Satisfies: R6.3, R2.4; end-to-end path through persona → LLM fixture → Verifier.
 
@@ -195,6 +205,6 @@ Satisfies: R6.3, R2.4; end-to-end path through persona → LLM fixture → Verif
 - [x] Confirm no `any` types in `src/ghost/` or new code in `src/server.ts`.
 - [x] Confirm `ANTHROPIC_API_KEY` does not appear in any test fixture or log output.
 - [x] Update `.env.example` to add `ANTHROPIC_API_KEY`, `ANTHROPIC_FIXTURE`, `LLM_TIMEOUT_MS`,
-      `SESSION_TTL_MS`.
+      `SESSION_TTL_MS`. (`LLM_TIMEOUT_MS` was missing until 2026-11-09.)
 
 Satisfies: R11.2, R10.4; overall code-quality requirements from tech steering.
