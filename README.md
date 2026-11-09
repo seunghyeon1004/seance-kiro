@@ -26,7 +26,7 @@ Captured 2026-11-09 from the app running locally with a real model key (headless
 | **A misquote of a real commit, refused**                          | **The exorcism: haunting score and plan**                              |
 | ![Ward refuses a misquote](docs/screens/1280-4-ward-misquote.png) | ![Exorcism score](docs/screens/1280-5-exorcism.png)                    |
 
-Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Test-first plan: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
+Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Refactor steps with badges: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
 
 ## Run it
 
