@@ -11,6 +11,15 @@
   --max-fog: 0.6;
 }
 
+.skip-link {
+  position: absolute; top: -9999px; left: -9999px; z-index: 999;
+  display: inline-block; padding: var(--space-sm) var(--space-lg); background: var(--color-accent); color: var(--color-accent-ink);
+  border-radius: var(--radius-card); text-decoration: none; font-weight: 600; font-size: var(--text-md);
+}
+.skip-link:focus-visible {
+  top: var(--space-md); left: var(--space-md); outline: 2px solid var(--color-focus); outline-offset: 2px;
+}
+
 body { position: relative; min-height: 100dvh; }
 main, .bar, .foot { position: relative; z-index: var(--z-base); }
 
