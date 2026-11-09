@@ -242,8 +242,18 @@ export const RefactorPlanSchema = z.object({
 });
 export type RefactorPlan = z.infer<typeof RefactorPlanSchema>;
 
-// After Verifier runs, rejectedClaims are populated
+// After Verifier runs, rejectedClaims are populated. A step or entry can then
+// have every claim moved to rejectedClaims, so `claims` may be empty here,
+// while the model's own output (RefactorPlanSchema) must still cite at least one.
+export const VerifiedRefactorStepSchema = RefactorStepSchema.extend({
+  claims: z.array(ClaimSchema),
+});
+export const VerifiedDoNotTouchEntrySchema = DoNotTouchEntrySchema.extend({
+  claims: z.array(ClaimSchema),
+});
 export const VerifiedRefactorPlanSchema = RefactorPlanSchema.extend({
+  steps: z.array(VerifiedRefactorStepSchema).min(1),
+  doNotTouchList: z.array(VerifiedDoNotTouchEntrySchema),
   verifierScore: z.number().min(0).max(1),
 });
 export type VerifiedRefactorPlan = z.infer<typeof VerifiedRefactorPlanSchema>;
@@ -263,8 +273,8 @@ export const ExorciseResponseSchema = z.object({
   markerLocations: z.array(MarkerLocationSchema),
   plan: z.object({
     characterizationTests: z.array(z.string()),
-    steps: z.array(RefactorStepSchema),
-    doNotTouchList: z.array(DoNotTouchEntrySchema),
+    steps: z.array(VerifiedRefactorStepSchema),
+    doNotTouchList: z.array(VerifiedDoNotTouchEntrySchema),
     summary: z.string(),
   }),
   verifierScore: z.number().min(0).max(1),

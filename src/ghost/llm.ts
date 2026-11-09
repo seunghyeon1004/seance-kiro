@@ -122,7 +122,7 @@ async function askGhostOnce(
   const planMode = opts.tool === 'refactor_plan';
   // Fixture mode — no network call
   if (process.env['ANTHROPIC_FIXTURE'] === '1') {
-    return loadFixture(prompt);
+    return loadFixture(prompt, planMode);
   }
 
   // Read API key at call time
@@ -245,9 +245,51 @@ async function askGhostOnce(
 // Fixture mode
 // ---------------------------------------------------------------------------
 
-async function loadFixture(prompt: string): Promise<GhostAnswer> {
+async function loadFixture(
+  prompt: string,
+  planMode: boolean = false,
+): Promise<GhostAnswer> {
   const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
-  const fixturePath = join(FIXTURE_DIR, `${hash}.json`);
+
+  // For refactor plans, look in exorcism-plans first, then fall back to ghost-answers
+  let fixturePath: string;
+  if (planMode) {
+    const planFixtureDir = join(
+      fileURLToPath(import.meta.url),
+      '../../../test/fixtures/exorcism-plans',
+    );
+    fixturePath = join(planFixtureDir, `${hash}.json`);
+
+    // Try exorcism-plans first
+    try {
+      const raw = await readFile(fixturePath, 'utf8');
+      let json: unknown;
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        throw new ParseError(`Fixture file ${fixturePath} is not valid JSON`);
+      }
+
+      const parsed = GhostAnswerSchema.safeParse(json);
+      if (!parsed.success) {
+        throw new ParseError(
+          `Fixture file ${fixturePath} failed GhostAnswerSchema validation: ${parsed.error.message}`,
+        );
+      }
+
+      return parsed.data;
+    } catch (err) {
+      // If not found or failed, fall back to ghost-answers
+      if (!(err instanceof Error) || !err.message.includes('ENOENT')) {
+        // Re-throw if it's a validation error, not a file-not-found
+        if (err instanceof ParseError) throw err;
+      }
+      // Fall through to ghost-answers
+    }
+  }
+
+  // Fall back to ghost-answers for both non-plan mode and when plan fixture not found
+  fixturePath = join(FIXTURE_DIR, `${hash}.json`);
 
   let raw: string;
   try {

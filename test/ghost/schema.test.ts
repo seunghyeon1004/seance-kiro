@@ -632,3 +632,21 @@ describe('ExorciseRequestSchema', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('plan claims: model output vs verified output', () => {
+  const step = {
+    description: 'Add a comment',
+    rationale: 'Keeps the reason',
+    claims: [] as unknown[],
+    rejectedClaims: [],
+    reversible: true,
+  };
+  it('the model must cite at least one claim per step', async () => {
+    const { RefactorStepSchema } = await import('../../src/ghost/schema.js');
+    expect(RefactorStepSchema.safeParse(step).success).toBe(false);
+  });
+  it('after the ward, a step whose claims were all rejected still parses', async () => {
+    const { VerifiedRefactorStepSchema } = await import('../../src/ghost/schema.js');
+    expect(VerifiedRefactorStepSchema.safeParse(step).success).toBe(true);
+  });
+});
