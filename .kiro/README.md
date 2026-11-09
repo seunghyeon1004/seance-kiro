@@ -44,8 +44,31 @@ Both servers are read-oriented. The filesystem server root is pinned to the repo
 
 List them: `kiro-cli mcp list workspace`
 
+## specs/ — five specs
+
+`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (built during the first week) and `ward-report` (added 2026-11-09). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented its T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests) from the spec and ticked the boxes. T3 (API field and copy button) is still open.
+
+## Powers — Context7
+
+Installed with `kiro-cli powers install context7` (Kiro CLI 3.1.0). What was observed, in `docs/kiro-evidence/powers-context7-session.txt`:
+
+- The default (V2) engine did not see the power: the agent looked for a `context7` binary and fell back to its own knowledge.
+- The V3 engine (`--v3`) listed the power through `/powers` and activated its `POWER.md` through the `kiro_powers` tool.
+- The power's MCP server never connected in a non-interactive V3 session (the log says `MCP server 'power-context7-context7' is not connected`). So no Context7 docs were fetched. Kiro checked the `secureHeaders` option format against the installed `hono` type definitions instead.
+
+The resulting code (Hono `secureHeaders` with a CSP, plus `test/server/headers.test.ts`) was written by Kiro in that session.
+
+## Crew — two subagents in parallel
+
+`kiro-cli crew -y` installed Kiro Crew 0.12.0 locally (managed Python, no paid plan asked for; it signs in through kiro-cli). A local gateway ran on port 5477 with an isolated `KIROCREW_HOME`, and `kirocrew spawn run` started two subagents at once:
+
+- Task A wrote `test/exorcism/pbt/plan.pbt.ts` (six properties on `buildPlanPrompt`).
+- Task B added the skip link in `public/index.html` and its focus style in `public/styles.css`.
+
+The second subagent waited in the queue for a few seconds because the machine was low on memory, then both finished. Output in `docs/kiro-evidence/crew-parallel-session.txt`.
+
 ## What fires where (checked, not assumed)
 
-- **Prompt hook (`evidence-review.json`)**: verified in Kiro CLI sessions by typing `/review-evidence`; see `docs/kiro-evidence/`.
-- **Save hooks (`ghost-tests.json`, `sloplint.json`)**: written for Kiro's `PostFileSave` trigger. They have not been observed firing in the CLI (non-interactive runs do not emit file-save events), so treat them as IDE-side automation until shown otherwise.
-- **MCP servers**: the git server was called from a CLI session; see `docs/kiro-evidence/`.
+- **Prompt hook (`evidence-review.json`)**: fired in a Kiro CLI 3.0.0 session when `/review-evidence` was typed (`docs/kiro-evidence/review-and-mcp-session.txt`). In the CLI 3.1.0 V3 engine it also fired on prompts that do not match `^/review-evidence` (seen on `/powers` and on a normal task prompt), so the matcher does not seem to be applied there.
+- **Save hooks (`ghost-tests.json`, `sloplint.json`)**: written for Kiro's `PostFileSave` trigger. They have not been seen firing in the CLI (non-interactive runs do not emit file-save events), so treat them as IDE-side automation until shown otherwise.
+- **MCP servers**: the git server was called from a CLI session (`@git/git_log`) and connected again in the V3 runs. The `filesystem` server fails to start (`Connection closed` in the MCP log); it is not used by anything that was run.

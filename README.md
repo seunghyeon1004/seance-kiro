@@ -25,7 +25,7 @@ npm install
 cp .env.example .env      # add ANTHROPIC_API_KEY (or set ANTHROPIC_FIXTURE=1)
 set -a; . ./.env; set +a
 npm start                 # builds data/crypt, serves http://localhost:3000
-npm test                  # 241 tests incl. property-based tests and a real-git integration test
+npm test                  # 286 tests incl. property-based tests and a real-git integration test
 ```
 
 Docker (Render ready): `docker build -t seance . && docker run -p 3000:3000 -e ANTHROPIC_API_KEY=... seance`. `render.yaml` is a Render blueprint.
@@ -44,7 +44,7 @@ Docker (Render ready): `docker build -t seance . && docker run -p 3000:3000 -e A
 
 ## How Kiro was used
 
-Everything under [`.kiro/`](.kiro) is committed: steering docs (product, tech, evidence rules, UI rules), four specs with EARS requirements, design and tasks, and the commit history references the spec task being implemented. See the write-up in the submission for what worked, what did not, and where Kiro's free quota ran out.
+Everything under [`.kiro/`](.kiro) is committed: steering docs (product, tech, evidence rules, UI rules), five specs with EARS requirements, design and tasks, and the commit history references the spec task being implemented. Kiro Powers (Context7), Kiro Crew (two parallel subagents) and the fifth spec are described in [`.kiro/README.md`](.kiro/README.md), with raw session output in [`docs/kiro-evidence/`](docs/kiro-evidence). See the write-up in the submission for what worked, what did not, and where Kiro's free quota ran out.
 
 ## License
 
