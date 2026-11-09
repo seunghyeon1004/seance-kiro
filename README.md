@@ -4,7 +4,7 @@
 
 Built with Kiro for Kiroween 2026 (category: Costume Contest).
 
-![landing](docs/screens/1440-1-landing.png)
+![The Séance landing page](docs/screens/1280-1-landing.png)
 
 ## What it does
 
@@ -15,6 +15,18 @@ Built with Kiro for Kiroween 2026 (category: Costume Contest).
 - **The exorcism.** A haunting score (age, churn, authors gone, TODO and HACK markers, missing tests, nesting) and a refactor plan: characterization tests first, small steps, and a cited do-not-touch list for lines whose history shows a deliberate workaround. The plan passes through the same ward.
 
 Try it on the bundled sample: `crypt`, file `legacy/tax.js`, line 7. `git blame` points at a variable rename from 2024; the ledger finds the 2020 commit that explains the 3 second wait (the vendor returns 429 within 3 seconds).
+
+## Screens
+
+Captured 2026-11-09 from the app running locally with a real model key (headless Chromium, 1280x800).
+
+| Ghost answer, every claim cited (4 of 4 verified)                 | A planted false memory, refused                                        |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| ![Ghost answer](docs/screens/1280-2-ghost-answer.png)             | ![Ward refuses an invented hash](docs/screens/1280-3-ward-refuses.png) |
+| **A misquote of a real commit, refused**                          | **The exorcism: haunting score and plan**                              |
+| ![Ward refuses a misquote](docs/screens/1280-4-ward-misquote.png) | ![Exorcism score](docs/screens/1280-5-exorcism.png)                    |
+
+Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Test-first plan: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
 
 ## Run it
 
