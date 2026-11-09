@@ -29,7 +29,7 @@ You can also attack the ward yourself. "Plant a false memory" lets you send your
 
 The verdict can be copied as Markdown, struck claims and reasons included, so you can paste it into a pull request.
 
-**It performs the exorcism.** A haunting score from 0 to 100, built from six measured signals: age, churn, authors gone, TODO and HACK markers, missing tests, and nesting. Then Claude writes a refactor plan: characterization tests first, then small reversible steps, plus a cited list of lines you should not touch. That plan goes through the same ward. On the sample, the score was 57 and all 10 plan claims verified.
+**It performs the exorcism.** A haunting score from 0 to 100, built from six measured signals: age, churn, authors gone, TODO and HACK markers, missing tests, and nesting. Then Claude writes a refactor plan: characterization tests first, then small reversible steps, plus a cited list of lines you should not touch. That plan goes through the same ward. On the sample, the score was 57 (Haunted) and all 12 plan claims in the run shown verified.
 
 ## How Kiro fit in
 
