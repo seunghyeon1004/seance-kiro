@@ -10,6 +10,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import { secureHeaders } from 'hono/secure-headers';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -144,6 +145,20 @@ function resolveRepo(repoUrl: string): string {
 }
 
 const app = new Hono();
+
+// Apply security headers to all responses
+app.use(
+  '*',
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // GET /api/health
