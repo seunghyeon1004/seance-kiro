@@ -1,6 +1,8 @@
 # Séance: Devpost write-up (draft)
 
 **Category:** Costume Contest
+**Live demo:** https://seance-kiro.onrender.com
+**Code:** https://github.com/seunghyeon1004/seance-kiro
 **Tagline:** Ask the one who wrote it. A ghost that can only say what git remembers.
 
 ## Inspiration
@@ -20,7 +22,7 @@ On the bundled sample, `git blame` on line 7 of `legacy/tax.js` points at a 2024
 
 ## How we built it
 
-TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. There are 287 tests, including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
+TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. There are 318 tests, including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
 
 ## How Kiro was used
 
@@ -34,17 +36,18 @@ Everything is in the repo: `.kiro/` (steering, specs, agents, hooks, MCP setting
 
 ### Spec-driven development
 
-There are five specs in `.kiro/specs/`:
+There are six specs in `.kiro/specs/`:
 
 - `evidence-ledger`
 - `ghost-verifier`
 - `exorcism-plan`
 - `spooky-ui`
 - `ward-report`
+- `model-rate-limit`
 
 Each has EARS-style requirements with IDs (for example R9.2 "start <= end"), a design with module signatures and the invariants to property-test, and ordered tasks. Every task names its files and its tests. Commit messages reference the task they implement (`evidence-ledger T1-T5`, `ward-report T3`).
 
-Kiro implemented the ledger, the ghost and verifier, and the exorcism planner from their specs. Later it implemented all three tasks of `ward-report`, the spec we added last: the renderer, the property tests, the API field and the copy button. It ticked the boxes itself.
+Kiro implemented the ledger, the ghost and verifier, and the exorcism planner from their specs. Later it implemented all three tasks of `ward-report`: the renderer, the property tests, the API field and the copy button. It ticked the boxes itself. Last, before the public deploy, the warden agent implemented `model-rate-limit`: 10 model calls per 10 minutes per IP plus a daily cap, returning an in-character 429. We added two things by hand: pruning of expired IPs, and a socket-address fallback.
 
 The spec paid off at the end. A review pass by our archaeologist agent found a gap between the code and requirement R9.2: `/api/summon` accepted `endLine < startLine` and returned 200. Because the requirement had an ID, the fix had a clear target and a test.
 
