@@ -114,7 +114,7 @@ The second queued briefly because the machine was low on memory, then both finis
 
 ### Credits
 
-This all ran on the free plan. The 2026-11-09 work (Powers, Crew, the fifth spec, both custom agents, the MCP fix) went from 3.37 to 31.61 of 50 credits on `/usage`.
+This all ran on the free plan. The 2026-11-09 work (Powers, Crew, the ward-report and model-rate-limit specs, both custom agents, the MCP fix, the spooky-ui audit and completion) went from 3.37 to 31.61 of 50 credits on `/usage`.
 
 ## Challenges
 
