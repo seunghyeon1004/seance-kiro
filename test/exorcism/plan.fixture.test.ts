@@ -1,135 +1,78 @@
 /**
- * T7 fixture generation test for exorcism plans
+ * exorcism-plan T7: the canonical recorded plan fixture.
  *
- * This test:
- * 1. Defines a fixed ledger (small, deterministic)
- * 2. Computes its prompt hash via buildPlanPrompt
- * 3. Runs buildPlan in fixture mode (ANTHROPIC_FIXTURE=1)
- * 4. Asserts verifierScore > 0 and plan shape is valid
- *
- * The fixture hash is used to name the fixture file in test/fixtures/exorcism-plans/.
+ * test/fixtures/exorcism-plans/5de303db.json was recorded from a real model call by
+ * scripts/record-plan-fixture.ts (sample crypt, legacy/tax.js line 7, scored at a fixed time).
+ * These tests rebuild the same ledger with real git, check the fixture's shape, and run
+ * buildPlan in fixture mode (ANTHROPIC_FIXTURE=1) through the real loader.
  */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { access } from 'node:fs/promises';
-import { buildPlanPrompt, buildPlan } from '../../src/exorcism/plan.js';
-import type {
-  LedgerResult,
-  EvidenceItem,
-  ScoredResult,
-  SignalBreakdown,
-} from '../../src/ghost/schema.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { buildLedger } from '../../src/evidence/ledger.js';
+import { computeScore } from '../../src/exorcism/score.js';
+import { buildPlan, buildPlanPrompt } from '../../src/exorcism/plan.js';
+import { GhostAnswerSchema, RefactorPlanSchema } from '../../src/ghost/schema.js';
+import type { LedgerResult, ScoredResult } from '../../src/ghost/schema.js';
+import {
+  FIXTURE_INPUT,
+  FIXTURE_NOW_MS,
+  FIXTURE_RANGE,
+} from '../../scripts/record-plan-fixture.js';
 
-// ---------------------------------------------------------------------------
-// Fixtures / helpers
-// ---------------------------------------------------------------------------
+const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/exorcism-plans');
+let dir: string;
+let ledger: LedgerResult;
+let scored: ScoredResult;
+let hash: string;
 
-const SHA_40 = 'abc1234' + '0'.repeat(33);
-
-function makeItem(overrides: Partial<EvidenceItem> = {}): EvidenceItem {
-  return Object.freeze({
-    id: 'E1',
-    sha: SHA_40,
-    shortSha: 'abc1234',
-    author: 'Ada Lovelace',
-    email: 'ada@example.com',
-    date: new Date('2020-01-01T00:00:00.000Z').toISOString(),
-    subject: 'fix: add sleep for downstream service',
-    body: 'wait for downstream to stabilise',
-    hunk: '+sleep(3000);\n',
-    files: ['src/utils.ts'],
-    refs: [],
-    suspiciousMessage: false,
-    ...overrides,
+beforeAll(async () => {
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'seance-crypt-'));
+  execFileSync('bash', [path.resolve(__dirname, '../../scripts/make-crypt.sh'), dir], {
+    stdio: 'ignore',
   });
-}
-
-function makeLedger(items: EvidenceItem[]): LedgerResult {
-  return {
-    items: items as unknown as readonly EvidenceItem[],
-    truncated: false,
-    buildDurationMs: 0,
-  };
-}
-
-function makeScoredResult(overrides: Partial<ScoredResult> = {}): ScoredResult {
-  const signals: Array<SignalBreakdown['signal']> = [
-    'age',
-    'churn',
-    'gone',
-    'marker',
-    'test',
-    'nesting',
-  ];
-  return {
-    score: 42,
-    signalBreakdown: signals.map((signal) => ({
-      signal,
-      rawValue: 0.5,
-      weightedContribution: signal === 'age' ? 12.5 : 5,
-    })),
-    markerLocations: [],
-    ...overrides,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Test fixture: small fixed ledger and score
-// ---------------------------------------------------------------------------
-
-const FIXTURE_LEDGER = makeLedger([makeItem()]);
-const FIXTURE_SCORE = makeScoredResult({
-  score: 35,
-  signalBreakdown: [
-    { signal: 'age', rawValue: 0.45, weightedContribution: 11.25 },
-    { signal: 'churn', rawValue: 0.3, weightedContribution: 6 },
-    { signal: 'gone', rawValue: 0.2, weightedContribution: 4 },
-    { signal: 'marker', rawValue: 0.1, weightedContribution: 1.5 },
-    { signal: 'test', rawValue: 1, weightedContribution: 10 },
-    { signal: 'nesting', rawValue: 0, weightedContribution: 0 },
-  ],
+  ledger = await buildLedger({ repoUrl: dir, ...FIXTURE_RANGE });
+  scored = computeScore(ledger, FIXTURE_INPUT, FIXTURE_NOW_MS);
+  hash = createHash('sha256')
+    .update(buildPlanPrompt(ledger, scored))
+    .digest('hex')
+    .slice(0, 8);
 });
+afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-
-// ---------------------------------------------------------------------------
-// T7 — fixture generation and validation
-// ---------------------------------------------------------------------------
-
-describe('plan.fixture — hash computation and fixture generation', () => {
-  it('computes the prompt hash from fixed ledger and score', () => {
-    const prompt = buildPlanPrompt(FIXTURE_LEDGER, FIXTURE_SCORE);
-    const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
-
-    // The hash should be deterministic and reproducible
-    const hash2 = createHash('sha256')
-      .update(buildPlanPrompt(FIXTURE_LEDGER, FIXTURE_SCORE))
-      .digest('hex')
-      .slice(0, 8);
-    expect(hash).toBe(hash2);
+describe('canonical exorcism plan fixture (T7)', () => {
+  it('exists under the prompt hash of the sample crypt ledger', () => {
+    expect(hash).toBe('5de303db');
+    expect(fs.existsSync(path.join(FIXTURE_DIR, `${hash}.json`))).toBe(true);
   });
 
-  it('the canonical fixture file exists for this ledger and score', async () => {
-    const prompt = buildPlanPrompt(FIXTURE_LEDGER, FIXTURE_SCORE);
-    const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
-    const file = new URL(`../fixtures/exorcism-plans/${hash}.json`, import.meta.url);
-    await expect(access(file)).resolves.toBeUndefined();
+  it('has the GhostAnswer shape with a RefactorPlan in its first claim, citing the ledger', () => {
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(FIXTURE_DIR, `${hash}.json`), 'utf8'),
+    );
+    const answer = GhostAnswerSchema.parse(raw);
+    const plan = RefactorPlanSchema.parse(JSON.parse(answer.claims[0]!.text));
+    expect(plan.steps.length).toBeGreaterThanOrEqual(2);
+    expect(plan.doNotTouchList.length).toBeGreaterThanOrEqual(1);
+    const shas = new Set(ledger.items.map((i) => i.shortSha));
+    const dntShas = plan.doNotTouchList.flatMap((d) =>
+      d.claims.flatMap((c) => c.citations.map((x) => x.sha7)),
+    );
+    expect(dntShas.some((s) => shas.has(s))).toBe(true);
   });
 
-  it('buildPlan in fixture mode reads that file through the real loader and verifies it', async () => {
+  it('buildPlan in fixture mode loads it through the real loader and the ward verifies it', async () => {
     const prev = process.env['ANTHROPIC_FIXTURE'];
     process.env['ANTHROPIC_FIXTURE'] = '1';
     try {
       const plan = await buildPlan(
-        FIXTURE_LEDGER,
-        FIXTURE_SCORE,
+        ledger,
+        scored,
         '550e8400-e29b-41d4-a716-446655440000',
       );
-      expect(plan.steps.length).toBeGreaterThanOrEqual(2);
-      expect(plan.doNotTouchList.length).toBeGreaterThanOrEqual(1);
       expect(plan.verifierScore).toBeGreaterThan(0);
       expect(plan.verifierScore).toBeLessThanOrEqual(1);
     } finally {

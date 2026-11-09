@@ -1,53 +1,23 @@
-# Exorcism Plan Fixtures
+# Exorcism plan fixtures
 
-Canonical refactor plan fixtures for testing `buildPlan()` in fixture mode (`ANTHROPIC_FIXTURE=1`).
+Recorded refactor-plan answers for `buildPlan()` in fixture mode (`ANTHROPIC_FIXTURE=1`). In plan mode, `loadFixture()` in `src/ghost/llm.ts` looks here first and falls back to `test/fixtures/ghost-answers/`.
 
-## Structure
+## Canonical fixture: `5de303db.json`
 
-Each fixture file is named `<hash>.json` where `<hash>` is the first 8 characters of the SHA-256 digest of the prompt that would generate it.
+- **Recorded from a real model call** on 2026-11-09 with `scripts/record-plan-fixture.ts`. Nothing was edited afterwards. The file holds only plan text and commit hashes from the fictional sample repository: no keys, emails or paths.
+- **Ledger:** the sample crypt built by `scripts/make-crypt.sh` (fixed authors and dates, so the commit hashes are stable), `legacy/tax.js` line 7, which gives 2 evidence items.
+- **ScoreInput:** `authorGoneThresholdDays: 365` and `nowMs = Date.UTC(2026, 10, 9)`. The resulting score is 57.
+- **Prompt structure:** `buildPlanPrompt()` renders a system block, the evidence block (one item per commit), the score block (overall score and the six signals) and the response-format block. The file name is `sha256(prompt).slice(0, 8)`.
+- **Shape:** a `GhostAnswer` whose first claim's `text` is the JSON `RefactorPlan`. That is how the model tool returns a plan.
 
-The hash is computed as:
-```js
-sha256(buildPlanPrompt(ledger, scoredResult)).slice(0, 8)
-```
+## Regenerate
 
-## Contents
+Print the hash only (no model call):
 
-Each fixture file contains a `GhostAnswer` JSON object with a single claim whose `text` field holds the stringified `RefactorPlan`:
+    npx tsx scripts/record-plan-fixture.ts --hash-only
 
-```json
-{
-  "voice": "string",
-  "sessionId": "uuid",
-  "claims": [
-    {
-      "kind": "memory",
-      "text": "{...stringified RefactorPlan JSON...}",
-      "citations": [{"sha7": "abc1234"}]
-    }
-  ]
-}
-```
+Record again, with ANTHROPIC_API_KEY set in the environment:
 
-## Regeneration
+    npx tsx scripts/record-plan-fixture.ts
 
-To regenerate a fixture hash:
-
-1. Run the corresponding test in `test/exorcism/plan.fixture.test.ts`
-2. Extract the prompt from the test setup
-3. In Node:
-   ```js
-   const crypto = require('crypto');
-   const prompt = "...full buildPlanPrompt output...";
-   const hash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 8);
-   console.log(hash);
-   ```
-4. Create the fixture file with the computed hash name
-
-## Current fixtures
-
-- **Fixed ledger:** Single-item ledger with a 3-second sleep workaround commit (SHA: `abc1234`)
-- **ScoreInput:** `{ authorGoneThresholdDays: 365, nowMs: 2026-11-09T00:00:00Z }`
-- **Expected plan:** At least 2 characterization tests, 2 refactor steps, and 1 do-not-touch entry with a valid sha7 citation
-
-See `test/exorcism/plan.fixture.test.ts` for the exact ledger definition and how to regenerate.
+If the hash changes (for example after a prompt edit), record again and update the expected hash in `test/exorcism/plan.fixture.test.ts`.

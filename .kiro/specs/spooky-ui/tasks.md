@@ -203,12 +203,12 @@ Satisfies: design §7.1.
 
 ## T13 — Property-based tests for UI helpers (`test/ui/spooky-ui.test.ts`)
 
-- [ ] **PU1 — Planchette angle is finite:** Verified that `pointPlanchette()` computes finite angle; degenerate cases return without throwing. (Open: reasoned, not property-tested.)
+- [x] **PU1 — Planchette angle is finite:** `pointPlanchette()` produces a finite angle for any rectangles; identical centres and a missing row do not throw. (Property-tested in `test/ui/pbt/ui.pbt.ts`, function extracted from app.js and run against stubs.)
 - [x] **PU2 — Candle period ≥ 333 ms:** Formula `333 + (1 - confidence) * 3667 ≥ 333` verified for [0, 1].
-- [ ] **PU3 — Fog opacity in [0, 0.85]:** Formula `haunting / 100 * 0.85 ∈ [0, 0.85]` verified for [0, 100]. (Open: reasoned, not property-tested.)
+- [x] **PU3 — Fog opacity in [0, --max-fog]:** `setHaunting()` clamps any input to [0, 100] and `calc(var(--haunting-score) / 100 * var(--max-fog))` stays in [0, --max-fog]. As built, `--max-fog` is 0.6, not the 0.85 in the original plan. (Property-tested in `test/ui/pbt/ui.pbt.ts`.)
 - [x] **PU4 — Severity label always defined:** All integer scores [0, 100] map to one of four labels.
-- [ ] **PU5 — Counter arithmetic consistent:** For any verified/rejected lengths, `N ≤ M`, both non-negative. (Open: reasoned, not property-tested.)
-- [ ] fast-check tests use 1,000 runs; `FAST_CHECK_SEED` env honoured. (Open: the UI tests are example and static checks, not fast-check.)
+- [x] **PU5 — Counter arithmetic consistent:** For any sequence of answers, `0 ≤ N ≤ M`. (Property-tested in `test/ui/pbt/ui.pbt.ts` on the same update rule; a static check pins that rule to the lines in app.js.)
+- [x] fast-check tests use 1,000 runs; `FAST_CHECK_SEED` env honoured. (`test/ui/pbt/ui.pbt.ts`.)
 
 Satisfies: design §7.3; evidence-rules PBT strategy.
 
@@ -230,7 +230,7 @@ Satisfies: R8.1; design §7.4.
 
 - [x] `npm run typecheck` passes (TypeScript strict mode, no errors).
 - [x] `npm run lint` passes (ESLint + Prettier, no issues).
-- [x] `npm test` passes (348 tests when this was written; 405 as of the exorcism-plan T6/T7 work).
+- [x] `npm test` passes (348 tests when this was written; the current count is in the README).
 - [x] Uncompressed `public/` size ≤ 150 KB (HTML + CSS + JS): app.js + styles.css + tokens.css + base.css + index.html.
 - [x] `window.ENV` is set via server or HTML meta tag (set to "development" in dev builds, "production" in release).
 - [x] All required aria attributes present: aria-live on chat history and counters, aria-atomic on verified-counter, role="alert" on errors, aria-hidden="true" on decorative elements.

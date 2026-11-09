@@ -3,6 +3,9 @@
  *
  * Uses ANTHROPIC_FIXTURE=1 and a pre-seeded session.
  * Uses an injectable fake LLM client to control exact fixture answers.
+ *
+ * The 429 rate-limit path for /api/exorcise is covered in test/server/ratelimit.test.ts
+ * ("limits /api/exorcise with the same per-client quota").
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

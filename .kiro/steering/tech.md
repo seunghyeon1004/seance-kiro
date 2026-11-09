@@ -17,8 +17,8 @@ src/
   exorcism/   score.ts  plan.ts
   errors.ts  ratelimit.ts  server.ts
 public/       index.html  app.js  tokens.css  base.css  styles.css — vanilla, no framework, no build step
-scripts/      make-crypt.sh  contrast.mjs
-test/         evidence/  ghost/  exorcism/  server/  ui/  fixtures/ (ghost-answers/, exorcism-plans/)
+scripts/      make-crypt.sh  contrast.mjs  record-plan-fixture.ts
+test/         evidence/  ghost/  exorcism/  server/  ui/ (incl. ui/pbt/)  fixtures/ (ghost-answers/, exorcism-plans/)
 .kiro/        steering/  specs/  hooks/  agents/  settings/
 ```
 

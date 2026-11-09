@@ -132,7 +132,7 @@ Satisfies: R3.1–R3.5, R6.1–R6.4.
   - In `production`, replace rejected claim text with `"[claim redacted — failed verification]"`. (Changed: redaction is opt-in via `REDACT_REJECTED=1`; rejected claims are shown by default on purpose.)
   - Return `c.json(ExorciseResponseSchema.parse({…}))`.
 - [x] Map errors to HTTP codes as specified in design §4.
-- [x] Write API tests in `test/server/exorcise.test.ts` (Hono test helpers, `ANTHROPIC_FIXTURE=1`, pre-seeded session fixture):
+- [x] Write API tests in `test/server/exorcise.test.ts` (Hono test helpers, `ANTHROPIC_FIXTURE=1`, pre-seeded session fixture). The 429 path is covered in `test/server/ratelimit.test.ts`:
   - Valid session → 200, body validates against `ExorciseResponseSchema`, `verifierScore ∈ [0, 1]`.
   - Unknown `sessionId` → 404, `code === "SESSION_NOT_FOUND"`.
   - Missing `sessionId` field → 400, `code === "VALIDATION_ERROR"`.
@@ -147,9 +147,9 @@ Satisfies: R5.1–R5.8, R6.2, R6.3, R8.3.
 
 - [x] Create `test/fixtures/exorcism-plans/` directory.
 - [x] Add `README.md` documenting: (1) the crypt sample ledger and `ScoreInput` used to generate the plan fixture hash, (2) the expected `buildPlanPrompt` output structure, (3) how to regenerate the hash.
-- [x] Add at least one canonical plan fixture `<hash>.json` whose SHA corresponds to `sha256(buildPlanPrompt(crypt_sample_ledger, scoredResult)).slice(0, 8)`. (Done as `6139f4c3.json` for a small fixed ledger defined in `test/exorcism/plan.fixture.test.ts`, not the crypt sample.)
+- [x] Add at least one canonical plan fixture `<hash>.json` whose SHA corresponds to `sha256(buildPlanPrompt(crypt_sample_ledger, scoredResult)).slice(0, 8)`. (`5de303db.json`, recorded from a real model call by `scripts/record-plan-fixture.ts` on the sample crypt, `legacy/tax.js` line 7.)
 - [x] The fixture must contain a `RefactorPlan`-shaped JSON wrapped inside a `GhostAnswer` (mirroring how `askGhost` returns data) with at least two steps and one do-not-touch entry with a valid `sha7` citation.
-- [x] Confirm that running `buildPlan` in fixture mode against the crypt sample ledger returns a `VerifiedRefactorPlan` with `verifierScore > 0`. (Verified with that fixed ledger through the real loader; the test fails if the fixture file is removed.)
+- [x] Confirm that running `buildPlan` in fixture mode against the crypt sample ledger returns a `VerifiedRefactorPlan` with `verifierScore > 0`. (`test/exorcism/plan.fixture.test.ts` rebuilds the crypt with real git and runs the real loader; it fails if the fixture file is removed.)
 
 Satisfies: R8.4, R8.5; smoke-test for end-to-end exorcism path.
 

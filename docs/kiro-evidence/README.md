@@ -20,7 +20,7 @@ Every file here is CLI output from a real run in this repository. The only edits
 
 ## Credits
 
-Free plan, 50 credits a month, read with `/usage` (the meter settles a few minutes late). First round on 2026-11-09: 3.37 to 7.92. Second round (T3, archaeologist review, warden fix, MCP fix): 7.92 to 16.78. Rate limit: 16.78 to 21.75. spooky-ui audit and completion: 21.75 to 31.61. spooky-ui visible requirements and tasks rewrite: 31.61 to 41.52. exorcism-plan verification, T6 and T7: 41.62 to 48.58. One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
+Free plan, 50 credits a month, read with `/usage` (the meter settles a few minutes late). First round on 2026-11-09: 3.37 to 7.92. Second round (T3, archaeologist review, warden fix, MCP fix): 7.92 to 16.78. Rate limit: 16.78 to 21.75. spooky-ui audit and completion: 21.75 to 31.61. spooky-ui visible requirements and tasks rewrite: 31.61 to 41.52. exorcism-plan verification, T6 and T7: 41.62 to 48.58. After that, no more Kiro runs: the recorded plan fixture (`scripts/record-plan-fixture.ts`, a real model call) and the spooky-ui property tests (`test/ui/pbt/ui.pbt.ts`) were done by hand. One V3 run is not in the files above: its tool permissions were denied because V3 uses different tool ids (`run_command`, `kiro_powers`) than V2 (`execute_bash`); the rerun with the right ids is in `powers-context7-session.txt`.
 
 ## Not proven
 
