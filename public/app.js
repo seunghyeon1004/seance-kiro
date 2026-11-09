@@ -17,6 +17,8 @@ const state = {
   lastCited: null,
   busy: false,
   lastReport: null,
+  totalVerified: 0,
+  totalClaims: 0,
 };
 
 function el(tag, props = {}, children = []) {
@@ -30,7 +32,8 @@ function el(tag, props = {}, children = []) {
       k === 'role' ||
       k === 'tabindex' ||
       k === 'id' ||
-      k === 'type'
+      k === 'type' ||
+      k === 'open'
     )
       n.setAttribute(k, v);
     else n[k] = v;
@@ -126,6 +129,8 @@ $('summon-form').addEventListener('submit', async (e) => {
     const data = await api('/api/summon', input);
     state.sessionId = data.sessionId;
     state.items = new Map(data.items.map((i) => [i.shortSha, i]));
+    state.totalVerified = 0;
+    state.totalClaims = 0;
     renderLedger(data);
     $('log').replaceChildren();
     $('exorcism-wrap').hidden = true;
@@ -295,6 +300,16 @@ function renderAnswer(data, question) {
     behavior: reduceMotion.matches ? 'auto' : 'smooth',
     block: 'nearest',
   });
+  // R3.3 / R3.9: update the persistent session counter
+  state.totalVerified += data.verified.length;
+  state.totalClaims += total;
+  const counter = $('verified-counter');
+  if (counter) {
+    counter.textContent =
+      state.totalClaims > 0
+        ? `${state.totalVerified} of ${state.totalClaims} claims verified this séance`
+        : '';
+  }
   // T3: store latest report and enable copy button
   if (typeof data.report === 'string' && data.report.length > 0) {
     state.lastReport = data.report;
@@ -433,6 +448,19 @@ const SIGNAL_LABEL = {
   nesting: 'Nesting',
 };
 
+/**
+ * severityLabel — pure function mapping a haunting score (0–100) to a text label.
+ * R7.3 / R8.5: text label so severity is never conveyed by colour alone.
+ * @param {number} score integer in [0, 100]
+ * @returns {'Restless'|'Troubled'|'Haunted'|'Possessed'}
+ */
+function severityLabel(score) {
+  if (score <= 25) return 'Restless';
+  if (score <= 50) return 'Troubled';
+  if (score <= 75) return 'Haunted';
+  return 'Possessed';
+}
+
 function planClaims(parent, claims, rejected) {
   for (const c of claims) parent.append(claimNode(c, false));
   for (const c of rejected) parent.append(claimNode(c, true));
@@ -442,20 +470,24 @@ $('exorcise-btn').addEventListener('click', async () => {
   if (state.busy || !state.sessionId) return;
   state.busy = true;
   $('exorcise-btn').disabled = true;
-  $('ask-status').textContent = 'Reading the haunting…';
+  $('exorcise-status').textContent = 'Performing exorcism…';
   $('exorcism-wrap').setAttribute('aria-busy', 'true');
   try {
     const d = await api('/api/exorcise', { sessionId: state.sessionId });
     $('ex-score').textContent = String(d.score);
+    // R7.3 / R8.5: severity text label next to score (never colour alone)
+    const sevEl = $('ex-severity');
+    sevEl.textContent = severityLabel(d.score);
     setHaunting(d.score);
     $('ex-signals').replaceChildren(
       ...d.signalBreakdown.map((s) => {
         const pct = Math.round(Math.max(0, Math.min(1, s.rawValue)) * 100);
+        const fill = el('span', { class: 'bar-fill' });
+        // R8.1 / CSP: set width via element.style (not inline HTML attribute)
+        fill.style.width = `${pct}%`;
         return el('li', {}, [
           el('span', { text: SIGNAL_LABEL[s.signal] || s.signal }),
-          el('span', { class: 'bar-track' }, [
-            el('span', { class: 'bar-fill', style: `width:${pct}%` }),
-          ]),
+          el('span', { class: 'bar-track' }, [fill]),
           el('span', { class: 'num', text: `${pct}%` }),
         ]);
       }),
@@ -465,32 +497,40 @@ $('exorcise-btn').addEventListener('click', async () => {
       ...d.plan.characterizationTests.map((t) => el('li', { text: t })),
     );
     $('ex-steps').replaceChildren(
-      ...d.plan.steps.map((s) => {
-        const li = el('li', {}, [
-          el('div', { text: s.description }),
-          el('p', {
-            class: 'meta',
-            text: `${s.reversible ? 'Reversible. ' : ''}${s.rationale}`,
+      ...d.plan.steps.map((s, i) => {
+        // R7.9: each step is a <details open> with summary = step description
+        const inner = el('div', { class: 'step-body' });
+        // R7.8: reversibility badge as its own element (not text inside rationale)
+        inner.append(
+          el('span', {
+            class: `badge badge--${s.reversible ? 'rev' : 'irrev'}`,
+            text: s.reversible ? 'Reversible ✓' : 'Irreversible ⚠',
           }),
+        );
+        inner.append(el('p', { class: 'meta', text: s.rationale }));
+        planClaims(inner, s.claims, s.rejectedClaims);
+        const details = el('details', { open: '' }, [
+          el('summary', { text: `${i + 1}. ${s.description}` }),
+          inner,
         ]);
-        planClaims(li, s.claims, s.rejectedClaims);
-        return li;
+        return el('li', {}, [details]);
       }),
     );
     $('ex-dnt').replaceChildren(
       ...d.plan.doNotTouchList.map((x) => {
-        const li = el('li', {}, [
-          el('div', {
-            class: 'range',
-            text:
-              x.lineRange.start === x.lineRange.end
-                ? `Line ${x.lineRange.start}`
-                : `Lines ${x.lineRange.start} to ${x.lineRange.end}`,
-          }),
-          el('div', { text: x.reason }),
+        // R7.9: each do-not-touch entry is a <details open> with summary = line range
+        const rangeText =
+          x.lineRange.start === x.lineRange.end
+            ? `Line ${x.lineRange.start}`
+            : `Lines ${x.lineRange.start}–${x.lineRange.end}`;
+        const inner = el('div', { class: 'dnt-body' });
+        inner.append(el('div', { text: x.reason }));
+        planClaims(inner, x.claims, x.rejectedClaims);
+        const details = el('details', { open: '' }, [
+          el('summary', { class: 'range', text: rangeText }),
+          inner,
         ]);
-        planClaims(li, x.claims, x.rejectedClaims);
-        return li;
+        return el('li', {}, [details]);
       }),
     );
     const all = [...d.plan.steps, ...d.plan.doNotTouchList];
@@ -516,7 +556,7 @@ $('exorcise-btn').addEventListener('click', async () => {
   } finally {
     state.busy = false;
     $('exorcise-btn').disabled = false;
-    $('ask-status').textContent = '';
+    $('exorcise-status').textContent = '';
     $('exorcism-wrap').removeAttribute('aria-busy');
   }
 });

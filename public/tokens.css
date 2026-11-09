@@ -1,3 +1,21 @@
+/*
+ * WCAG 2.1 AA contrast table — computed by scripts/contrast.mjs
+ * Format: text: --token-name (oklch(L% C H)) | bg: --token-name (oklch(L% C H))
+ * All listed pairs must be >= 4.5:1. Run `npm run contrast` to verify.
+ *
+ * text: --color-ink (oklch(93% 0.02 85)) | bg: --color-paper (oklch(14% 0.012 60))       — 16.21:1
+ * text: --color-ink-2 (oklch(82% 0.02 85)) | bg: --color-paper (oklch(14% 0.012 60))     — 11.41:1
+ * text: --color-muted (oklch(70% 0.02 80)) | bg: --color-paper (oklch(14% 0.012 60))     — 7.45:1
+ * text: --color-ink (oklch(93% 0.02 85)) | bg: --color-paper-2 (oklch(18.5% 0.014 60))   — 15.19:1
+ * text: --color-ink-2 (oklch(82% 0.02 85)) | bg: --color-paper-2 (oklch(18.5% 0.014 60)) — 10.69:1
+ * text: --color-muted (oklch(70% 0.02 80)) | bg: --color-paper-2 (oklch(18.5% 0.014 60)) — 6.98:1
+ * text: --color-accent (oklch(76% 0.15 65)) | bg: --color-paper-2 (oklch(18.5% 0.014 60)) — 8.42:1
+ * text: --color-accent-ink (oklch(17% 0.03 60)) | bg: --color-accent (oklch(76% 0.15 65)) — 8.65:1
+ * text: --color-verified (oklch(90% 0.11 150)) | bg: --color-paper (oklch(14% 0.012 60)) — 15.36:1
+ * text: --color-rejected (oklch(66% 0.012 80)) | bg: --color-paper (oklch(14% 0.012 60)) — 6.40:1
+ * text: --color-speculation (oklch(76% 0.1 305)) | bg: --color-paper (oklch(14% 0.012 60)) — 8.97:1
+ */
+
 :root {
   --space-3xs: 2px;
   --space-2xs: 4px;

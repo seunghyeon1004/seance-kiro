@@ -143,6 +143,12 @@
                 <p class="meta" id="ghost-name">Speaks only from the commits.</p>
               </div>
             </div>
+            <p
+              class="verified-counter"
+              id="verified-counter"
+              aria-live="polite"
+              aria-atomic="true"
+            ></p>
 
             <div class="log" id="log" aria-live="off"></div>
 
@@ -159,6 +165,12 @@
                 <button class="btn ghost" id="exorcise-btn" type="button">
                   Run the exorcism
                 </button>
+                <span
+                  class="status"
+                  id="exorcise-status"
+                  role="status"
+                  aria-live="polite"
+                ></span>
                 <button
                   class="btn ghost"
                   id="copy-report-btn"
@@ -225,6 +237,7 @@
               <p class="score">
                 <span class="num" id="ex-score">0</span
                 ><span class="of"> of 100 haunted</span>
+                <span class="severity" id="ex-severity"></span>
               </p>
               <ul class="signals" id="ex-signals"></ul>
             </div>

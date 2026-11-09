@@ -1,10 +1,10 @@
 /**
  * Spooky-UI static analysis tests.
  * Reads public/ files as text; no browser, no DOM.
- * Covers the behaviours required by the P1–P12 fixes.
+ * Covers the behaviours required by the P1–P14 fixes.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(__dirname, '../../public');
@@ -248,5 +248,324 @@ describe('Button text (R8.6)', () => {
       if (!text) empty.push(m[0].slice(0, 80));
     }
     expect(empty).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P6 — R7.3 / R8.5: severityLabel pure function and rendering
+// ---------------------------------------------------------------------------
+describe('P6 – severityLabel (R7.3, R8.5)', () => {
+  /**
+   * Extract and evaluate the severityLabel function from app.js.
+   * We do this by extracting the function source and wrapping it.
+   */
+  const fnMatch = js.match(/function severityLabel\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+
+  it('severityLabel function is defined in app.js', () => {
+    expect(fnMatch).not.toBeNull();
+  });
+
+  it('severityLabel(0) returns "Restless"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(0)).toBe('Restless');
+  });
+
+  it('severityLabel(25) returns "Restless"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(25)).toBe('Restless');
+  });
+
+  it('severityLabel(26) returns "Troubled"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(26)).toBe('Troubled');
+  });
+
+  it('severityLabel(50) returns "Troubled"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(50)).toBe('Troubled');
+  });
+
+  it('severityLabel(51) returns "Haunted"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(51)).toBe('Haunted');
+  });
+
+  it('severityLabel(75) returns "Haunted"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(75)).toBe('Haunted');
+  });
+
+  it('severityLabel(76) returns "Possessed"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(76)).toBe('Possessed');
+  });
+
+  it('severityLabel(100) returns "Possessed"', () => {
+    const body = fnMatch![1];
+    const fn = new Function('score', body) as (s: number) => string;
+    expect(fn(100)).toBe('Possessed');
+  });
+
+  it('#ex-severity element exists in index.html', () => {
+    expect(html).toMatch(/id=['"]ex-severity['"]/);
+  });
+
+  it('severityLabel is called in the exorcise handler', () => {
+    expect(js).toMatch(/severityLabel\s*\(\s*d\.score\s*\)/);
+  });
+
+  it('result of severityLabel is placed into ex-severity element', () => {
+    // ex-severity is fetched via $(), then .textContent = severityLabel(...)
+    expect(js).toMatch(/ex-severity/);
+    expect(js).toMatch(/sevEl\.textContent\s*=\s*severityLabel/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P7 — R7.8: reversibility badge as its own element
+// ---------------------------------------------------------------------------
+describe('P7 – reversibility badge (R7.8)', () => {
+  it('badge class exists in styles.css', () => {
+    expect(css).toMatch(/\.badge\s*\{/);
+  });
+
+  it('badge--rev class exists in styles.css', () => {
+    expect(css).toMatch(/\.badge--rev\s*\{/);
+  });
+
+  it('badge--irrev class exists in styles.css', () => {
+    expect(css).toMatch(/\.badge--irrev\s*\{/);
+  });
+
+  it('app.js renders "Reversible ✓" badge text', () => {
+    expect(js).toMatch(/Reversible ✓/);
+  });
+
+  it('app.js renders "Irreversible ⚠" badge text', () => {
+    expect(js).toMatch(/Irreversible ⚠/);
+  });
+
+  it('badge is created with el() as a separate element (not inside rationale text)', () => {
+    // The badge is el('span', { class: 'badge ...' })
+    expect(js).toMatch(/el\(['"]span['"],\s*\{\s*class\s*:\s*`badge/);
+  });
+
+  it('"Reversible. " text prefix in rationale is removed', () => {
+    // The old pattern combined reversible with rationale text
+    expect(js).not.toMatch(/Reversible\.\s+.*rationale/);
+    expect(js).not.toMatch(/\$\{s\.reversible \? 'Reversible\. ' : ''\}/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P9 — R7.9: steps and do-not-touch entries use <details open>
+// ---------------------------------------------------------------------------
+describe('P9 – details disclosure in steps and dnt (R7.9)', () => {
+  it('steps are wrapped in <details open>', () => {
+    // el('details', { open: '' }) is in the steps rendering
+    expect(js).toMatch(/el\(['"]details['"],\s*\{\s*open\s*:/);
+  });
+
+  it('step summary uses step description', () => {
+    // The summary text includes the step description from s.description
+    expect(js).toMatch(/el\(['"]summary['"],\s*\{\s*text\s*:.*description/);
+  });
+
+  it('do-not-touch entries use <details open>', () => {
+    // The dnt rendering also uses el('details', { open: '' })
+    // Both steps and dnt use it, and the dnt section contains lineRange
+    expect(js).toMatch(/lineRange/);
+    // Two details elements are created — one for steps, one for dnt
+    const detailsCount = (js.match(/el\(['"]details['"],\s*\{\s*open\s*:/g) || []).length;
+    expect(detailsCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('dnt summary shows line range text', () => {
+    // rangeText is used as the summary text
+    expect(js).toMatch(/el\(['"]summary['"],\s*\{[^}]*class[^}]*range/);
+  });
+
+  it('.steps details CSS rule exists', () => {
+    expect(css).toMatch(/\.steps\s+details/);
+  });
+
+  it('.dnt details CSS rule exists', () => {
+    expect(css).toMatch(/\.dnt\s+details/);
+  });
+
+  it('.step-body CSS class exists', () => {
+    expect(css).toMatch(/\.step-body\s*\{/);
+  });
+
+  it('.dnt-body CSS class exists', () => {
+    expect(css).toMatch(/\.dnt-body\s*\{/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P10 — R3.3 / R3.9: persistent verified-counter element
+// ---------------------------------------------------------------------------
+describe('P10 – persistent verified-counter (R3.3, R3.9)', () => {
+  it('#verified-counter element exists in index.html', () => {
+    expect(html).toMatch(/id=['"]verified-counter['"]/);
+  });
+
+  it('#verified-counter has aria-live="polite"', () => {
+    expect(html).toMatch(/id=['"]verified-counter['"][^>]*aria-live=['"]polite['"]/);
+  });
+
+  it('#verified-counter has aria-atomic="true"', () => {
+    expect(html).toMatch(/id=['"]verified-counter['"][^>]*aria-atomic=['"]true['"]/);
+  });
+
+  it('app.js updates #verified-counter after each answer', () => {
+    // verified-counter is fetched via $(), then counter.textContent = ...
+    expect(js).toMatch(/verified-counter/);
+    expect(js).toMatch(/counter\.textContent/);
+  });
+
+  it('session counters (totalVerified, totalClaims) are in state', () => {
+    expect(js).toMatch(/totalVerified\s*:/);
+    expect(js).toMatch(/totalClaims\s*:/);
+  });
+
+  it('counters are reset on new summon', () => {
+    expect(js).toMatch(/state\.totalVerified\s*=\s*0/);
+    expect(js).toMatch(/state\.totalClaims\s*=\s*0/);
+  });
+
+  it('counter text contains "this séance"', () => {
+    expect(js).toMatch(/this s[eé]ance/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P11 — R7.2: exorcise loading indicator placement and text
+// ---------------------------------------------------------------------------
+describe('P11 – exorcise loading indicator (R7.2)', () => {
+  it('#exorcise-status element exists in index.html', () => {
+    expect(html).toMatch(/id=['"]exorcise-status['"]/);
+  });
+
+  it('#exorcise-status has role="status"', () => {
+    expect(html).toMatch(/id=['"]exorcise-status['"][^>]*role=['"]status['"]/);
+  });
+
+  it('#exorcise-status has aria-live="polite"', () => {
+    expect(html).toMatch(/id=['"]exorcise-status['"][^>]*aria-live=['"]polite['"]/);
+  });
+
+  it('#exorcise-status is adjacent to #exorcise-btn in the HTML', () => {
+    // Both should appear in the same .ask-actions block
+    const actionsMatch = html.match(/class=['"]ask-actions['"][^]*?<\/div>/);
+    expect(actionsMatch).not.toBeNull();
+    const actionsBlock = actionsMatch![0];
+    expect(actionsBlock).toMatch(/exorcise-btn/);
+    expect(actionsBlock).toMatch(/exorcise-status/);
+  });
+
+  it('exorcise handler sets loading text to "Performing exorcism…"', () => {
+    expect(js).toMatch(/exorcise-status.*Performing exorcism…/);
+  });
+
+  it('exorcise handler clears #exorcise-status in finally block', () => {
+    // In the finally block, exorcise-status.textContent is set to ''
+    expect(js).toMatch(
+      /exorcise-status.*textContent\s*=\s*['"]['"]|exorcise-status.*=\s*''/,
+    );
+  });
+
+  it('exorcise handler no longer uses #ask-status for its loading text', () => {
+    // The ask-status should not be set to the exorcise loading message
+    expect(js).not.toMatch(/ask-status.*Reading the haunting/);
+    expect(js).not.toMatch(/ask-status.*Performing exorcism/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P14 — R8.1: contrast table comment in tokens.css; contrast.mjs script exists
+// ---------------------------------------------------------------------------
+describe('P14 – contrast table and script (R8.1)', () => {
+  const tokensPath = resolve(root, 'tokens.css');
+  const tokensCss = readFileSync(tokensPath, 'utf8');
+  const contrastScriptPath = resolve(root, '../scripts/contrast.mjs');
+
+  it('tokens.css has a WCAG contrast table comment', () => {
+    expect(tokensCss).toMatch(/WCAG.*contrast.*table/i);
+  });
+
+  it('tokens.css lists at least 6 text/bg token pairs', () => {
+    const pairCount = (tokensCss.match(/text:.*oklch.*\|.*bg:.*oklch/g) || []).length;
+    expect(pairCount).toBeGreaterThanOrEqual(6);
+  });
+
+  it('each listed pair uses the oklch() format', () => {
+    const pairs = tokensCss.match(/text:.*oklch.*\|.*bg:.*oklch/g) || [];
+    for (const pair of pairs) {
+      expect(pair).toMatch(/oklch\(/);
+    }
+  });
+
+  it('scripts/contrast.mjs exists', () => {
+    expect(existsSync(contrastScriptPath)).toBe(true);
+  });
+
+  it('package.json has a "contrast" npm script', () => {
+    const pkgPath = resolve(root, '../package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts).toHaveProperty('contrast');
+    expect(pkg.scripts.contrast).toMatch(/contrast\.mjs/);
+  });
+
+  it('all contrast pairs in tokens.css pass 4.5:1 (inline contrast check)', () => {
+    const PAIR_RE =
+      /\*\s+text:\s+\S+\s+\(oklch\(([^)]+)\)\)\s*\|\s*bg:\s+\S+\s+\(oklch\(([^)]+)\)\)/g;
+
+    function parseOklch(str: string): [number, number, number] {
+      const parts = str.trim().split(/\s+/);
+      return [parseFloat(parts[0]) / 100, parseFloat(parts[1]), parseFloat(parts[2])];
+    }
+
+    function luminance(L: number, C: number, H: number): number {
+      const a = C * Math.cos((H * Math.PI) / 180);
+      const b = C * Math.sin((H * Math.PI) / 180);
+      const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+      const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+      const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+      const lv = l_ ** 3;
+      const mv = m_ ** 3;
+      const sv = s_ ** 3;
+      const r = 4.0767416621 * lv - 3.3077115913 * mv + 0.2309699292 * sv;
+      const g = -1.2684380046 * lv + 2.6097574011 * mv - 0.3413193965 * sv;
+      const bv = -0.0041960863 * lv - 0.7034186147 * mv + 1.707614701 * sv;
+      const clamp = (v: number) => Math.max(0, Math.min(1, v));
+      return 0.2126 * clamp(r) + 0.7152 * clamp(g) + 0.0722 * clamp(bv);
+    }
+
+    function contrastRatio(l1: number, l2: number): number {
+      const li = Math.max(l1, l2);
+      const da = Math.min(l1, l2);
+      return (li + 0.05) / (da + 0.05);
+    }
+
+    const failing: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = PAIR_RE.exec(tokensCss)) !== null) {
+      const [tL, tC, tH] = parseOklch(m[1]);
+      const [bL, bC, bH] = parseOklch(m[2]);
+      const ratio = contrastRatio(luminance(tL, tC, tH), luminance(bL, bC, bH));
+      if (ratio < 4.5)
+        failing.push(`ratio ${ratio.toFixed(2)} for "${m[0].slice(0, 60)}"`);
+    }
+    expect(failing).toEqual([]);
   });
 });
