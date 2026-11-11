@@ -5,6 +5,8 @@
 **Code:** https://github.com/seunghyeon1004/seance-kiro
 **Tagline:** Ask the one who wrote it. A ghost that can only say what git remembers.
 
+> **Draft status (2026-11-11).** This write-up describes the entry as submitted on 2026-11-09. Since then the ward was hardened after Kiro's own security audit, and a guided first séance, recorded answers, a hostile sample repository, the haunting map and an MCP server were added through four more Kiro specs (ten specs, 1,382 tests). The section "Update: the 4,000-credit round" at the end summarises that; the text above it still needs the same pass before it is pasted into Devpost. The current state is in `README.md` and `.kiro/README.md`.
+
 ## Inspiration
 
 Every codebase has a line nobody dares to touch. `git blame` gives you a name and a date, never a reason, and the person who knew the reason has usually left. We wanted to be able to ask them anyway, without letting an AI make things up in their name.
@@ -22,7 +24,7 @@ On the bundled sample, `git blame` on line 7 of `legacy/tax.js` points at a 2024
 
 ## How we built it
 
-TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. There are 418 tests, including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
+TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. As submitted there were 418 tests (1,382 after the 2026-11-11 round), including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
 
 ## How Kiro was used
 
@@ -135,3 +137,20 @@ Specs with requirement IDs make AI output checkable. Hooks that run the typechec
 ## Built with
 
 TypeScript, Node.js, Hono, zod, Anthropic Claude, execa, fast-check, vitest, Kiro CLI, Kiro Crew, MCP (git, filesystem)
+
+## Update: the 4,000-credit round (2026-11-11)
+
+When the hackathon's bonus credits arrived we pointed Kiro at its own submission first. Three read-only audits (security, accessibility, a judge's first run) set the plan, and the security one was humbling: the ward verified less than the page promised. A quote was optional, a "silence" claim could carry any sentence, and the author and date check our steering file described had never been written.
+
+What followed, all through Kiro CLI 3.2.0 on `claude-opus-5.5`, mostly in the V3 engine:
+
+- **Four specs written by Kiro in V3 spec mode** from those audits, then implemented test-first by our `warden` agent, whose hooks typecheck after every file write and run the suite when it stops: `ward-hardening`, `first-seance`, `haunting-map`, `seance-mcp`.
+- **The ward now does what it says.** A quote is mandatory and must be found in one field of the cited commit; years and ledger authors named in a claim must be supported; silence is shown apart and never counted. A hostile sample repository, `possessed`, attacks the ward with prompt injection, and the tests assume the worst: a scripted model that obeys every injected order still gets nothing verified. The page lets you watch that with one click.
+- **A judge's first three minutes.** One-click questions, one-click false claims, the line in question on screen, a retry while the free host wakes, and recorded answers (from real model calls, re-checked by the live ward) when the model is unavailable.
+- **The haunting map.** Which files are haunted by which departed author, from two git calls and no model.
+- **Séance as an MCP server.** Our `archaeologist` Kiro agent now sends its own claims to the ward before stating them. Its first real run found a bug in our server.
+- **A second opinion.** A new read-only agent, `inquisitor`, on a different model family, re-attacked the result and confirmed eight findings, which were fixed. Both audits were then repeated on the finished page.
+
+What Kiro got right that we did not: it stopped and asked instead of skipping tests; it broke the verifier on purpose to prove the adversarial tests could fail; it found that a parser fix we suggested was still ambiguous and wrote a sound one. What went wrong: one session was cut off by a throttle; the V3 engine denies shell and MCP calls in non-interactive runs unless everything is trusted; Kiro cannot edit its own settings directory; and nobody has yet looked at the new page in a browser, which the docs say plainly.
+
+Numbers: ten specs, 564 of 568 task items ticked (the open ones need a browser), 1,382 tests, about 2,000 of the 4,000 bonus credits (the meter is shared with another session on the account).

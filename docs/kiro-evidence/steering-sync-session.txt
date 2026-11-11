@@ -1,0 +1,310 @@
+# Kiro CLI 3.2.0 (V3 engine, claude-opus-5.5), 2026-11-11: Kiro bringing the four steering files in line with the code and writing two new ones (testing.md for test/**, mcp-server.md for src/mcp/**), each statement checked against the code. Unedited output; only the home directory prefix is replaced with ~.
+
+$ kiro-cli chat --no-interactive --v3 --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Bring the steering files in .kiro/steering/ in line with the code as it is now, and add two new ones. Steering files are short, imperative rules for future Kiro sessions in this repository, not history: say what is true and what to do, in the present tense, with no dates or stories. Verify every statement against the code before writing it (routes in src/server.ts, files with a directory listing, commands in package.json, tokens in public/tokens.css, copy in public/index.html and public/app.js). Do not modify any file outside .kiro/steering/.
+
+1. product.md: the core rules as they are now (quotes mandatory; "citations verified", never the sentence; silence apart; the ward only gets stricter; ledger text and author names are untrusted; recordings and fixtures only from real model calls), the user flows as they are now (summon with the two samples or a GitHub link, the line in question, the three-step guide, planted claims that never count as the ghost's, the possessed ghost, the exorcism with dropped steps, the haunting map and "Summon here", recorded answers when the model is unavailable, the MCP server for other agents), audience unchanged. Keep the hackathon context short.
+2. tech.md: stack, every route, directory layout (src/evidence incl. haunting, src/ghost incl. recordings and possessed-ghost, src/mcp, recordings/, scripts/, test/ folders incl. adversarial, e2e, mcp), conventions (Zod at every boundary; no shell strings for git; fixed error sentences, details only in the server log; limits on every route that does work; no new dependency without a spec decision), key commands (npm test, typecheck, lint, contrast, crypt, possessed, mcp, the two recording scripts and that only a human with a real key runs them).
+3. evidence-rules.md: check it against src/ghost/verifier.ts and src/ghost/schema.ts line by line and correct anything that differs; keep it short.
+4. ui-spooky.md (keep its front matter): tokens as they are in public/tokens.css now (the current file lists hex colours that are not the real tokens; replace them with the real token names and what each is for), the UI-to-data mappings that exist, the vocabulary rules (a claim "passed the ward", its citations are verified; "the model's words"; recorded and scripted turns are always labelled), the accessibility floor as now enforced (errors tied to controls, busy buttons use aria-disabled, grids use minmax(0, 1fr), no colour-only signal, the candle control, forced-colors), components that exist (guide, source lines, claim with "The words the ward found", map tiles and legend), and the checks that live in the repo (npm run contrast reads the real tokens; test/ui and test/e2e).
+5. New testing.md with front matter `inclusion: fileMatch` and `fileMatchPattern: 'test/**'`: the rules this repository learned the hard way. Test first and see it fail for the right reason. Never mock the thing a test is meant to prove. Never weaken a schema or the verifier to make a test pass; a new verifier rule comes with a property against the frozen copies in test/ghost/pbt/. Fixtures (test/fixtures/**/*.json) and recordings (recordings/*.json) are written only by the recording scripts from real model calls, never by hand, and tests that need a recording write their own into a temp dir. No it.skip or .only in a commit. Real git on generated repositories for anything that parses git output. Page behaviour is tested in jsdom through test/e2e/harness.ts with public/app.js unmodified and only the model scripted; say in the file header what is stubbed; these are not rendering tests. A task is ticked only after its test was run and its claim checked against the code; if something could not be verified, leave it unticked and say why.
+6. New mcp-server.md with front matter `inclusion: fileMatch` and `fileMatchPattern: 'src/mcp/**'`: the MCP server's rules (stdout carries protocol only, logs to stderr; no model call and no network; local repositories only, paths never echoed in errors; tool names are stable API; tool input is validated with Zod and the ward decides, the server adds no acceptance of its own; ledgers in memory only; the SDK version is pinned).
+
+Each file at most about 60 lines. When done, list for each file what you changed and which statements you verified against which file. Do not run git add/commit/push.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=7
+[tool] Check staged diff and list key directories
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The staged diff is empty, so the hook's review has nothing to check. I'll note that at the end. Now I'll read the current steering files and the sources.
+[tool] Read steering files, package.json and test folders
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find routes, model name, recording script usage
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read tokens and recordings READMEs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read server error messages, middleware and routes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find haunting map and limit usage in server
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Count UI copy and feature terms in public files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show lines with key UI copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect guide, planted claims and map in index.html
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read guide steps and planted-claim copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the CSS accessibility items and the UI-to-data mappings.
+[tool] Find a11y and mapping rules in styles.css
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read candle, planchette, fog and busy-button code
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read map tile CSS and confidence/haunting callers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read map tile and legend rendering
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the verifier and schema, for the evidence-rules check.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Extract schema limits and shapes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check EvidenceItem fields, date format, git calls, ref regex
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check log dates, refs patterns, clone flags, report copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the MCP server.
+[tool] Read MCP server sources and tool registrations
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check MCP input schemas, imports, and config
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read harness header, frozen verifiers, skip/only, .kiro dirs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read headers of ghost, recordings, haunting, persona
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check suspicious label, exorcism labels, rules section
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check where tests write fixtures and recordings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check sloplint hook and steering line counts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Verify design-floor rules hold in CSS
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read summon form labels
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I have what I need. Writing the six files now.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check recent commit message format
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check when the haunting map is built
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read summon build branch
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Good, the map is built on every summon. Fixing the two imprecise lines in tech.md.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check GitHub PR enrichment and field truncation
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check ledger caps, PR enrichment and freezing
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read item construction and caps
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Confirm the listed PBT properties exist
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find where each colour token is used
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read claim node labels
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check paper-3 selectors and forced-colors block
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Check map forced-colors rules
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Read MCP repo resolution and app header
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Check line counts, formatting and changed files
+[tool] status: Pending
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+I've updated the four steering files and added `testing.md` and `mcp-server.md`. Only `.kiro/steering/` changed, nothing is staged or committed, and Prettier passes on the folder. Two files run slightly over 60 lines: `tech.md` is 62 and `ui-spooky.md` is 64. The other four are 33 to 42.
+
+**Evidence-review hook:** `git diff --cached` is empty, so there were no staged changes to `verifier.ts`, `schema.ts`, fixtures or recordings to check.
+
+## product.md
+**Changed:** I rewrote the core rules to cover the mandatory quote, "Citations verified" (never the sentence), silence kept apart, speculation labelled, the ward only getting stricter, untrusted ledger text and names with the two warning labels, and recordings and fixtures only from real model calls. The user flows now cover:
+- summon, "The line in question" and the guide's three steps;
+- "Planted by you" claims;
+- the possessed ghost and "Struck from the plan";
+- the haunting map with "Summon here";
+- recorded answers and the MCP server.
+
+The audience is unchanged. The hackathon context is two lines, and I dropped the deadline date because you asked for no dates.
+
+**Verified against:**
+- `public/index.html`: guide, presets, possess button, `h-dropped`.
+- `public/app.js`: claim labels, "Planted by you", the scripted and recorded labels, the warning labels, "Summon here".
+- `recordings/README.md` and `src/server.ts`: when a recording is used.
+- `src/mcp/app.ts`: tool names.
+
+## tech.md
+**Changed:** I added a table of all seven routes with their limits (adding `/api/possess` and the recorded-answer limit), and an updated directory layout including `haunting*`, `recordings.ts`, `possessed-ghost.ts`, `src/mcp/`, `recordings/`, `record-answers.ts` and every test folder. The conventions now cover argument arrays for git, fixed error sentences, a limit on every route that does work, and no new dependency without a spec decision. The commands section adds `npm run mcp` and says that only a human with a real key runs the two recording scripts.
+
+**Verified against:**
+- `src/server.ts`: routes, middleware, `ERROR_MESSAGES`, clone pool, `SESSION_MAX`.
+- `src/ghost/llm.ts`: `MODEL_ID`.
+- `src/ghost/persona.ts`: the system/user split.
+- `src/evidence/git.ts`: execa/execFile with arrays; clone flags `--filter=blob:none --depth 100`.
+- `package.json`: scripts and versions.
+- Directory listings, `.env.example`, and the headers of both recording scripts.
+- `git log`: the commit message format.
+
+## evidence-rules.md
+**Corrected:**
+- `git log -L` runs without `--follow`. The code says `-L` follows renames itself and rejects `--follow`.
+- GitHub PR text goes into `item.pr`, only for the first ref and only with a token. It is not appended, and it is not a quote field.
+- The ref patterns also include `Resolves`, and the keywords match case-insensitively.
+- `EvidenceItem` also has `email`, `pr` and `suspiciousMessage`. Hashes are lowercase hex, and dates are UTC.
+- The ledger keeps at most 50 items, with hunks capped at 512 KB in total.
+- Author names match as whole words, longest name first, using `indexOf`.
+- An answer has 1 to 50 claims, and a silence claim's `text` and `silenceReason` need at least 1 character.
+- The UI counter says "N of M claims passed the ward". Only the report says "claims verified".
+- The frozen verifiers are now named by file. I removed the history about which spec supersedes which.
+
+**Verified against:** `src/ghost/verifier.ts` (all of it) and `src/ghost/schema.ts`, plus `ledger.ts`, `git.ts`, `refs.ts`, `report.ts`, and the PBT files for the two frozen verifiers, rename mapping and score monotonicity.
+
+## ui-spooky.md
+**Changed:** I kept the front matter. The hex colours are replaced with the real `--color-*` tokens and what each is used for, plus the font tokens. The UI-to-data mappings are the ones that exist: candle, fog, planchette, map `--share` and the counter. I added the vocabulary rules and rewrote the accessibility floor to match what is enforced now. The components section covers the guide, source lines, claims, and map tiles with the legend. The design floor is shorter, and the checks section names `npm run contrast`, `test/ui` and `test/e2e`.
+
+**Verified against:**
+- `public/tokens.css`: each token.
+- `public/styles.css`: where each token is used, `minmax`, `aria-disabled`, `html.still`, forced-colors, the 333 ms flicker floor, and that there are no literal colours or `transition: all`.
+- `public/app.js` and `public/index.html`: all quoted copy.
+- `scripts/contrast.mjs`: its header.
+
+## testing.md (new)
+**Contents:** the rules you listed: test first and fail for the right reason, no mocking what the test proves, no weakening schemas or the verifier, frozen-copy properties, fixtures and recordings only from the scripts, temp-dir recordings in tests, no `.skip` or `.only`, real git, the jsdom harness with its stubs named in each file header, and the ticking rule.
+
+**Verified against:** the header of `test/e2e/harness.ts` (what is stubbed), `test/ghost/pbt/`, `test/ghost/recordings.test.ts` (the temp-dir pattern), and a grep showing no `.skip` or `.only` today.
+
+## mcp-server.md (new)
+**Contents:**
+- stdout carries protocol only, and logs go to stderr;
+- no model call and no network;
+- local repositories only, and no path in any error;
+- the three tool names are stable API;
+- Zod input validation, with `verify()` deciding and the server adding no acceptance of its own;
+- an in-memory store of 50 ledgers;
+- the pinned SDK.
+
+**Verified against:** `src/mcp/server.ts`, `console.ts`, `messages.ts`, `repo.ts`, `store.ts`, `tools.ts` and `app.ts`, `test/mcp/imports.test.ts`, and `package.json` (SDK `1.32.2`).
+
+## Where the code doesn't match the new rules
+- **Fixture files written by a test:** `test/ghost/llm.test.ts` writes synthetic fixtures into `test/fixtures/ghost-answers/`, and two of them (`50f6a8a5.json`, `76439609.json`) are committed. That breaks the new rules that fixtures come only from real model calls and that tests write into a temp dir. I left the test alone because it is outside `.kiro/steering/`.
+- **Unpinned dependency:** `@hono/node-server` uses a caret range (`^1.19.18`). So `tech.md` says to pin new dependencies exactly, not that every dependency already is.
+- **Untracked file:** `docs/kiro-evidence/powers-context7-retry-session.txt` was already in the working tree and untracked. I did not create it or touch it.
+exit 0

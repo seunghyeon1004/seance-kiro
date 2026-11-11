@@ -1,6 +1,8 @@
 # Séance
 
-**Ask the one who wrote it.** Point Séance at a line of code. It reads that line's git history and lets the original author's ghost answer, but only from the commits. A deterministic ward checks every claim: a commit hash that does not exist, or a quote that is not in the commit, is struck out and counted ("4 of 5 claims verified").
+**Ask the one who wrote it.** Point Séance at a line of code. It reads that line's git history and lets the original author's ghost answer, but only from the commits. A deterministic ward checks every claim: a commit hash that is not in the history, or a quote that is not in the cited commit, is struck out with the reason, and the page keeps count ("4 of 5 claims passed the ward").
+
+Live demo: <https://seance-kiro.onrender.com> (a free host that sleeps when idle; the first load can take a minute).
 
 Built with Kiro for Kiroween 2026 (category: Costume Contest).
 
@@ -8,25 +10,33 @@ Built with Kiro for Kiroween 2026 (category: Costume Contest).
 
 ## What it does
 
-- **The crypt.** An evidence ledger from `git blame --porcelain` and `git log -L` (renames followed), with each commit's message, author, date, diff hunk, `#123` references and, for public GitHub repos with a token, the pull request text. No AI is involved in this step.
-- **The ghost.** Claude answers in first person from the ledger only. Every claim is typed `memory`, `speculation` or `silence` and carries `[sha7]` citations with exact quotes.
-- **The ward.** The verifier checks each citation and quote against the ledger. Rejected claims stay visible, struck through, with the reason.
-- **Plant a false memory.** Send a claim straight to the ward (invent a hash, misquote a real commit) and watch it refuse.
-- **The exorcism.** A haunting score (age, churn, authors gone, TODO and HACK markers, missing tests, nesting) and a refactor plan: characterization tests first, small steps, and a cited do-not-touch list for lines whose history shows a deliberate workaround. The plan passes through the same ward.
+- **The crypt.** An evidence ledger from `git blame --porcelain` and `git log -L` (renames followed): each commit's message, author, date, diff hunk and `#123` references. No AI is involved in this step. The page shows the line you asked about above it.
+- **The ghost.** Claude answers in first person from the ledger only. Every claim is typed `memory`, `speculation` or `silence`. A memory or speculation claim must cite a commit and quote its exact words.
+- **The ward.** A deterministic verifier, not a model. For each claim it checks that the cited hash names exactly one commit in the ledger, that the quote is literally in that commit's subject, message or diff, and that any year or ledger author the claim names is supported by a cited commit. Under each claim that passes, the page shows the words the ward found. Refused claims stay visible, struck through, with the reason. A silence claim ("the record is silent") cites nothing, so it is shown apart and never counted as verified.
+- **Try it in three clicks.** After a summon, a guide offers ready questions, three false claims you can send straight to the ward (invent a citation, misquote a real commit, blame the wrong author), and the exorcism.
+- **The exorcism.** A haunting score (age, churn, authors gone, TODO and HACK markers, missing tests, nesting) and a refactor plan: characterization tests first, small steps, and a cited do-not-touch list for lines whose history shows a deliberate workaround. The plan's claims pass through the same ward, and a step with no verified claim behind it is struck from the plan.
+- **The haunting map.** Which files of the repository are haunted by which departed author: computed from git alone (two git calls, no model), every number a count of commits, every tile naming the commit it rests on. "Summon here" opens the séance on that file.
+- **A hostile sample.** `possessed` is a second bundled repository whose commits attack the ward: an order to answer without quotes, an author name written as a rule, a forged evidence block, a false statement dressed as silence, a wrong author and year. "Let a possessed ghost answer" plays a scripted ghost that obeys every one of those orders (no model is called), so you can watch the ward refuse it.
+- **When the model is down.** For the sample questions, the repository ships answers recorded from real model calls. If the live model has no key, is busy or has used its daily calls, the page shows the recording, labelled as recorded, after the live ward has checked it again.
+- **For other agents.** The ledger and the ward run as an MCP server, so a coding agent can have its own claims about a repository checked the same way (see below).
 
 Try it on the bundled sample: `crypt`, file `legacy/tax.js`, line 7. `git blame` points at a variable rename from 2024; the ledger finds the 2020 commit that explains the 3 second wait (the vendor returns 429 within 3 seconds).
 
+### What the ward proves, and what it does not
+
+It proves that each citation is real and each quote is really in the cited commit. It does not prove that the ghost's sentence says the same thing as the quote: that is why the page shows both and calls the citations verified, not the sentence. A commit that states something false can be quoted truthfully; commits that try to give the ghost orders are flagged on the page, and so is any claim that cites one. Names of people who never appear in the ledger, and dates finer than a year, are not checked. The rate limits trust the leftmost `X-Forwarded-For` entry, which a client can set; this is a known open risk on the hosted demo.
+
 ## Screens
 
-Captured 2026-11-09 from the app running locally with a real model key (headless Chromium, 1280x800).
+**These captures are from 2026-11-09 and predate the changes of 2026-11-11.** The page now also has the guide, "The line in question", "The words the ward found" under each claim, the haunting map and the possessed sample; some labels differ (the quote field is no longer optional, the tally reads "passed the ward"). They will be recaptured.
 
-| Ghost answer, every claim cited (4 of 4 verified)                 | A planted false memory, refused                                        |
+| Ghost answer, every claim cited                                   | A planted false memory, refused                                        |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | ![Ghost answer](docs/screens/1280-2-ghost-answer.png)             | ![Ward refuses an invented hash](docs/screens/1280-3-ward-refuses.png) |
 | **A misquote of a real commit, refused**                          | **The exorcism: haunting score and plan**                              |
 | ![Ward refuses a misquote](docs/screens/1280-4-ward-misquote.png) | ![Exorcism score](docs/screens/1280-5-exorcism.png)                    |
 
-Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Refactor steps with badges: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
+Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Refactor steps: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
 
 ## Run it
 
@@ -34,25 +44,29 @@ Requires Node 20+ and git.
 
 ```bash
 npm install
-cp .env.example .env      # add ANTHROPIC_API_KEY (or set ANTHROPIC_FIXTURE=1)
+cp .env.example .env      # add ANTHROPIC_API_KEY; without a key the sample questions use the recorded answers
 set -a; . ./.env; set +a
-npm start                 # builds data/crypt, serves http://localhost:3000
-npm test                  # 418 tests incl. property-based tests and real-git tests on a generated sample repo
+npm start                 # builds both samples (data/crypt, data/possessed), serves http://localhost:3000
+npm test                  # 1,382 tests: unit, property-based (fast-check), real git on generated repos, jsdom flows of the page
+npm run typecheck && npm run lint && npm run contrast
 ```
+
+Without a key, everything except free-typed questions and repositories of your own works: the crypt, the ward, the map, the possessed ghost, and the recorded answers for the sample questions. (`ANTHROPIC_FIXTURE=1` is for the test suite only; it does not make the live page answer.)
 
 Docker (Render ready): `docker build -t seance . && docker run -p 3000:3000 -e ANTHROPIC_API_KEY=... seance`. `render.yaml` is a Render blueprint.
 
 ## API
 
-| Route                | Body                                                | Returns                                         |
-| -------------------- | --------------------------------------------------- | ----------------------------------------------- |
-| `POST /api/summon`   | `{repoUrl, file, startLine, endLine, githubToken?}` | `{sessionId, items[], truncated}`               |
-| `POST /api/ask`      | `{sessionId, question}`                             | `{verified[], rejected[], score, voice}`        |
-| `POST /api/ward`     | `{sessionId, answer}`                               | same shape; verifies any claim set              |
-| `POST /api/exorcise` | `{sessionId}`                                       | `{score, signalBreakdown, plan, verifierScore}` |
-| `GET /api/health`    |                                                     | `{status}`                                      |
+| Route                | Body                                                                        | Returns                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/summon`   | `{repoUrl, file, startLine, endLine}` or `{repoUrl, file, wholeFile: true}` | `{sessionId, items[], lines[], range, persona, shallow, truncated, map?}` (`mapNote` when there is no map)                  |
+| `POST /api/ask`      | `{sessionId, question}`                                                     | `{verified[], rejected[], silent[], tally, score, report, voice, recorded}`; each verified claim carries its `quotes`       |
+| `POST /api/ward`     | `{sessionId, answer}`                                                       | the same shape without `recorded`; checks any claim set, no model call                                                      |
+| `POST /api/possess`  | `{sessionId}` (a `possessed` sample session only)                           | the same shape with `scripted: true`; the scripted ghost's claims after the ward                                            |
+| `POST /api/exorcise` | `{sessionId}`                                                               | `{score, signalBreakdown, plan: {characterizationTests, steps, doNotTouchList, dropped, summary}, verifierScore, recorded}` |
+| `GET /api/health`    |                                                                             | `{status, uptime, model, samples}`                                                                                          |
 
-`repoUrl` is `crypt` or a `https://github.com/owner/repo` URL. Local paths are refused unless `ALLOW_LOCAL=1`. Commit text reaches the model wrapped as untrusted data.
+`repoUrl` is `crypt`, `possessed` or a `https://github.com/owner/repo` URL (default branch, the most recent 100 commits). Local paths are refused unless `ALLOW_LOCAL=1`. Commit text reaches the model escaped, as data in the user turn; the rules travel in the `system` parameter. Requests are limited: 64 KB bodies, per-client limits on every route that does work, a daily cap on model calls, at most three clones at once.
 
 ## Use the ward from your own agent
 
@@ -88,7 +102,14 @@ Limits:
 
 ## How Kiro was used
 
-Everything under [`.kiro/`](.kiro) is committed: steering docs (product, tech, evidence rules, UI rules), six specs with EARS requirements, design and tasks, and the commit history references the spec task being implemented. Kiro Powers (Context7), Kiro Crew (two parallel subagents) and the fifth spec are described in [`.kiro/README.md`](.kiro/README.md), with raw session output in [`docs/kiro-evidence/`](docs/kiro-evidence). See the write-up in the submission for what worked, what did not, and where Kiro's free quota ran out.
+Everything under [`.kiro/`](.kiro) is committed, and [`.kiro/README.md`](.kiro/README.md) says plainly what Kiro did, what was done by hand, and where Kiro was wrong. Raw output of every Kiro session is in [`docs/kiro-evidence/`](docs/kiro-evidence).
+
+- **Specs.** Ten specs with EARS requirements, a design and tasks: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`, and, written by Kiro in V3 spec mode on 2026-11-11, `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp`. 564 of 568 task items are ticked, each checked against code and tests; the open ones need a person looking at the page in a browser.
+- **Audits that became specs.** Kiro's read-only security review showed the ward verified less than the page promised; that became `ward-hardening`. Its first-run audit from a judge's seat became `first-seance`. Its accessibility audit was fixed test-first. After the work, both audits were run again on the result.
+- **Custom agents with hooks.** `warden` builds test-first and gets a typecheck after every file write and the full suite when it stops. `inquisitor`, read-only and on a different model family, re-attacks the ward after a change. `archaeologist` answers questions about history and has its own claims checked by the ward.
+- **MCP.** The repository's `seance` server gives Kiro the ledger and the ward as tools, next to the git and filesystem servers.
+- **Steering.** Product, tech, evidence rules, UI rules, testing rules and the MCP server's rules, updated as the code changed.
+- Earlier rounds on the free plan also used Kiro Powers (Context7) and Kiro Crew (two parallel subagents).
 
 ## License
 

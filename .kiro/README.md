@@ -102,6 +102,52 @@ The ticks in `ghost-verifier` and `evidence-ledger` were then re-checked line by
 
 Redaction of rejected claims is opt-in (`REDACT_REJECTED`), not tied to production, and `git log -L` runs without `--follow`.
 
+## The 4,000-credit round (2026-11-11)
+
+Everything above was built on the free plan's 50 credits with small models. On 2026-11-11 the hackathon's 4,000 bonus credits arrived, and the work below was done with Kiro CLI 3.2.0 on `claude-opus-5.5`, almost all of it in the V3 engine. The loop was the same each time: a read-only Kiro audit, a spec written by Kiro in V3 spec mode (`--v3 --mode spec`), implementation test-first by the `warden` agent with its hooks, every diff read by hand, the app run locally, then a commit. At the end a second agent on a different model re-attacked the result. Transcripts of every session are in `docs/kiro-evidence/`.
+
+### What was built
+
+| Spec | What it is | Task items |
+| --- | --- | --- |
+| `ward-hardening` | Kiro's security audit found that the ward verified less than the page said. Now a quote is mandatory and must be found in one field of the cited commit; a year or a ledger author named in a claim must be supported by a cited commit; silence claims are reported apart and never verified; an ambiguous short hash is refused; the rules travel in the model's `system` parameter and commit text is escaped; plan steps with no verified claim are struck. A hostile sample repository, `possessed`, and tests in which a scripted model obeys every injected order prove it. Limits on summon, ward, request bodies, clones and sessions. | 74 of 74 |
+| `first-seance` | From Kiro's first-run audit: a three-step guide with one-click questions and one-click false claims, the line in question shown above the crypt, a retry while the free host wakes, model failures as plain sentences, recorded answers for the sample questions when the model is down (always re-checked by the live ward), GitHub links as people paste them, and a scripted "possessed ghost" that shows the ward refusing a fully obedient model. Five jsdom flows run the page unmodified against the real server. | 95 of 98 |
+| `haunting-map` | Which files are haunted by which departed author, computed from two git calls with no model, and "Summon here" on any tile. | 45 of 46 |
+| `seance-mcp` | Séance's ledger and ward as an MCP server, so another agent's claims can be checked the same way. Kiro's `archaeologist` agent uses it. | 42 of 42 |
+
+Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); the inquisitor's eight findings were fixed with an addendum in each affected spec; and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
+
+All ten specs together: 564 of 568 task items ticked. The four open items are three checks that need a person looking at the page in a browser, and one traceability item that depends on one of them. 1,382 tests.
+
+### Where Kiro was right when the instructions were wrong
+
+- In `ward-hardening` T2 the task list asked for two skipped tests, but three more had to fail. Kiro stopped and asked instead of skipping them. The fixtures were then recorded from real model calls, and no skip was ever committed.
+- Kiro broke the verifier on purpose, one check at a time, to see the adversarial tests fail, and restored it each time.
+- The fix I suggested for the map parser ("a header can only start after a NUL") was still ambiguous, because every path also starts after a NUL. Kiro saw it and used the one thing a path can never be: empty.
+- It reported twice that the `/review-evidence` hook still described the quote as optional, and each time that files it had not created had appeared in the tree.
+- It left items unticked that it could not verify: the browser checks, a lint rule that did not cover `scripts/*.ts`, the three limits missing from the map's copy.
+
+### Where Kiro was wrong or blocked
+
+- A session was cut off by a model throttle at the start of `first-seance` T3. It was restarted from the last finished task.
+- The V3 engine would not let the agent edit `.kiro/settings/mcp.json` (its own `kiro-scope` rule). The entry was added with `kiro-cli mcp add`.
+- In non-interactive V3 runs, shell and MCP calls are denied unless `--trust-all-tools` is passed, whatever the agent file allows. The inquisitor therefore reviewed by reading only, and the archaeologist's V3 run needed `--trust-all-tools`.
+- The candle button it wrote had a changing label and `aria-pressed` at once (it flagged this itself); the first "Blame the wrong author" preset said "wrote this wait" on any repository; the map's copy stated three of six limits. All three were corrected by hand.
+- The numbers in one task (`recorded-limits`) could not produce the case they were meant to test; Kiro worked around it in the test and said so.
+- Audits were done by reading. Nothing was measured in a browser, and the accessibility audit's contrast ratios were worked out by hand by the model.
+- The Context7 power was tried again on 3.2.0 to check the MCP SDK's documentation. As on 3.1.0, the power activated but its MCP server was not connected in a non-interactive session; Kiro stopped instead of answering from memory (`powers-context7-retry-session.txt`).
+
+### Done by hand
+
+- Recording: both test fixtures and the eight recordings come from real model calls made with a real key (`scripts/record-plan-fixture.ts`, `scripts/record-answers.ts`). Kiro never called the model and never edited those files.
+- Review: every diff was read; `npm test`, typecheck, eslint, prettier and `npm run contrast` were run before each commit; the app was started locally and every route called, with a real key, without a key, and against a small public GitHub repository.
+- Small edits: the wording fixes listed above, eslint coverage for `scripts/*.ts`, the `/review-evidence` hook text, the archaeologist agent file (from the `seance-mcp` design), the pinned dependencies (jsdom, zod 3.25.76, the MCP SDK), and the documentation.
+- The decision to leave `X-Forwarded-For` as an open risk: the hosting proxy chain is not verified, and a wrong guess would put every visitor in one rate-limit bucket.
+
+### Credits
+
+Read with `/usage`. The meter is shared with another session on the same account, so the figure is the account total: 2,014 of 4,000 bonus credits when this round ended. The step-by-step readings are in `docs/kiro-evidence/README.md`.
+
 ## Powers — Context7
 
 Installed with `kiro-cli powers install context7` (Kiro CLI 3.1.0). What was observed, in `docs/kiro-evidence/powers-context7-session.txt`:
@@ -123,8 +169,12 @@ The second subagent waited in the queue for a few seconds because the machine wa
 
 ## What fires where (checked, not assumed)
 
-- **Prompt hook (`evidence-review.json`)**: fired in a Kiro CLI 3.0.0 session when `/review-evidence` was typed (`docs/kiro-evidence/review-and-mcp-session.txt`). In the CLI 3.1.0 V3 engine it also fired on prompts that do not match `^/review-evidence` (seen on `/powers` and on a normal task prompt), so the matcher does not seem to be applied there.
+- **Prompt hook (`evidence-review.json`)**: fired in a Kiro CLI 3.0.0 session when `/review-evidence` was typed (`docs/kiro-evidence/review-and-mcp-session.txt`). In the V3 engine (3.1.0 and 3.2.0) it fires at the start of every session, whatever the prompt, so the matcher does not seem to be applied there. Every 2026-11-11 transcript ends with its checklist.
 - **Save hooks (`ghost-tests.json`, `sloplint.json`)**: written for Kiro's `PostFileSave` trigger. They have not been seen firing in the CLI (non-interactive runs do not emit file-save events), so treat them as IDE-side automation until shown otherwise.
-- **CLI agent hooks (`warden.json`)**: `postToolUse` and `stop` fired in a non-interactive V2 run (`docs/kiro-evidence/warden-hook-fires.log`). `agentSpawn` did not log.
-- **MCP servers**: the git server was called from a CLI session (`@git/git_log`) and connected again in the V3 runs. After the fix, the filesystem server was called through `@filesystem/list_directory` and `@filesystem/read_text_file`.
-- **Archaeologist in V3**: the review pass found a real defect, but its `git` shell and `@git` MCP calls were denied in non-interactive V3, so it cited no commits.
+- **CLI agent hooks (`warden.json`)**: on 3.1.0 V2, `postToolUse` and `stop` fired and `agentSpawn` did not log. On 3.2.0 V3, after the engine upgraded the file, all three fire (`docs/kiro-evidence/warden-hook-fires.log`).
+- **CLI agent hooks (`inquisitor.json`)**: `agentSpawn` and `stop` fired in its V3 run (`docs/kiro-evidence/inquisitor-hook-fires.log`).
+- **MCP servers**: the git server was called from a CLI session (`@git/git_log`) and connected again in the V3 runs. After the fix, the filesystem server was called through `@filesystem/list_directory` and `@filesystem/read_text_file`. The `seance` server was called by the archaeologist agent through `@seance/seance_summon`, `@seance/seance_verify` and `@seance/seance_haunting_map`.
+- **Tool approval in V3**: in non-interactive V3 runs, shell and MCP calls are denied unless `--trust-all-tools` is passed, whatever the agent file's `allowedTools` and `permissions` say. Seen with the archaeologist on 3.1.0 (its `git` and `@git` calls), and on 3.2.0 with the inquisitor (its `git` and `vitest` calls) and the archaeologist (its `@seance` calls). The V2 engine honours `allowedTools` for MCP tools.
+- **Agent edits to `.kiro/settings/`**: denied by the V3 engine's own `kiro-scope` rule, even with `--trust-all-tools`.
+- **`kiro-cli agent validate`**: checks JSON types only. It accepts tool references and permission capabilities that do not exist.
+- **Context7 power**: activates in V3 on both versions; its MCP server has never connected in a non-interactive session, so no documentation was ever fetched through it.

@@ -1,5 +1,7 @@
 # I Built a Ghost That Can Only Say What Git Remembers (Kiroween 2026)
 
+> **Draft status (2026-11-11).** Written for the entry as submitted on 2026-11-09 (six specs, 418 tests, the quote in a citation still optional). The 2026-11-11 round changed the page and the ward; see `README.md` and `.kiro/README.md` for the current state before publishing this.
+
 Tagged #KiroweenHackathon26
 
 I wrote this post for the Kiroween 2026 hackathon. It is about Séance, a small app I built with Kiro. It covers what Kiro actually did, and the parts that did not work.
