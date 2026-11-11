@@ -8,8 +8,6 @@ Built with Kiro for Kiroween 2026 (category: Costume Contest).
 
 ![The Séance landing page](docs/screens/1280-1-landing.png)
 
-_Captured 2026-11-09. The page has changed since (see [Screens](#screens)); this capture still shows a GitHub token field and wording that are gone._
-
 ## What it does
 
 - **The crypt.** An evidence ledger from `git blame --porcelain` and `git log -L` (renames followed): each commit's message, author, date, diff hunk and `#123` references. No AI is involved in this step. The page shows the line you asked about above it.
@@ -30,13 +28,15 @@ It proves that each citation is real and each quote is really in the cited commi
 
 ## Screens
 
-**These captures are from 2026-11-09 and predate the changes of 2026-11-11.** The page now also has the guide, "The line in question", "The words the ward found" under each claim, the haunting map and the possessed sample; some things shown are gone or reworded: the GitHub token field was removed, the quote field is no longer optional, quotes now appear under every claim, and the tallies and the ward report read "passed the ward" instead of "claims verified". They will be recaptured.
+Captured 2026-11-11 from the app running locally with a real model key (headless Chromium, 1280x800).
 
-| Ghost answer (before quotes were mandatory)                       | A planted false memory, refused                                        |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| ![Ghost answer](docs/screens/1280-2-ghost-answer.png)             | ![Ward refuses an invented hash](docs/screens/1280-3-ward-refuses.png) |
-| **A misquote of a real commit, refused**                          | **The exorcism: haunting score and plan**                              |
-| ![Ward refuses a misquote](docs/screens/1280-4-ward-misquote.png) | ![Exorcism score](docs/screens/1280-5-exorcism.png)                    |
+| After the summon: the line in question, the crypt, the guide | Ghost answer, with the words the ward found                 |
+| ------------------------------------------------------------ | ----------------------------------------------------------- |
+| ![The guide](docs/screens/1280-8-guide.png)                  | ![Ghost answer](docs/screens/1280-2-ghost-answer.png)       |
+| **A planted false memory, refused**                          | **The possessed ghost: every injected order refused**       |
+| ![Ward refuses](docs/screens/1280-3-ward-refuses.png)        | ![Possessed ghost](docs/screens/1280-4-possessed-ghost.png) |
+| **The haunting map**                                         | **The exorcism: haunting score and plan**                   |
+| ![Haunting map](docs/screens/1280-7-haunting-map.png)        | ![Exorcism score](docs/screens/1280-5-exorcism.png)         |
 
 Mobile (390 px): [docs/screens/390-1-landing.png](docs/screens/390-1-landing.png). Refactor steps: [docs/screens/1280-6-plan.png](docs/screens/1280-6-plan.png).
 
@@ -106,7 +106,7 @@ Limits:
 
 Everything under [`.kiro/`](.kiro) is committed, and [`.kiro/README.md`](.kiro/README.md) says plainly what Kiro did, what was done by hand, and where Kiro was wrong. Raw output of the Kiro sessions is in [`docs/kiro-evidence/`](docs/kiro-evidence) (one failed V3 run on 2026-11-09 is described there but not kept).
 
-- **Specs.** Ten specs with EARS requirements, a design and tasks: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`, and, written by Kiro in V3 spec mode on 2026-11-11, `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp`. 581 of 585 task items are ticked. Of the four open ones, three need a person looking at the page in a browser and one is a traceability check that depends on one of them.
+- **Specs.** Ten specs with EARS requirements, a design and tasks: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`, and, written by Kiro in V3 spec mode on 2026-11-11, `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp`. 581 of 585 task items are ticked. The four open ones are three browser checklists (only partly covered by a headless Chromium run at the end) and one traceability check that depends on one of them.
 - **Audits that became specs.** Kiro's read-only security review showed the ward verified less than the page promised; that became `ward-hardening`. Its first-run audit from a judge's seat became `first-seance`. Its accessibility audit was fixed test-first. After the work, the accessibility and first-run audits were run again on the result, and the inquisitor agent attacked the ward twice; the findings of each pass were fixed.
 - **Custom agents with hooks.** `warden` builds test-first and gets a typecheck after every file write and the full suite when it stops. `inquisitor`, read-only and on a different model family, re-attacks the ward after a change. `archaeologist` answers questions about history and has its own claims checked by the ward.
 - **MCP.** The repository's `seance` server gives Kiro the ledger and the ward as tools, next to the git and filesystem servers.

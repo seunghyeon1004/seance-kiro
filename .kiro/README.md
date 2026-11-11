@@ -119,7 +119,7 @@ Everything above was built on the free plan's 50 credits with small models. On 2
 
 Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); seven of the inquisitor's eight first-pass findings were fixed with an addendum in each affected spec (the eighth, `X-Forwarded-For`, is a documented open risk), and so were the findings of its second pass; and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
 
-All ten specs together: 581 of 585 task items ticked. The four open items are three checks that need a person looking at the page in a browser, and one traceability item that depends on one of them. 1,420 tests.
+All ten specs together: 581 of 585 task items ticked. The four open items are three browser checklists (partly covered by the headless run described below, so left unticked) and one traceability item that depends on one of them. 1,420 tests.
 
 ### Where Kiro was right when the instructions were wrong
 
@@ -137,13 +137,14 @@ All ten specs together: 581 of 585 task items ticked. The four open items are th
 - In non-interactive V3 runs, shell and MCP calls are denied unless `--trust-all-tools` is passed, whatever the agent file allows. The inquisitor therefore reviewed by reading only, and the archaeologist's V3 run needed `--trust-all-tools`.
 - The first "Blame the wrong author" preset said "wrote this wait" on any repository, and the map's copy stated three of six limits (Kiro reported the second itself). Both were corrected by hand.
 - The numbers in one task (`recorded-limits`) could not produce the case they were meant to test; Kiro worked around it in the test and said so.
-- Audits were done by reading. Nothing was measured in a browser, and the accessibility audit's contrast ratios were worked out by hand by the model.
+- Audits were done by reading, and the accessibility audit's contrast ratios were worked out by hand by the model. A first look in a browser came at the very end (headless Chromium, 2026-11-11, by hand): at 1280x800 the Summon button sits above the fold; at 768, 390 and 320 px no element reaches past the right edge on the landing page or after a summon and a planted claim; the guide is numbered; the counter stays in view; no console errors. The README screenshots were recaptured in that run. Not checked in a browser: keyboard focus order and rings, reduced motion, forced colours, the wake-up retry against a restarted server.
 - The Context7 power was tried again on 3.2.0 to check the MCP SDK's documentation. As on 3.1.0, the power activated but its MCP server was not connected in a non-interactive session; Kiro stopped instead of answering from memory (`powers-context7-retry-session.txt`).
 
 ### Done by hand
 
 - Recording: both test fixtures and the eight recordings come from real model calls made with a real key (`scripts/record-plan-fixture.ts`, `scripts/record-answers.ts`). Kiro never called the model and never edited those files.
 - Review: every diff was read; `npm test`, typecheck, eslint, prettier and `npm run contrast` were run before each commit; the app was started locally and every route called, with a real key, without a key, and against a small public GitHub repository.
+- The browser check and the README screenshots (headless Chromium, at the end).
 - Small edits: the wording fixes listed above, eslint coverage for `scripts/*.ts`, the `/review-evidence` hook text, the archaeologist agent file (from the `seance-mcp` design), the pinned dependencies (jsdom, zod 3.25.76, the MCP SDK), and the documentation.
 - The decision to leave `X-Forwarded-For` as an open risk: the hosting proxy chain is not verified, and a wrong guess would put every visitor in one rate-limit bucket.
 
