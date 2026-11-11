@@ -1,0 +1,373 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent warden, claude-opus-5.5), 2026-11-11: the remaining findings of Kiro's accessibility and mobile audit fixed test-first (C1, C3, C4, C5, C6, C8, C9, C13, C17, C18, S1, S2, S3, S6, the badge symbols), after re-checking the eight that first-seance closed. Unedited output; only the home directory prefix is replaced with ~. By hand afterwards: the candle button keeps a changing action label and drops aria-pressed (Kiro flagged the combination as ambiguous). The table in the transcript says which fixes are proven by tests and which only by reading the CSS; nothing was seen in a browser.
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Fix the remaining findings of the accessibility and mobile audit in docs/kiro-evidence/audit-a11y-mobile-session.txt (read it fully first, and .kiro/steering/ui-spooky.md, public/index.html, public/app.js, public/styles.css, public/tokens.css, scripts/contrast.mjs, test/ui/, test/e2e/). The first-seance spec already closed C2, C7, C10, C11, C12, C14, C15 and C16; check each of those is really closed in the current code and say so, then fix these, each with a failing test first (static test, property test or a jsdom flow in test/e2e/, whichever proves it):
+
+- C1: summon field errors tied to their inputs (aria-invalid, aria-describedby), no stacked role="alert" on the four per-field errors (keep it on #summon-err).
+- C3: grid columns that cannot shrink (`.talk`, `.log`, `.turn` and any new grid from the guide or the source panel) get `minmax(0, 1fr)`; nothing can force horizontal scroll at 320 px.
+- C4: plant-form errors appear next to the plant fields in a `#plant-err` element, the failing field is marked and focused, and the 7-character format is explained before the mistake (help text tied with aria-describedby).
+- C5: text inputs get a border with at least 3:1 against the page (new token `--color-rule-strong`), and the pair is checked by `npm run contrast` as a non-text (3:1) pair.
+- C6: `color-scheme: dark` on :root and a `<meta name="color-scheme" content="dark">`.
+- C8: a visible control that stops and restarts the candle flicker ("Still the candles" / "Light the candles"), a real button with aria-pressed, remembered in localStorage (guarded with try/catch), independent of prefers-reduced-motion. No inline styles; a class on <html>.
+- C9: ledger rows are `tabindex="-1"` (focusable by the citation buttons, not tab stops) with an inset focus ring that is not clipped.
+- C13: the planchette stays inside the crypt on narrow screens.
+- C17: the crypt is a `<section>`, not an `<aside>`.
+- C18: scripts/contrast.mjs reads the real `:root` token values from public/tokens.css instead of trusting the comment table, checks the pairs actually used (keep the table as documentation, but fail if the table and the tokens disagree), and supports 3:1 non-text pairs.
+- S1: busy buttons keep focus: use aria-disabled="true" plus the existing busy guard instead of the disabled attribute while a request runs, styled like disabled.
+- S2: no aria-busy on the form that contains its own live regions.
+- S3: the ledger's max-height never drops below about 18rem.
+- S6: a forced-colors block so the signal bars, lit rows and focus rings survive Windows High Contrast.
+- The audit's "Irreversible ⚠" / "Reversible ✓" badges: ui-spooky.md forbids emoji as icons. Replace the symbols with plain words ("Reversible" / "Irreversible", the border style differing as a second signal) and update the test that asserts the old text.
+
+Rules: tokens only (no literal colours below the token block), no `transition: all`, no new animation, sentence-case labels, no emoji, untrusted text via textContent only, no inline styles or scripts (CSP default-src 'self'). Do not change what any route returns, the verifier, or the rate limiters. You cannot open a browser: say plainly which fixes are verified by tests and which could only be checked by reading the CSS.
+When done run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast` and paste the real summary lines. Do not run git add/commit/push. Finish with a table: finding, fix, test that proves it (file and test name), verified by test or by reading.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=9
+I'll start by reading the audit and the files it names, and run the hook's staged-diff review alongside.
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Check staged diff and working tree status
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+Nothing is staged and the working tree is clean. Now the UI files.
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List UI tests and show package scripts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now the existing tests, to follow their patterns.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Outline existing UI and e2e tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+I have the full picture of the UI. Before writing anything, I'm checking which existing tests touch what I'll change.
+[tool] Find tests affected by the planned changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests affected by the planned changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Baseline before changes:
+[tool] Run the test suite and contrast check as a baseline
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Baseline: 58 files, 999 tests pass; contrast checks 13 table pairs. Checking the vitest include pattern before adding test files.
+[tool] Show vitest config and test file headers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Writing the failing tests first. Static checks of HTML, CSS and app.js go in one file:
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now the jsdom flows. The harness needs one hook to set up `localStorage` before app.js runs, so I'm adding a `beforeScript` option:
+[tool] Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect CryptClient and crypt flow setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now the contrast script tests. They run the script as a CLI against modified copies of tokens.css:
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Running the new tests to confirm they fail for the right reasons before touching the code:
+[tool] Run the new tests and confirm they fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+All 37 new tests fail for the expected reasons. Updating the existing tests that assert the old behaviour (badge text, summon-form `aria-busy`, `aside.crypt`, plant notice in `#log`):
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Tests are in place. Now the code, starting with index.html:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now app.js. Field errors (C1) and the shared marking helper the plant form will reuse:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the plant validation (C4), the exorcise button (S1), and the badge words:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check for leftover symbols and disabled usages
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now tokens.css: the new tokens, `color-scheme`, and the system colours for forced-colors mode.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the new contrast check on the real tokens
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The table values reproduce exactly, and `--color-rule-strong` measures 3.60:1 on paper and 3.37:1 on paper-2. Adding the two non-text rows to the documented table:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Updating my badge test to accept the `border` shorthand, which is how the badges already declare their border:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] List the grids that still lack explicit columns
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Appending the remaining fixes as one commented block at the end of styles.css:
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the full test suite
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 61 files and 1035 tests pass. Checking that the `unexpected error` stderr lines come from existing server tests, not from my flows:
+[tool] Locate the source of the stderr error lines
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Those come from existing server and adversarial tests that I did not touch. Now typecheck, lint and contrast:
+[tool] Run typecheck and lint
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Format the five files Prettier flagged
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Prettier fixed only the formatting. Final run of all four commands:
+[tool] Run tests, typecheck, lint and contrast for the final summary
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All the findings you listed are fixed. Each one has a test that failed before the change and passes now. Nothing is staged or committed.
+
+**Results**
+- `npm test`: `Test Files  61 passed (61)` / `Tests  1035 passed (1035)` (it was 58 files and 999 tests before).
+- `npm run typecheck`: `tsc --noEmit`, exit 0.
+- `npm run lint`: `All matched files use Prettier code style!`, exit 0.
+- `npm run contrast`: `All 15 table pairs and 28 usage pairs pass; the table agrees with :root. ✓`
+
+## The eight findings first-seance closed
+
+I checked each one in the current code, and all eight are really closed:
+- **C2:** the tally has no `role`, `aria-live` or `aria-atomic`, and `#verified-counter` is not live. `#ask-status` gets "The ghost answered: N of M…" and is not cleared in `finally`.
+- **C7:** `openSeance()` resets the counter, the ghost name, `lastReport` and the copy button. Planted and scripted answers never add to the totals.
+- **C10:** `#exorcise-status` gets "Exorcism ready: …" with the score and severity, and keeps it.
+- **C11:** `summonFound()` announces the commit count. Focus goes to `#h-guide` after it is scrolled into view. That is a different target from the audit's `#q`, but it is visible.
+- **C12:** the `.btn.ghost[disabled]` and `.cite:disabled` rules are present.
+- **C14:** the `.status:empty` rules use `position: absolute`.
+- **C15:** verified memory claims carry the "Verified" label, and each lit row gets "Cited in the latest answer".
+- **C16:** each question starts with a hidden "You asked: ".
+
+## Evidence-rules review (the hook)
+
+`git diff --cached` is empty because nothing is staged. The working tree doesn't touch `src/` either.
+- ✅ `src/ghost/verifier.ts` is unchanged, so it is no less strict.
+- ✅ `src/ghost/schema.ts` is unchanged. Citations still require `{ sha7, quote }`, and silence claims still never reach `verified`.
+- ✅ No file under `test/fixtures/**` or `recordings/*.json` changed.
+
+## Fixes
+
+| Finding | Fix | Test that proves it | Verified by |
+|---|---|---|---|
+| C1 | `role="alert"` removed from the four field errors and kept on `#summon-err`. `fieldError()` sets `aria-invalid` and adds or removes the error id in `aria-describedby`. Focus goes to the first `[aria-invalid="true"]`. | `test/e2e/a11y.test.ts` "marks each failing field, describes it by its error, focuses the first, and clears on a good submit"; `test/ui/a11y-audit.test.ts` "the four per-field errors are not alerts; #summon-err still is" | Test |
+| C3 | `grid-template-columns: minmax(0, 1fr)` on all 27 grids that had an implicit column, including `.talk`, `.log`, `.turn`, the guide and `.source` | `a11y-audit.test.ts` "…use minmax(0, 1fr)", "no grid is left with an implicit auto column", "no explicit grid track is a bare fr or auto…" | Test checks the rules. Layout at 320 px checked only by reading the CSS. |
+| C4 | `#plant-err` (an alert) sits just before the send button. The failing field is marked and focused, and the panel opens. `#plant-sha-help` ("7 characters, 0–9 and a–f.") is tied to `#plant-sha` before any mistake. | `a11y.test.ts` "a bad hash, a short quote and an empty claim each mark and focus their field in #plant-err"; `a11y-audit.test.ts` C4 tests | Test |
+| C5 | `--color-rule-strong: oklch(52% 0.02 60)` on input and textarea borders. It measures 3.60:1 on paper and 3.37:1 on paper-2, and both are listed as `non-text:` rows. | `a11y-audit.test.ts` C5 tests; `test/ui/contrast-script.test.ts` "passes on the real tokens and checks rule-strong as a 3:1 non-text pair" | Test (the ratio is computed). How the border looks: by reading. |
+| C6 | `color-scheme: dark` on `:root`, plus `<meta name="color-scheme" content="dark">` | `a11y-audit.test.ts` "declares color-scheme: dark…" | Test checks the declarations. The look of native controls (S5) needs a browser. |
+| C8 | `#candles-btn` in the header: hidden until the script runs, `aria-pressed`, "Still the candles" / "Light the candles". It toggles `html.still`, and `html.still .flame { animation: none }` works whatever the motion setting is. The choice is stored in localStorage with try/catch. | `a11y.test.ts` "the button toggles html.still…", "a stored choice is applied on load…", "works when localStorage throws" | Test checks the class, state and storage. That the flame actually stops: by reading. |
+| C9 | Rows use `tabindex: '-1'`, and `.ledger li:focus-visible { outline-offset: -2px }` | `a11y.test.ts` "every row has tabindex -1, and a citation button still moves focus to its row"; `a11y-audit.test.ts` C9 tests | Test checks tabindex and focus. That the ring isn't clipped: by reading. |
+| C13 | `.crypt { position: relative }` inside the 60rem media query | `a11y-audit.test.ts` "the crypt is positioned on narrow screens" | By reading (the test only checks the rule exists) |
+| C17 | `<aside class="crypt">` became `<section>` | `a11y-audit.test.ts` "is a <section class=\"crypt\">…"; `first-seance.test.ts` updated | Test |
+| C18 | `contrast.mjs` reads the `:root` values and fails when a table row disagrees with them or names a missing token. It checks 28 pairs used in styles.css, with `color-mix`, translucent and fog backgrounds computed from the tokens. Non-text pairs need 3:1. It takes an optional tokens-file path. | `contrast-script.test.ts` (6 tests: table mismatch, unknown token, non-text under 3:1, an unlisted text pair under 4.5:1, …) | Test |
+| S1 | Summon, ask and exorcise set `aria-disabled="true"` instead of `disabled`, and the ask form now checks `state.busy` first. The aria-disabled buttons are styled like disabled ones. | `a11y.test.ts` "summon: aria-disabled while it runs, never disabled, focus kept, second submit ignored", "ask and exorcise: …"; `a11y-audit.test.ts` S1 tests | Test checks the attributes, focus and that a second request is not sent. A real browser's focus handling: by reading. |
+| S2 | `aria-busy` removed from `#summon-form` | `a11y.test.ts` summon flow; `a11y-audit.test.ts` S2; `spooky-ui.test.ts` P3 updated | Test checks the attribute. Screen-reader behaviour: not checked. |
+| S3 | `.ledger { max-height: max(68vh, 18rem) }` and `max(40vh, 18rem)` on narrow screens | `a11y-audit.test.ts` "every max-height on .ledger is at least 18rem" | By reading |
+| S6 | A `@media (forced-colors: active)` block covers the bar track and fill (`forced-color-adjust: none`), lit rows (dashed outline) and focus rings (`Highlight`). The system colours are tokens (`--color-sys-text`, `--color-sys-highlight`). | `a11y-audit.test.ts` "keeps the signal bars, lit rows and focus rings, using tokens" | By reading (no High Contrast mode here) |
+| Badges | The text is now "Reversible" / "Irreversible". The irreversible border is dashed, the reversible one solid. | `a11y-audit.test.ts` badge tests; `spooky-ui.test.ts` P7 updated | Test |
+
+**Other test changes:**
+- I added a `beforeScript` option to `test/e2e/harness.ts` so a flow can seed or break localStorage before app.js runs.
+- `dom.test.ts` now expects the short-quote message in `#plant-err` instead of `#log`.
+
+**Caveats (from reading the code, not tested):**
+- A button whose label changes and that also has `aria-pressed` can be read as "Light the candles, toggle button, pressed", which is ambiguous. A fixed label such as "Still the candles" with only `aria-pressed` changing would avoid that, if you want it.
+- In Chrome, focus moved by a script after a mouse click may not match `:focus-visible`. The row's ring then shows for keyboard users only.
+- An untracked `.kiro/specs/haunting-map/` folder appeared during the session. I didn't create it and left it alone.
+exit 0

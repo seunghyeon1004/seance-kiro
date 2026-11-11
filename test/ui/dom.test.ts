@@ -347,14 +347,17 @@ describe('the page in jsdom', { timeout: 20_000 }, () => {
 
   it('refuses to send a quote shorter than 8 characters', () => {
     const before = requests.length;
+    const notices = doc.querySelectorAll('#log > .notice').length;
     input('plant-text').value = 'I wrote this.';
     input('plant-sha').value = 'deadbee';
     input('plant-quote').value = '  short  ';
     click($('plant-btn'));
     expect(requests.length).toBe(before);
-    expect(doc.querySelector('#log > .notice:last-child')?.textContent).toBe(
+    // audit C4: the message sits next to the plant fields, not in #log
+    expect($('plant-err').textContent).toBe(
       'Enter the exact words from the commit, at least 8 characters, in the quote field.',
     );
+    expect(doc.querySelectorAll('#log > .notice').length).toBe(notices);
   });
 
   it('the invent preset sends a quote at once and the ward refuses the hash (F4)', async () => {

@@ -83,7 +83,7 @@ describe('T6 — new elements (design.md §8.9)', () => {
     expect(col.className).toBe('seance-col');
     expect(col.parentElement?.className).toContain('seance-in');
     expect(col.firstElementChild).toBe(source);
-    expect(source.nextElementSibling?.matches('aside.crypt')).toBe(true);
+    expect(source.nextElementSibling?.matches('section.crypt')).toBe(true);
     expect(byId('h-source').tagName).toBe('H2');
     expect(text('h-source')).toBe('The line in question');
     expect(byId('source-meta').tagName).toBe('P');

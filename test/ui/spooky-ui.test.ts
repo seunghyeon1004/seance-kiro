@@ -84,12 +84,10 @@ describe('P2 – prefers-reduced-motion (R5.5)', () => {
 // P3 — R8.8: app.js sets and removes aria-busy
 // ---------------------------------------------------------------------------
 describe('P3 – aria-busy on loading containers (R8.8)', () => {
-  it('sets aria-busy="true" on summon-form when loading', () => {
-    expect(js).toMatch(/summon-form.*setAttribute\(['"]aria-busy['"],\s*['"]true['"]\)/);
-  });
-
-  it('removes aria-busy from summon-form in finally block', () => {
-    expect(js).toMatch(/summon-form.*removeAttribute\(['"]aria-busy['"]\)/);
+  // audit S2: the summon form holds its own live regions, so it is never marked busy
+  it('never sets aria-busy on summon-form', () => {
+    expect(js).not.toMatch(/summon-form.*setAttribute\(['"]aria-busy['"]/);
+    expect(js).not.toMatch(/summon-form.*removeAttribute\(['"]aria-busy['"]\)/);
   });
 
   it('sets aria-busy="true" on log when asking', () => {
@@ -345,12 +343,15 @@ describe('P7 – reversibility badge (R7.8)', () => {
     expect(css).toMatch(/\.badge--irrev\s*\{/);
   });
 
-  it('app.js renders "Reversible ✓" badge text', () => {
-    expect(js).toMatch(/Reversible ✓/);
+  // ui-spooky.md forbids emoji as icons: the badge says it in words
+  it('app.js renders the "Reversible" badge text, with no symbol', () => {
+    expect(js).toMatch(/'Reversible'/);
+    expect(js).not.toMatch(/Reversible ✓/);
   });
 
-  it('app.js renders "Irreversible ⚠" badge text', () => {
-    expect(js).toMatch(/Irreversible ⚠/);
+  it('app.js renders the "Irreversible" badge text, with no symbol', () => {
+    expect(js).toMatch(/'Irreversible'/);
+    expect(js).not.toMatch(/Irreversible ⚠/);
   });
 
   it('badge is created with el() as a separate element (not inside rationale text)', () => {

@@ -96,6 +96,8 @@ export interface OpenOptions {
   readonly onSummon?: (data: { items: SummonItem[] }) => void;
   /** Open the page with ANTHROPIC_API_KEY unset, so the server has no model (flow 3 case a). */
   readonly noKey?: boolean;
+  /** Called with the window after the stubs and before app.js runs (to seed or break localStorage). */
+  readonly beforeScript?: (w: Window & typeof globalThis) => void;
 }
 
 type ServerModule = typeof import('../../src/server.js');
@@ -254,6 +256,7 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
   }) as typeof w.fetch;
 
   // 6. The page script, unmodified
+  opts.beforeScript?.(w);
   w.eval(appJs);
 
   // 7. A health call made while loading is answered before the test starts

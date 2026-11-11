@@ -214,10 +214,27 @@ function normaliseRepoInput(text) {
   return out;
 }
 
+/** Marks `input` invalid and adds `errId` to its aria-describedby, or undoes both (audit C1, C4). */
+function markField(input, errId, invalid) {
+  const ids = (input.getAttribute('aria-describedby') || '')
+    .split(/\s+/)
+    .filter((id) => id && id !== errId);
+  if (invalid) {
+    input.setAttribute('aria-invalid', 'true');
+    ids.push(errId);
+  } else {
+    input.removeAttribute('aria-invalid');
+  }
+  if (ids.length) input.setAttribute('aria-describedby', ids.join(' '));
+  else input.removeAttribute('aria-describedby');
+}
+
+/** A summon field's error, shown next to it and tied to its input (`repo-err` -> `#repo`). */
 function fieldError(id, msg) {
   const p = $(id);
   p.textContent = msg || '';
   p.hidden = !msg;
+  markField($(id.replace(/-err$/, '')), id, Boolean(msg));
 }
 
 function validate() {
@@ -378,12 +395,12 @@ $('summon-form').addEventListener('submit', async (e) => {
   const input = validate();
   $('summon-err').hidden = true;
   if (!input) {
-    const first = document.querySelector('.err:not([hidden])');
-    if (first) first.closest('.field')?.querySelector('input')?.focus();
+    const first = document.querySelector('#summon-form [aria-invalid="true"]');
+    if (first) first.focus();
     return;
   }
   state.busy = true;
-  $('summon-btn').disabled = true;
+  $('summon-btn').setAttribute('aria-disabled', 'true');
   let stopElapsed = null;
   if (/^https:\/\//i.test(input.repoUrl)) {
     $('summon-status').textContent = REMOTE_TEXT;
@@ -391,7 +408,6 @@ $('summon-form').addEventListener('submit', async (e) => {
   } else {
     $('summon-status').textContent = 'Gathering evidence…';
   }
-  $('summon-form').setAttribute('aria-busy', 'true');
   try {
     const data = await api('/api/summon', input, { status: 'summon-status' });
     openSeance(data, input);
@@ -402,8 +418,7 @@ $('summon-form').addEventListener('submit', async (e) => {
   } finally {
     if (stopElapsed) stopElapsed();
     state.busy = false;
-    $('summon-btn').disabled = false;
-    $('summon-form').removeAttribute('aria-busy');
+    $('summon-btn').removeAttribute('aria-disabled');
   }
 });
 
@@ -476,7 +491,7 @@ function ledgerRow(i) {
     : null;
   const props = {
     id: `ledger-item-${i.shortSha}`,
-    tabindex: '0',
+    tabindex: '-1',
     'data-sha': i.shortSha,
   };
   if (i.suspiciousMessage) props['data-suspicious'] = 'true';
@@ -720,7 +735,7 @@ function renderAnswer(data, question, opts = {}) {
 async function askQuestion(q, fromForm = false) {
   if (state.busy || !state.sessionId) return;
   state.busy = true;
-  $('ask-btn').disabled = true;
+  $('ask-btn').setAttribute('aria-disabled', 'true');
   $('ask-status').textContent = 'The ghost stirs…';
   $('log').setAttribute('aria-busy', 'true');
   try {
@@ -743,7 +758,7 @@ async function askQuestion(q, fromForm = false) {
     $('ask-status').textContent = '';
   } finally {
     state.busy = false;
-    $('ask-btn').disabled = false;
+    $('ask-btn').removeAttribute('aria-disabled');
     $('log').removeAttribute('aria-busy');
   }
 }
@@ -776,6 +791,7 @@ function clearQError() {
 
 $('ask-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  if (state.busy) return; // the ask button stays focusable while busy (audit S1)
   const q = $('q').value.trim();
   if (!q) {
     showQError();
@@ -910,33 +926,41 @@ $('plant-btn').addEventListener('click', () =>
   }),
 );
 
+const PLANT_FIELDS = ['plant-text', 'plant-sha', 'plant-quote'];
+
+/** The plant form's one error, in #plant-err, tied to the failing field, which gets focus (audit C4). */
+function plantError(fieldId, msg) {
+  for (const id of PLANT_FIELDS) markField($(id), 'plant-err', id === fieldId);
+  $('plant-err').textContent = msg;
+  $('plant-err').hidden = !msg;
+  if (!msg) return;
+  $('plant').open = true;
+  $(fieldId).focus();
+}
+
 /** The one plant path, for the preset buttons and the manual form (R3.3, R4.3, R10.3). */
 async function plant(claim) {
   if (!state.sessionId) return;
   const sha7 = String(claim.sha7).trim().toLowerCase();
   const quote = String(claim.quote).trim();
   const text = String(claim.text).trim();
-  if (!text || !/^[0-9a-f]{7}$/.test(sha7)) {
-    $('log').append(
-      el('div', {
-        class: 'notice',
-        role: 'alert',
-        text: 'Enter a claim and a 7 character commit hash (0-9, a-f).',
-      }),
-    );
+  if (!text) {
+    plantError('plant-text', 'Enter the claim you want to plant.');
+    return;
+  }
+  if (!/^[0-9a-f]{7}$/.test(sha7)) {
+    plantError('plant-sha', 'Enter a 7 character commit hash, using only 0–9 and a–f.');
     return;
   }
   // The ward accepts a citation only with a quote (R1.1); send nothing without one
-  if (quote.trim().length < QUOTE_MIN_CHARS) {
-    $('log').append(
-      el('div', {
-        class: 'notice',
-        role: 'alert',
-        text: 'Enter the exact words from the commit, at least 8 characters, in the quote field.',
-      }),
+  if (quote.length < QUOTE_MIN_CHARS) {
+    plantError(
+      'plant-quote',
+      'Enter the exact words from the commit, at least 8 characters, in the quote field.',
     );
     return;
   }
+  plantError('', '');
   if (state.busy) {
     $('ward-status').textContent = 'Wait for the ghost to finish answering.';
     return;
@@ -1077,7 +1101,7 @@ function stepNodes(steps) {
     inner.append(
       el('span', {
         class: `badge badge--${s.reversible ? 'rev' : 'irrev'}`,
-        text: s.reversible ? 'Reversible ✓' : 'Irreversible ⚠',
+        text: s.reversible ? 'Reversible' : 'Irreversible',
       }),
     );
     inner.append(el('p', { class: 'meta', text: s.rationale }));
@@ -1143,7 +1167,7 @@ function planTally(plan) {
 $('exorcise-btn').addEventListener('click', async () => {
   if (state.busy || !state.sessionId) return;
   state.busy = true;
-  $('exorcise-btn').disabled = true;
+  $('exorcise-btn').setAttribute('aria-disabled', 'true');
   $('exorcise-status').textContent = 'Performing exorcism…';
   $('exorcism-wrap').setAttribute('aria-busy', 'true');
   try {
@@ -1199,10 +1223,43 @@ $('exorcise-btn').addEventListener('click', async () => {
     $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
   } finally {
     state.busy = false;
-    $('exorcise-btn').disabled = false;
+    $('exorcise-btn').removeAttribute('aria-disabled');
     $('exorcism-wrap').removeAttribute('aria-busy');
   }
 });
+
+// ---- Candles (audit C8): a page control that stops the flicker, remembered ---------------
+
+const CANDLES_KEY = 'seance-candles';
+
+/** The stored choice; false when nothing is stored or storage is blocked. */
+function candlesStill() {
+  try {
+    return window.localStorage.getItem(CANDLES_KEY) === 'still';
+  } catch {
+    return false;
+  }
+}
+
+/** A class on <html> stops the flame (styles.css), whatever prefers-reduced-motion says. */
+function setCandles(still, save) {
+  root.classList.toggle('still', still);
+  const b = $('candles-btn');
+  // The label names the action, so it carries the state; no aria-pressed (a pressed "Light the candles" would be ambiguous)
+  b.textContent = still ? 'Light the candles' : 'Still the candles';
+  if (!save) return;
+  try {
+    window.localStorage.setItem(CANDLES_KEY, still ? 'still' : 'lit');
+  } catch {
+    // storage is blocked: the choice lasts until the page is closed
+  }
+}
+
+setCandles(candlesStill(), false);
+$('candles-btn').hidden = false;
+$('candles-btn').addEventListener('click', () =>
+  setCandles(!root.classList.contains('still'), true),
+);
 
 // ---- Start ---------------------------------------------------------------------------------
 

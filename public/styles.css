@@ -63,6 +63,7 @@ main,
 }
 .bar-in {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   gap: var(--space-lg);
@@ -146,7 +147,7 @@ textarea {
   padding: 0.7rem 0.8rem;
   color: var(--color-ink);
   background: var(--color-paper-2);
-  border: var(--rule-hair) solid var(--color-rule);
+  border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-card);
 }
 input:hover,
@@ -433,7 +434,7 @@ h3 {
   padding: 0;
   display: grid;
   gap: 0;
-  max-height: 68vh;
+  max-height: max(68vh, 18rem);
   overflow: auto;
   border-top: var(--rule-hair) solid var(--color-rule);
 }
@@ -757,7 +758,8 @@ h3 {
 .badge--irrev {
   color: var(--color-ink);
   background: color-mix(in oklab, var(--color-accent) 12%, var(--color-paper-2));
-  border: var(--rule-hair) solid color-mix(in oklab, var(--color-accent) 40%, transparent);
+  border: var(--rule-hair) dashed
+    color-mix(in oklab, var(--color-accent) 40%, transparent);
 }
 
 /* R7.9: details disclosure in steps and do-not-touch */
@@ -872,10 +874,10 @@ h3 {
     height: 7.5rem;
   }
   .crypt {
-    position: static;
+    position: relative; /* the planchette stays inside the crypt (audit C13) */
   }
   .ledger {
-    max-height: 40vh;
+    max-height: max(40vh, 18rem);
   }
   .ex-top {
     grid-template-columns: minmax(0, 1fr);
@@ -1144,4 +1146,84 @@ h3 {
 .ask-actions .status:empty,
 .guide .status:empty {
   position: absolute;
+}
+
+/* Accessibility and mobile audit, remaining findings (docs/kiro-evidence/audit-a11y-mobile-session.txt).
+   Tokens only, no new animation. */
+
+/* C3: one column that can shrink below its content, so no long hash, path or quote widens a grid
+   past a 320 px screen (an implicit grid column is auto, which never shrinks below min-content) */
+.hero-copy,
+.field,
+.candle-stage,
+.candle,
+.crypt,
+.crypt-head,
+.ledger,
+.talk,
+.log,
+.turn,
+.ask,
+.plant,
+.exorcism,
+.signals,
+.tests,
+.steps,
+.dnt,
+.step-body,
+.dnt-body,
+.rules,
+.found-list,
+.dropped,
+.dropped li,
+.source,
+.guide,
+.guide-steps,
+.guide-steps > li {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* C8: the candle control stills the flame whatever the OS motion setting is */
+html.still .flame {
+  animation: none;
+}
+
+/* C9: ledger rows take focus only from the citation buttons; the ring is drawn inside the
+   scroll box, so overflow: auto does not clip it */
+.ledger li:focus-visible {
+  outline-offset: -2px;
+}
+
+/* S1: a busy button keeps focus (aria-disabled, not disabled) and looks disabled */
+.btn[aria-disabled='true'] {
+  background: var(--color-paper-3);
+  border-color: var(--color-rule);
+  color: var(--color-muted);
+  cursor: progress;
+}
+.btn.ghost[aria-disabled='true'] {
+  color: var(--color-muted);
+  border-color: var(--color-rule);
+  border-style: dashed;
+  background: transparent;
+  cursor: progress;
+}
+
+/* S6: Windows High Contrast drops backgrounds and box-shadows; keep the bars, lit rows and rings */
+@media (forced-colors: active) {
+  .bar-track {
+    border: var(--rule-hair) solid var(--color-sys-text);
+  }
+  .bar-fill {
+    forced-color-adjust: none;
+    background: var(--color-sys-text);
+  }
+  .ledger li.lit {
+    outline: 2px dashed var(--color-sys-text);
+    outline-offset: -2px;
+  }
+  :focus-visible,
+  .ledger li:focus-visible {
+    outline: 2px solid var(--color-sys-highlight);
+  }
 }

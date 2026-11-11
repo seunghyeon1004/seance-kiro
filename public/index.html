@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
     <title>Séance: ask the one who wrote it</title>
     <meta
       name="description"
@@ -22,6 +23,9 @@
           <a href="#summon">Summon</a>
           <a href="#how">How it works</a>
         </nav>
+        <button class="btn small ghost" id="candles-btn" type="button" hidden>
+          Still the candles
+        </button>
       </div>
     </header>
 
@@ -52,7 +56,7 @@
                   <option value="crypt"></option>
                   <option value="possessed"></option>
                 </datalist>
-                <p class="err" id="repo-err" role="alert" hidden></p>
+                <p class="err" id="repo-err" hidden></p>
                 <p class="help" id="repo-help">
                   crypt and possessed are samples; possessed's commits try to give the
                   ghost orders. Or paste a public GitHub link: Séance reads its default
@@ -69,7 +73,7 @@
                   autocomplete="off"
                   spellcheck="false"
                 />
-                <p class="err" id="file-err" role="alert" hidden></p>
+                <p class="err" id="file-err" hidden></p>
               </div>
               <div class="field">
                 <label for="start">From line</label>
@@ -81,7 +85,7 @@
                   value="7"
                   inputmode="numeric"
                 />
-                <p class="err" id="start-err" role="alert" hidden></p>
+                <p class="err" id="start-err" hidden></p>
               </div>
               <div class="field">
                 <label for="end">To line</label>
@@ -93,7 +97,7 @@
                   value="7"
                   inputmode="numeric"
                 />
-                <p class="err" id="end-err" role="alert" hidden></p>
+                <p class="err" id="end-err" hidden></p>
               </div>
               <details class="field wide token">
                 <summary>GitHub token for pull request text</summary>
@@ -141,7 +145,7 @@
               <p class="meta" id="source-meta"></p>
               <ol class="source-lines" id="source-lines"></ol>
             </section>
-            <aside class="crypt" aria-labelledby="h-crypt">
+            <section class="crypt" aria-labelledby="h-crypt">
               <div class="crypt-head">
                 <h2 id="h-crypt">The crypt</h2>
                 <p class="meta" id="crypt-meta"></p>
@@ -154,7 +158,7 @@
                 <span></span>
               </div>
               <ol class="ledger" id="ledger"></ol>
-            </aside>
+            </section>
           </div>
 
           <section class="talk" aria-labelledby="h-talk">
@@ -278,7 +282,9 @@
                     value="deadbee"
                     maxlength="7"
                     spellcheck="false"
+                    aria-describedby="plant-sha-help"
                   />
+                  <p class="help" id="plant-sha-help">7 characters, 0–9 and a–f.</p>
                 </div>
                 <div class="field grow">
                   <label for="plant-quote">Quote from it</label
@@ -288,6 +294,7 @@
                   />
                 </div>
               </div>
+              <p class="err" id="plant-err" role="alert" hidden></p>
               <button class="btn small" id="plant-btn" type="button">
                 Send it through the ward
               </button>
