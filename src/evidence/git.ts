@@ -512,7 +512,8 @@ export async function logNameOnly(
       '--no-show-signature',
       '--name-only',
       '-z',
-      '--format=%x1e%H%x1f%an%x1f%ae%x1f%aI',
+      // haunting-map R10.1: %x00 first, so every header follows an empty NUL-delimited token
+      '--format=%x00%x1e%H%x1f%an%x1f%ae%x1f%aI',
       '-n',
       String(maxCount),
       'HEAD',
@@ -602,8 +603,22 @@ export async function isShallowRepo(dir: string): Promise<boolean> {
 
 /** Configurable caps (env overrides) */
 const CLONE_TIMEOUT_MS = Number(process.env['CLONE_TIMEOUT_MS'] ?? 30_000);
-const CLONE_MAX_MB = Number(process.env['CLONE_MAX_MB'] ?? 200);
-const CLONE_MAX_BYTES = CLONE_MAX_MB * 1024 * 1024;
+export const CLONE_MAX_MB = Number(process.env['CLONE_MAX_MB'] ?? 200);
+export const CLONE_MAX_BYTES = CLONE_MAX_MB * 1024 * 1024;
+
+/**
+ * Size of a clone directory in bytes (`du -sk`), or null when du fails. Used for the second
+ * size check after the ledger and map reads (ward-hardening R11.12).
+ */
+export async function cloneSizeBytes(dir: string): Promise<number | null> {
+  try {
+    const { stdout } = await execFileAsync('du', ['-sk', dir], { timeout: 5_000 });
+    const bytes = parseInt(stdout.trim().split(/\s+/)[0] ?? '', 10) * 1024;
+    return isNaN(bytes) ? null : bytes;
+  } catch {
+    return null;
+  }
+}
 
 /** GitHub-only allowlist pattern (matches validated input from ledger.input.ts) */
 const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;

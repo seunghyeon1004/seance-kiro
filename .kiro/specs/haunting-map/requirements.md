@@ -198,3 +198,17 @@ The decisions behind each group of requirements:
 - Applying `.mailmap`, or merging one person's several emails.
 - Special treatment of binary, vendored or generated files.
 - Showing departed authors who haunt no listed file.
+
+## Addendum: inquisitor review (2026-11-11)
+
+Input: MEDIUM 5 of `docs/kiro-evidence/inquisitor-review-session.txt`. `parseNameLog` split the whole `git log` output on the record separator, and a path may legally contain that character, so a file name could start a second record and forge a commit, with an author and a sha of the attacker's choice, that touched a real file.
+
+Decision: keep exactly two git calls (R1.2) and make the parse unambiguous. The obvious repair, "a header may begin only right after a NUL and must start with RS, a 40-hex sha and US", still leaves an ambiguity: with `-z` every path also begins right after a NUL, so a path that starts with RS, a sha and US is byte for byte a header. What a path can never be is empty: git ends each path with NUL, a path cannot contain NUL, and an empty path does not exist. So the format starts with `%x00`, every header follows an empty NUL-delimited token, and no sequence of paths can make one. No third git call is needed, and R1.2 is unchanged.
+
+### R10 Inquisitor review (2026-11-11)
+
+**R10.1** The map's `git log` call shall use `--format=%x00%x1e%H%x1f%an%x1f%ae%x1f%aI`. Its other arguments, and R1.2–R1.4, shall not change.
+
+**R10.2** `parseNameLog` shall split the output on NUL into tokens and read a commit header only from the token directly after an empty token. A header shall begin with RS, a full sha of 40 or 64 lower-case hex characters and US; its four fields shall pass the record schema (R1.9). The tokens up to the next empty token shall be that commit's paths, with one leading newline removed from the first. A header that fails either check shall be skipped and counted, with its paths. A path containing RS, US, newlines or a whole fake header shall be read as a path, and shall never produce or remove a commit.
+
+**R10.3** Tests shall show R10.2 with a real git repository holding a file named `a` RS, a 40-hex fake sha, US, a name, US, an email, US, a date (created with `git hash-object` and `git update-index --cacheinfo`), and with a property test over paths of arbitrary characters other than NUL, including fake headers, serialised as git emits them.

@@ -57,7 +57,7 @@ import {
 import {
   SAMPLE_NAMES,
   SAMPLE_RANGES,
-  loadRecording,
+  loadRecordingFor,
   recordingTargetFor,
 } from './ghost/recordings.js';
 import { possessedAnswer } from './ghost/possessed-ghost.js';
@@ -153,6 +153,16 @@ export const summonLimiter = createModelLimiter({
 export const wardLimiter = createModelLimiter({
   max: parsePositiveInt(process.env['WARD_RATE_LIMIT_MAX'], 60),
   windowMs: parsePositiveInt(process.env['WARD_RATE_LIMIT_WINDOW_MS'], 600_000),
+  dailyMax: Number.POSITIVE_INFINITY,
+});
+
+/**
+ * Recorded answers and plans (first-seance R14.1): their own per-client limit, applied whenever
+ * a recording is served. It has no daily cap, and the model limiter is never charged for one.
+ */
+export const recordedLimiter = createModelLimiter({
+  max: parsePositiveInt(process.env['RECORDED_RATE_LIMIT_MAX'], 30),
+  windowMs: parsePositiveInt(process.env['RECORDED_RATE_LIMIT_WINDOW_MS'], 600_000),
   dailyMax: Number.POSITIVE_INFINITY,
 });
 
@@ -562,7 +572,13 @@ async function recordingForRequest(
   const entry = sessions.get(sessionId);
   if (!entry || Date.now() > entry.expiresAt) return null;
   const target = recordingTargetFor(entry, kind, kind === 'ask' ? question : '');
-  return target ? loadRecording(target) : null;
+  // first-seance R14.3: only for the ledger the recording was made from
+  return target
+    ? loadRecordingFor(
+        target,
+        entry.ledger.items.map((i) => i.shortSha),
+      )
+    : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -588,14 +604,7 @@ function limitBy(
   onDaily?: (c: Context<AppEnv>) => boolean,
 ): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    const xff = c.req.header('x-forwarded-for');
-    let remote: string | undefined;
-    try {
-      remote = getConnInfo(c).remote.address;
-    } catch {
-      remote = undefined; // app.fetch() in tests has no socket
-    }
-    const result = limiter.check(clientKey(xff, remote));
+    const result = limiter.check(requestClientKey(c));
     if (!result.ok) {
       if (result.reason === 'daily' && onDaily !== undefined && onDaily(c)) {
         await next();
@@ -605,16 +614,45 @@ function limitBy(
         result.reason === 'daily' && messages.daily !== undefined
           ? messages.daily
           : messages.client;
-      return c.newResponse(JSON.stringify({ error, code: 'RATE_LIMITED' }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(result.retryAfterSec),
-        },
-      });
+      return rateLimited(c, error, result.retryAfterSec);
     }
     await next();
   };
+}
+
+/** The limiter key of a request, as every limiter computes it. */
+function requestClientKey(c: Context<AppEnv>): string {
+  const xff = c.req.header('x-forwarded-for');
+  let remote: string | undefined;
+  try {
+    remote = getConnInfo(c).remote.address;
+  } catch {
+    remote = undefined; // app.fetch() in tests has no socket
+  }
+  return clientKey(xff, remote);
+}
+
+function rateLimited(c: Context<AppEnv>, error: string, retryAfterSec: number): Response {
+  return c.newResponse(JSON.stringify({ error, code: 'RATE_LIMITED' }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      'Retry-After': String(retryAfterSec),
+    },
+  });
+}
+
+const RECORDED_LIMIT_MESSAGE =
+  'The recorded answers need a short rest. Wait a few minutes before asking again.';
+
+/**
+ * first-seance R14.1: checked right before every recorded response, on all three paths (no
+ * model, the daily cap, a model failure). A 429 when this client is over the recorded limit,
+ * otherwise null; the recording is then served and charged here only.
+ */
+function recordedLimitRefusal(c: Context<AppEnv>): Response | null {
+  const result = recordedLimiter.check(requestClientKey(c));
+  return result.ok ? null : rateLimited(c, RECORDED_LIMIT_MESSAGE, result.retryAfterSec);
 }
 
 /**
@@ -868,7 +906,10 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
       // No model, or the daily cap: the gate let a recording through without a limiter charge (R7.7)
       const via = c.get('recordedVia');
       if (via !== undefined && recording?.kind === 'ask') {
-        return c.json(recordedAnswer(entry, sessionId, recording, via));
+        return (
+          recordedLimitRefusal(c) ??
+          c.json(recordedAnswer(entry, sessionId, recording, via))
+        );
       }
 
       const { ledger } = entry;
@@ -894,7 +935,10 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
           code: (err as SeanceError).code,
           message: (err as SeanceError).message,
         });
-        return c.json(recordedAnswer(entry, sessionId, recording, 'model-failure'));
+        return (
+          recordedLimitRefusal(c) ??
+          c.json(recordedAnswer(entry, sessionId, recording, 'model-failure'))
+        );
       }
       return errorResponse(c, err);
     }
@@ -937,14 +981,17 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
       // No model, or the daily cap: the gate let a recording through without a limiter charge (R7.7)
       const via = c.get('recordedVia');
       if (via !== undefined && recording?.kind === 'exorcise') {
-        return c.json(
-          recordedExorcism(
-            session,
-            sessionId,
-            recording,
-            via,
-            authorGoneThresholdDays ?? 365,
-          ),
+        return (
+          recordedLimitRefusal(c) ??
+          c.json(
+            recordedExorcism(
+              session,
+              sessionId,
+              recording,
+              via,
+              authorGoneThresholdDays ?? 365,
+            ),
+          )
         );
       }
 
@@ -976,14 +1023,17 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
           code: (err as SeanceError).code,
           message: (err as SeanceError).message,
         });
-        return c.json(
-          recordedExorcism(
-            session,
-            sessionId,
-            recording,
-            'model-failure',
-            authorGoneThresholdDays ?? 365,
-          ),
+        return (
+          recordedLimitRefusal(c) ??
+          c.json(
+            recordedExorcism(
+              session,
+              sessionId,
+              recording,
+              'model-failure',
+              authorGoneThresholdDays ?? 365,
+            ),
+          )
         );
       }
       return errorResponse(c, err);

@@ -336,7 +336,7 @@ describe('T7 — the ask form, the counter and the copy button (R3.8, R3.9, R10.
       'Wait for the ghost to finish answering.',
       'Type a question first, or click one of the questions above.',
       'Cited in the latest answer',
-      "'Verified'",
+      "'Citations verified'",
       'The séance has ended. Summon the ghost again.',
     ]) {
       expect(js, s).toContain(s);

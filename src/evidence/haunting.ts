@@ -46,6 +46,17 @@ const RS = '\u001e';
 const US = '\u001f';
 const NUL = '\u0000';
 
+const isHex = (ch: string | undefined): boolean =>
+  ch !== undefined && ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'));
+
+/** RS, a full sha (40 or 64 lower-case hex) and US: the fixed shape a header starts with (R10.2). */
+function hasHeaderPrefix(h: string): boolean {
+  if (h[0] !== RS) return false;
+  let n = 1;
+  while (isHex(h[n])) n++;
+  return (n === 41 || n === 65) && h[n] === US;
+}
+
 const MapCommitRecordSchema = z.object({
   sha: z.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/),
   name: z.string().min(1),
@@ -54,20 +65,40 @@ const MapCommitRecordSchema = z.object({
 });
 
 /**
- * Parse `git log -z --name-only --format=%x1e%H%x1f%an%x1f%ae%x1f%aI`. Never throws.
+ * Parse `git log -z --name-only --format=%x00%x1e%H%x1f%an%x1f%ae%x1f%aI`. Never throws.
  * A record with the wrong number of fields, or one that fails the schema, is counted in
  * `skipped` and dropped (R1.9).
+ *
+ * haunting-map R10.1, R10.2: split on NUL into tokens. Git ends every path with NUL, a path
+ * cannot contain NUL and is never empty, so an empty token comes only from the format's leading
+ * %x00. A header is read only from the token right after an empty one, and must begin with RS,
+ * 40 or 64 lower-case hex and US; the tokens up to the next empty one are its paths. A path
+ * holding RS, US or a whole fake header is therefore only ever a path.
  */
 export function parseNameLog(raw: string): { commits: MapCommit[]; skipped: number } {
   const commits: MapCommit[] = [];
   let skipped = 0;
-  const pieces = raw.split(RS).slice(1);
-  for (const piece of pieces) {
-    const cut = piece.indexOf(NUL);
-    const header = cut === -1 ? piece : piece.slice(0, cut);
-    let rest = cut === -1 ? '' : piece.slice(cut + 1);
-    if (rest.startsWith('\n')) rest = rest.slice(1);
-    const fields = header.split(US);
+  const tokens = raw.split(NUL);
+  let i = 0;
+  while (i < tokens.length) {
+    if (tokens[i] !== '') {
+      i++; // only reachable for output not in this format; no header follows a non-empty token
+      continue;
+    }
+    const header = tokens[i + 1];
+    if (header === undefined) break;
+    i += 2;
+    const paths: string[] = [];
+    for (; i < tokens.length && tokens[i] !== ''; i++) {
+      const t = tokens[i] as string;
+      // git puts one newline between the header and the first path
+      paths.push(paths.length === 0 && t.startsWith('\n') ? t.slice(1) : t);
+    }
+    if (!hasHeaderPrefix(header)) {
+      skipped++;
+      continue;
+    }
+    const fields = header.slice(1).split(US);
     if (fields.length !== 4) {
       skipped++;
       continue;
@@ -83,7 +114,7 @@ export function parseNameLog(raw: string): { commits: MapCommit[]; skipped: numb
       name: parsed.data.name,
       email: parsed.data.email,
       date: new Date(parsed.data.date).toISOString(),
-      paths: rest.split(NUL).filter((p) => p !== ''),
+      paths: paths.filter((p) => p !== ''),
     });
   }
   return { commits, skipped };

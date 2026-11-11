@@ -30,16 +30,19 @@ function c(
   return { sha: sha(s), name, email, date, paths };
 }
 
-/** The crypt's raw `git log` output (design.md §4.1), copied from a fresh build with git 2.50.1. */
+/**
+ * The crypt's raw `git log` output (design.md §4.1), copied from a fresh build with git 2.50.1, in
+ * the format of haunting-map R10.1: every commit header follows an empty NUL-delimited token.
+ */
 const CRYPT_LOG =
-  '\u001e21d4a127d8e6e39833aa6b69b97481a7d817801f\u001fTom Haskell\u001ftom@acme-billing.example\u001f2024-10-21T10:00:00Z\u0000\ntests/invoice.test.js\u0000' +
-  '\u001e6a959a9c17d959b8f18906e7dbcf11d2b37c9963\u001fTom Haskell\u001ftom@acme-billing.example\u001f2024-08-08T13:10:00Z\u0000\nlegacy/tax.js\u0000' +
-  '\u001ec2685ed11f3e4d6ac5332bcd5a0e14be9c4a93f7\u001fTom Haskell\u001ftom@acme-billing.example\u001f2023-01-17T08:55:00Z\u0000\nlegacy/tax.js\u0000' +
-  '\u001edcb896950625eb2484f784558ebe3235c193b85d\u001fPriya Ramanathan\u001fpriya@acme-billing.example\u001f2022-05-02T11:30:00Z\u0000\nlegacy/vendor.js\u0000' +
-  '\u001e40bc4ef5afe18336f9fc47560d29b5aec7225818\u001fPriya Ramanathan\u001fpriya@acme-billing.example\u001f2021-09-30T16:20:00Z\u0000\nlegacy/schedule.js\u0000' +
-  '\u001ee9a5c9c9cbefac7bd1b4b9c7d140bc1a677eec9b\u001fDmitri Volkov\u001fdmitri@acme-billing.example\u001f2020-02-11T09:05:00Z\u0000\nlegacy/tax.js\u0000legacy/vendor.js\u0000' +
-  '\u001e604eac65ff38e6fb12cfd9553e6a9e2e9e722f3d\u001fDmitri Volkov\u001fdmitri@acme-billing.example\u001f2019-06-18T14:40:00Z\u0000\nlegacy/invoice.js\u0000' +
-  '\u001e6997ed3607335649aaec2b38cbf22820570891db\u001fMarguerite Okafor\u001fmarguerite@acme-billing.example\u001f2019-03-04T10:12:00Z\u0000\nlegacy/invoice.js\u0000';
+  '\u0000\u001e21d4a127d8e6e39833aa6b69b97481a7d817801f\u001fTom Haskell\u001ftom@acme-billing.example\u001f2024-10-21T10:00:00Z\u0000\ntests/invoice.test.js\u0000' +
+  '\u0000\u001e6a959a9c17d959b8f18906e7dbcf11d2b37c9963\u001fTom Haskell\u001ftom@acme-billing.example\u001f2024-08-08T13:10:00Z\u0000\nlegacy/tax.js\u0000' +
+  '\u0000\u001ec2685ed11f3e4d6ac5332bcd5a0e14be9c4a93f7\u001fTom Haskell\u001ftom@acme-billing.example\u001f2023-01-17T08:55:00Z\u0000\nlegacy/tax.js\u0000' +
+  '\u0000\u001edcb896950625eb2484f784558ebe3235c193b85d\u001fPriya Ramanathan\u001fpriya@acme-billing.example\u001f2022-05-02T11:30:00Z\u0000\nlegacy/vendor.js\u0000' +
+  '\u0000\u001e40bc4ef5afe18336f9fc47560d29b5aec7225818\u001fPriya Ramanathan\u001fpriya@acme-billing.example\u001f2021-09-30T16:20:00Z\u0000\nlegacy/schedule.js\u0000' +
+  '\u0000\u001ee9a5c9c9cbefac7bd1b4b9c7d140bc1a677eec9b\u001fDmitri Volkov\u001fdmitri@acme-billing.example\u001f2020-02-11T09:05:00Z\u0000\nlegacy/tax.js\u0000legacy/vendor.js\u0000' +
+  '\u0000\u001e604eac65ff38e6fb12cfd9553e6a9e2e9e722f3d\u001fDmitri Volkov\u001fdmitri@acme-billing.example\u001f2019-06-18T14:40:00Z\u0000\nlegacy/invoice.js\u0000' +
+  '\u0000\u001e6997ed3607335649aaec2b38cbf22820570891db\u001fMarguerite Okafor\u001fmarguerite@acme-billing.example\u001f2019-03-04T10:12:00Z\u0000\nlegacy/invoice.js\u0000';
 const CRYPT_TREE =
   'legacy/invoice.js\u0000legacy/schedule.js\u0000legacy/tax.js\u0000legacy/vendor.js\u0000tests/invoice.test.js\u0000';
 
@@ -424,6 +427,46 @@ describe('result (R3.1, R3.3, R8.2)', () => {
 });
 
 describe('parsers (R1.9, R8.3)', () => {
+  // haunting-map R10.1, R10.2 (inquisitor review, 2026-11-11): a path is a NUL-terminated token
+  // and is never empty, so only the format's own %x00 makes an empty token. A header is read
+  // only right after one, and a path can hold RS, US and a whole fake header without effect.
+  const FAKE = `\u001e${'f'.repeat(40)}\u001fMallory\u001fm@x.example\u001f2000-01-01T00:00:00Z`;
+  it.each([
+    ['inside a path', `a${FAKE}`],
+    ['at the start of a path', FAKE],
+    ['after a newline in a path', `x\n${FAKE}`],
+  ])('a fake header %s forges no commit', (_label, evil) => {
+    const real = `\u0000\u001e${sha('a')}\u001fAnn\u001fann@x.example\u001f2020-01-01T00:00:00Z\u0000\n${evil}\u0000z.ts\u0000`;
+    const after = `\u0000\u001e${sha('b')}\u001fBen\u001fben@x.example\u001f2021-01-01T00:00:00Z\u0000\nb.ts\u0000`;
+    const { commits, skipped } = parseNameLog(real + after);
+    expect(skipped).toBe(0);
+    expect(commits.map((c) => [c.sha, c.name, c.paths])).toEqual([
+      [sha('a'), 'Ann', [evil, 'z.ts']],
+      [sha('b'), 'Ben', ['b.ts']],
+    ]);
+  });
+
+  it('the last path of a commit holding a fake header forges no commit', () => {
+    const raw =
+      `\u0000\u001e${sha('a')}\u001fAnn\u001fann@x.example\u001f2020-01-01T00:00:00Z\u0000\nz.ts\u0000${FAKE}\u0000` +
+      `\u0000\u001e${sha('b')}\u001fBen\u001fben@x.example\u001f2021-01-01T00:00:00Z\u0000\nb.ts\u0000`;
+    const { commits } = parseNameLog(raw);
+    expect(commits.map((c) => c.sha)).toEqual([sha('a'), sha('b')]);
+    expect(commits[0]?.paths).toEqual(['z.ts', FAKE]);
+  });
+
+  it('output in the old format, with no empty token before a header, gives no commit', () => {
+    const old = `\u001e${sha('a')}\u001fAnn\u001fann@x.example\u001f2020-01-01T00:00:00Z\u0000\na.js\u0000`;
+    expect(parseNameLog(old).commits).toEqual([]);
+  });
+
+  it('a header that is not RS, 40 or 64 hex and US is skipped with its paths', () => {
+    const raw = `\u0000x${FAKE}\u0000\nz.ts\u0000\u0000\u001e${sha('b')}\u001fBen\u001fben@x.example\u001f2021-01-01T00:00:00Z\u0000\nb.ts\u0000`;
+    const { commits, skipped } = parseNameLog(raw);
+    expect(skipped).toBe(1);
+    expect(commits.map((c) => c.sha)).toEqual([sha('b')]);
+  });
+
   it('parseNameLog reads the crypt format of design.md §4.1', () => {
     const { commits, skipped } = parseNameLog(CRYPT_LOG);
     expect(skipped).toBe(0);
@@ -439,9 +482,9 @@ describe('parsers (R1.9, R8.3)', () => {
   });
 
   it('counts a record with three fields and a record with a bad date in skipped', () => {
-    const good = `\u001e${sha('a')}\u001fAnn\u001fann@x.example\u001f2020-01-01T00:00:00+02:00\u0000\na.js\u0000`;
-    const three = `\u001e${sha('b')}\u001fBen\u001f2020-01-01T00:00:00Z\u0000\nb.js\u0000`;
-    const badDate = `\u001e${sha('c')}\u001fCat\u001fcat@x.example\u001fyesterday\u0000\nc.js\u0000`;
+    const good = `\u0000\u001e${sha('a')}\u001fAnn\u001fann@x.example\u001f2020-01-01T00:00:00+02:00\u0000\na.js\u0000`;
+    const three = `\u0000\u001e${sha('b')}\u001fBen\u001f2020-01-01T00:00:00Z\u0000\nb.js\u0000`;
+    const badDate = `\u0000\u001e${sha('c')}\u001fCat\u001fcat@x.example\u001fyesterday\u0000\nc.js\u0000`;
     const { commits, skipped } = parseNameLog(good + three + badDate);
     expect(skipped).toBe(2);
     expect(commits).toHaveLength(1);
@@ -450,7 +493,7 @@ describe('parsers (R1.9, R8.3)', () => {
   });
 
   it('keeps a path that contains a newline, a space, a quote and non-ASCII', () => {
-    const raw = `\u001e${sha('d')}\u001fDee\u001fdee@x.example\u001f2020-01-01T00:00:00Z\u0000\nnew\nline.js\u0000a b.js\u0000q"uote.js\u0000ünï.js\u0000`;
+    const raw = `\u0000\u001e${sha('d')}\u001fDee\u001fdee@x.example\u001f2020-01-01T00:00:00Z\u0000\nnew\nline.js\u0000a b.js\u0000q"uote.js\u0000ünï.js\u0000`;
     expect(parseNameLog(raw).commits[0]?.paths).toEqual([
       'new\nline.js',
       'a b.js',
@@ -460,7 +503,7 @@ describe('parsers (R1.9, R8.3)', () => {
   });
 
   it('a record with no path has an empty path list', () => {
-    const raw = `\u001e${sha('e')}\u001fEve\u001feve@x.example\u001f2020-01-01T00:00:00Z`;
+    const raw = `\u0000\u001e${sha('e')}\u001fEve\u001feve@x.example\u001f2020-01-01T00:00:00Z`;
     expect(parseNameLog(raw)).toEqual({
       commits: [
         {

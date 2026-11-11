@@ -975,7 +975,7 @@ Every flow file starts with this header:
 | CP1 | **No widening.** For any string, `normaliseRepoInput(s).repoUrl` equals `s.trim()` or matches `^https://github\.com/[\w.-]+/[\w.-]+(\.git)?$`. Generators include hostile forms: `http://evil.example/github.com/o/r`, `github.com.evil.example/o/r`, `https://github.com@evil.example/o/r`, `javascript:`, and full Unicode strings. | R9.2, R9.6 | `test/ui/pbt/first-seance.pbt.ts` |
 | CP2 | **Canonical form.** For any `owner` and `repo` from `[A-Za-z0-9_.-]{1,20}` other than `.` and `..`, and any combination of scheme (none, `http://`, `https://`, upper case), `www.`, trailing `.git` and trailing `/`, the result is `https://github.com/${owner}/${repo}`. Normalising the result again returns it unchanged. | R9.1, R9.2 | same |
 | CP3 | **Blob links.** For any path of 1–4 segments from `[\w.-]+`, any ref, and any `a, b >= 1`, `…/blob/${ref}/${path}#L${a}-L${b}` gives `file === path`, `startLine === min(a, b)`, `endLine === max(a, b)` and the R9.3 note. `#L${a}` alone gives `startLine === endLine === a`. | R9.3 | same |
-| CP4 | **Retry rule.** `shouldRetry(status, data)` is true only when the status is 502, 503 or 504 and `data` is not an object with a string `code`. For any object with a string `code`, it is false for every status. | R5.4, R5.5 | same |
+| CP4 | **Retry rule.** `shouldRetry(status, data)` is true only when the status is 502, 503 or 504 and `data` is not an object with a string `code`. For any object with a string `code`, it is false for every status. `retriesNetworkFailure(path, method)` (R14.4, added 2026-11-11) is false exactly for a POST to `/api/ask` or `/api/exorcise`, for any path string. | R5.4, R5.5, R14.4 | same |
 | CP5 | **Wait in words.** For any `sec > 0` (a finite double), `waitInWords(sec)` names a whole number `n >= 1` and a unit `u` (1, 60 or 3600 seconds) with `n * u >= sec`, and uses the singular only when `n === 1`. For `sec <= 0`, `NaN` or `Infinity`, it is `''`. | R10.2 | same |
 | CP6 | **Source lines.** For any text and any `1 <= start <= end`, `sliceSourceLines` returns at most 40 entries. The `n` values are consecutive and start at `start`, every `n <= end`, every `text.length <= 400`, and each `text` is a prefix of the matching line of the input. | R2.1 | `test/evidence/pbt/source.pbt.ts` |
 | CP7 | **One persona rule.** For any ledger, `buildPrompt(items, q, s).user` contains `<persona author="${escapeLedgerText(mostFrequentAuthor(items))}"/>`. | R2.2 | `test/ghost/pbt/persona.pbt.ts` (added) |
@@ -1042,8 +1042,8 @@ With the samples built at image time, the start command no longer needs `npm run
 
 ## 14. Open risks and stated limits
 
-- **Recordings without a key skip the limiter.** With no key configured, a client can ask the six recorded questions without limit. Each costs one `verify` call and one small file read, under the 64 KB body limit. The per-client model limit cannot apply without charging it, and R7.7 forbids that.
-- **A POST retried after a proxy 502** may already have reached the app if the proxy failed on the way back. For `/api/ask` that could mean a second model call. A proxy answers 502 while the app is down, so this is rare, and R5.5 confines retries to that case.
+- **Recordings without a key skip the limiter.** With no key configured, a client can ask the six recorded questions without limit. Each costs one `verify` call and one small file read, under the 64 KB body limit. The per-client model limit cannot apply without charging it, and R7.7 forbids that. (Closed on 2026-11-11 by R14.1: recordings have their own limiter, §17.)
+- **A POST retried after a proxy 502** may already have reached the app if the proxy failed on the way back. For `/api/ask` that could mean a second model call. A proxy answers 502 while the app is down, so this is rare, and R5.5 confines retries to that case. (Since 2026-11-11, R14.4: a rejected fetch is no longer retried on `/api/ask` and `/api/exorcise`; this proxy case remains.)
 - **HEAD and working tree.** The lines come from `HEAD`, while blame reads the working tree. Both are the same for clones and samples. With `ALLOW_LOCAL=1` and uncommitted changes they can differ.
 - **One-segment refs** in blob and tree links (§8.1).
 - **The 1280x800 fit** cannot be checked by these tests (R1.6, T10).
@@ -1308,3 +1308,19 @@ On the default ledger it reads "The ward refused 4 of 4 claims from the possesse
 - `/api/possess` shares `wardLimiter` with `/api/ward`. A visitor's possess clicks and planted claims count against the same 60 requests per 10 minutes.
 - The demo shows the five attacks of ward-hardening §10.4, not every possible attack. The documented self-quote limit (ward-hardening §10.4, `self-quote.test.ts`) is not shown, because the scripted ghost never adds a quote the injected text did not order.
 - A GitHub repository that copies the seven subjects would make `possessedAnswer` non-null, but the route never calls it for a session that is not the possessed sample's default range. Even then, every claim would still go through `verify`.
+
+## 17. Addendum: inquisitor review (2026-11-11)
+
+Requirements R14.1–R14.6.
+
+- **Recorded limiter (R14.1, R14.2).** `recordedLimiter` in `src/server.ts` is a `createModelLimiter` with `dailyMax: Infinity`, like the summon and ward limiters. `recordedLimitRefusal(c)` checks it with the shared `requestClientKey(c)` (factored out of `limitBy`) right before each of the four places a recording is served: the ask and exorcise handlers, on the gate's path (`recordedVia` set: no model, or the daily cap) and on the model-failure path. A refused check returns the 429, an accepted one records the request in this limiter only. `modelGate` and `limitBy` are otherwise unchanged, so the model limiter's counters move exactly as before. On the model-failure path the request was already charged by the model limiter on its way in, as before.
+- **Ledger match (R14.3).** `loadRecordingFor(target, ledgerShas, dir?)` in `src/ghost/recordings.ts` wraps `loadRecording` and compares `rec.ledgerShas` with the given hashes element by element. `recordingForRequest` passes `entry.ledger.items.map((i) => i.shortSha)`.
+- **Retries (R14.4, R14.5).** `NO_REPLAY_PATHS` and `retriesNetworkFailure(path, method)` in `public/app.js`. In `api()`, a rejected fetch for which `retriesNetworkFailure` is false throws `CONNECTION_DROPPED` before any wait. The proxy-page branch is unchanged. The e2e harness gives each `ProxyRequest` a `forward()`, so a test proxy can let the server run the request and then drop the answer.
+- **Label (R14.6).** `claimNode` writes "Citations verified".
+
+| Review finding | Requirement | Test |
+| --- | --- | --- |
+| MEDIUM 6 retries replay model calls | R14.4, R14.5 | `test/e2e/wake.test.ts` flow 4b, CP4 in `test/ui/pbt/first-seance.pbt.ts` |
+| MEDIUM 7 recorded answers unlimited | R14.1, R14.2 | `test/server/recorded-limits.test.ts` (R14.1) |
+| LOW 8 `ledgerShas` unchecked | R14.3 | `test/ghost/recordings.test.ts` (`loadRecordingFor`), `test/server/recorded-limits.test.ts` (R14.3) |
+| HIGH 1, the page label | R14.6 | `test/e2e/crypt.test.ts`, `test/e2e/recorded.test.ts`, `test/ui/pbt/ui.pbt.ts`, `test/ui/first-seance.test.ts` |

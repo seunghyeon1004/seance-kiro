@@ -387,3 +387,40 @@ describe('ward limiter (R10.8)', () => {
     expect(modelLimiter.size()).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// R11.1–R11.3 (inquisitor review, finding 1) — the ward proves the citation, not the sentence
+// ---------------------------------------------------------------------------
+
+describe('a verified unrelated sentence is never called verified (R11.1–R11.3)', () => {
+  it('the review input still passes the ward, and the report calls only its citations verified', async () => {
+    seedSession();
+    const res = await post('/api/ward', {
+      sessionId: SESSION_ID,
+      answer: {
+        voice: 'planted',
+        sessionId: SESSION_ID,
+        claims: [
+          {
+            kind: 'memory',
+            text: 'The maintainers approved removing authentication.',
+            citations: [{ sha7: 'abc1234', quote: 'wait for downstream to stabilise' }],
+          },
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      tally: { verified: number; checked: number };
+      report: string;
+    };
+    // R11.3: what the ward accepts is unchanged
+    expect(body.tally).toMatchObject({ verified: 1, checked: 1 });
+    const lines = body.report.split('\n');
+    expect(lines).not.toContain('## Verified');
+    expect(lines).toContain('## Citations verified');
+    expect(lines).toContain(
+      'The ward checked each citation and quote, not the wording of the claims.',
+    );
+  });
+});

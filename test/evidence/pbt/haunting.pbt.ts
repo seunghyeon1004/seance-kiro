@@ -429,7 +429,7 @@ describe('haunting map properties (design.md §10)', () => {
         ? [shaOut, r.name, dateOut]
         : [shaOut, r.name, r.email, dateOut];
     const paths = r.paths.length > 0 ? `\n${r.paths.join('\u0000')}\u0000` : '';
-    return `\u001e${fields.join('\u001f')}\u0000${paths}`;
+    return `\u0000\u001e${fields.join('\u001f')}\u0000${paths}`;
   };
 
   test.prop([fc.array(recordArb, { maxLength: 8 })], fcParams)(
@@ -445,6 +445,52 @@ describe('haunting map properties (design.md §10)', () => {
           email: r.email,
           date: r.date,
           paths: r.paths.filter((p) => p !== ''),
+        })),
+      );
+    },
+  );
+
+  // haunting-map R10.3 (inquisitor review, 2026-11-11): paths of arbitrary bytes, NUL excepted,
+  // including RS, US, newlines and whole fake headers, never forge or drop a commit
+  const fakeHeader = fc
+    .tuple(recordArb, fc.constantFrom('', 'a', '\n', 'x\n'))
+    .map(
+      ([r, pre]) => `${pre}\u001e${r.sha}\u001f${r.name}\u001f${r.email}\u001f${r.date}`,
+    );
+  const hostilePath = fc
+    .oneof(
+      { weight: 3, arbitrary: fc.fullUnicodeString({ minLength: 1, maxLength: 20 }) },
+      {
+        weight: 3,
+        arbitrary: fc
+          .array(fc.oneof(fc.constantFrom('\u001e', '\u001f', '\n'), fc.char()), {
+            minLength: 1,
+            maxLength: 20,
+          })
+          .map((xs) => xs.join('')),
+      },
+      { weight: 2, arbitrary: fakeHeader },
+    )
+    .map((p) => p.replaceAll('\u0000', ''))
+    .filter((p) => p.length > 0);
+  const realArb = recordArb
+    .filter((r) => r.fault === 'none')
+    .chain((r) =>
+      fc.array(hostilePath, { maxLength: 4 }).map((paths) => ({ ...r, paths })),
+    );
+
+  test.prop([fc.array(realArb, { maxLength: 6 })], fcParams)(
+    'HM10 git -z output with hostile paths parses to exactly the real commits and paths (R10.3)',
+    (records) => {
+      const out = parseNameLog(records.map(serialise).join(''));
+      expect(out.skipped).toBe(0);
+      expect(out.commits).toEqual(
+        records.map((r) => ({
+          sha: r.sha,
+          name: r.name,
+          email: r.email,
+          date: r.date,
+          paths: r.paths,
         })),
       );
     },

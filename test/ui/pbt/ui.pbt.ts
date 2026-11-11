@@ -283,8 +283,8 @@ describe('claimNode - verified, silent and rejected (R2.2, R4.5, R6.4)', () => {
       expect(n.className).toBe(`claim ${kind}`);
       expect(n.querySelector('.txt')?.textContent).toBe(text);
       expect(labs(n)).toEqual([
-        // first-seance R12.7: a verified memory claim carries the label "Verified"
-        kind === 'speculation' ? 'Speculation' : 'Verified',
+        // first-seance R14.6 (amends R12.7 "Verified"): the citations are verified, not the sentence
+        kind === 'speculation' ? 'Speculation' : 'Citations verified',
         ...(sus ? [WARN] : []),
       ]);
       const found = n.querySelector('.found');

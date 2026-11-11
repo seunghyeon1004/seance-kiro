@@ -183,3 +183,27 @@ export function loadRecording(
   }
   return r;
 }
+
+/**
+ * loadRecording, and the recording applies only when its ledgerShas equal `ledgerShas` (the
+ * current ledger's short hashes) in order. Otherwise console.warn and null, as for any other
+ * recording that does not apply (first-seance R14.3).
+ */
+export function loadRecordingFor(
+  t: RecordingTarget,
+  ledgerShas: readonly string[],
+  dir: string = recordingsDir(),
+): Recording | null {
+  const r = loadRecording(t, dir);
+  if (r === null) return null;
+  const same =
+    r.ledgerShas.length === ledgerShas.length &&
+    r.ledgerShas.every((s, i) => s === ledgerShas[i]);
+  if (!same) {
+    console.warn('[seance] recording was made from another ledger, ignored', {
+      file: path.join(dir, `${recordingKey(t)}.json`),
+    });
+    return null;
+  }
+  return r;
+}

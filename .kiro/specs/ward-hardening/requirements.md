@@ -206,3 +206,42 @@ The decisions behind each group of requirements:
 - Lengthening duplicate short hashes in `buildLedger`. This spec only refuses citations of them.
 - The README's statement that PR text is part of the evidence.
 - The unverified `voice` string.
+
+## Addendum: inquisitor review (2026-11-11)
+
+Input: the second adversarial review, `docs/kiro-evidence/inquisitor-review-session.txt` (the `inquisitor` agent on gpt-5.6-sol). This spec takes its HIGH 1 ("verified" names the sentence), HIGH 3 (no bound after the clone), MEDIUM 4 (Unicode and the year and author checks), the suspected ledger bounds and the suspected bidi controls. `first-seance` takes MEDIUM 6, MEDIUM 7, LOW 8 and the page label; `haunting-map` takes MEDIUM 5. HIGH 2 (`X-Forwarded-For`) is not changed and stays the open risk of design.md §14: the hosting proxy chain is not verified, and a wrong guess would put every visitor in one bucket.
+
+Decisions:
+
+- **The ward proves the citation and the quote, not the sentence.** What the verifier accepts does not change, and no lexical-overlap rule is added: such a rule would reject every claim about a commit written in another language. The wording changes instead, so that nothing calls the sentence itself verified.
+- **Detection reads what the eye reads.** The year and author checks also run on an NFKC-normalised form with default-ignorable characters removed. The second pass only adds reasons, so the ward only becomes stricter. Quotes stay raw and case-sensitive. Matching stays case-sensitive, because folding case would make every single-word author name strike ordinary words.
+- **One deadline and one more size check for a remote summon.** A deadline timestamp is checked before each git call of `buildLedger`, and the clone size is measured once more after the ledger and map reads. `runGit` and the abort handling are not rewritten.
+- **Bounds and bidi.** `buildLedger` cuts `author` and `email` to the schema's 256 characters. Untrusted text on the page is isolated with `unicode-bidi: plaintext`, and the Markdown report shows bidi controls as visible escapes.
+
+### R11 Inquisitor review (2026-11-11)
+
+**R11.1** The ward report shall head its verified claims `## Citations verified`. No line of the report shall be `## Verified`. This amends `ward-report` R1.4 and design.md.
+
+**R11.2** Under each answer's tally on the page, the UI shall show a `<p class="meta">` with the R2.3 sentence: "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both." `#ward-limit` shall stay as R2.3 says. The per-answer tally keeps the text "N of M claims verified by the ward."
+
+**R11.3** R11.1 and R11.2 shall not change what the verifier accepts. A claim whose sentence is unrelated to a correctly cited quote is still verified, and is shown under "Citations verified" with the R2.4 and R2.3 limits next to it.
+
+**R11.4** For year detection (R3.1) and ledger-author detection (R3.2) only, the verifier shall also compare the detection form of the claim text, of every ledger author name and of every cited field. The detection form is the text with these characters removed, then NFKC applied, then the same characters removed again: U+00AD, U+034F, U+061C, U+115F, U+1160, U+17B4, U+17B5, U+180B–U+180F, U+200B–U+200F, U+202A–U+202E, U+2060–U+206F, U+3164, U+FE00–U+FE0F, U+FEFF, U+FFA0 and U+E0000–U+E0FFF. A year or ledger author named in the detection form of a claim shall be supported in the same way as R3.1 and R3.2 require, using the detection forms of the cited items' fields and authors. These checks shall be added to the R3.1 and R3.2 checks on the raw text, not replace them. Full-width digits therefore name a year, and a zero-width character inside a name no longer hides it. No regular expression shall be built from ledger or claim text.
+
+**R11.5** Quote verification (R1.5) shall stay raw and case-sensitive. A quote that matches a field only in detection form shall be rejected.
+
+**R11.6** The stated limits (R3.4, design.md §4.3) shall add: matching stays case-sensitive, so a name written in another case (for example `alice` for the ledger author `Alice`) is in the same class as a name outside the ledger and is not checked; letters that only look alike across scripts (confusables, such as a Cyrillic `а` in `Alice`) are not detected.
+
+**R11.7** For any ledger and any answer, a claim that the verifier as of 2026-11-11 before R11.4 (frozen in `test/ghost/pbt/verifier-2026-11-11.ts`) rejects shall not be verified by the current verifier. R1.10 shall still hold.
+
+**R11.8** The page shall give these containers of untrusted text `unicode-bidi: plaintext`: claim text and reasons (`.claim .txt`, `.claim .why`), quotes (`.found-quote`), ledger rows (`.ledger li`, `.ledger .who`, `.ledger .subject`, `.ledger pre`), source lines (`.source-lines li`), map tiles (`.map-tile`, `.map-path`) and question lines (`.turn-q`).
+
+**R11.9** `escapeMd` shall replace every U+202A–U+202E and U+2066–U+2069 with the visible text `\u` followed by the four upper-case hex digits (for example `\u202E`), after the R1.6 escaping, so a pasted report holds no bidi embedding, override or isolate control.
+
+**R11.10** For a remote repository only, `buildLedger` shall set one deadline when the clone has finished: now plus `SUMMON_DEADLINE_MS` (default 60,000 ms; a missing, non-numeric or non-positive value gives the default). Before each git call (`lineCountAtHead`, `blame`, `log -L`, reading the lines, and each `git show` and changed-files call), it shall throw `HistoryError` when the deadline has passed, so the remaining git calls are not started. Samples and local paths shall have no such deadline.
+
+**R11.11** A summon that fails by R11.10 shall return 422 `HISTORY_ERROR` with the existing message "Git could not read the history of these lines in time. Try a smaller range, or try again." The clone shall be deleted and the clone slot released.
+
+**R11.12** For a remote repository only, after the ledger's git calls and after the haunting-map read has settled, `buildLedger` shall measure the clone size once more. Above `CLONE_MAX_MB` it shall throw `CloneError`, so the summon returns 422 `CLONE_ERROR` with the R10.2 message, and the clone is deleted and the slot released. A failed size probe shall pass, as the check right after the clone does.
+
+**R11.13** `buildLedger` shall cut each item's `author` and `email` to 256 characters, as it cuts `subject` and `body`. `isSuspicious` shall still read the full author.

@@ -1,0 +1,935 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent warden, claude-opus-5.5), 2026-11-11: the inquisitor's findings fixed test-first, with an addendum in each affected spec. Unedited output; only the home directory prefix is replaced with ~. Kiro found that the parser fix suggested in the prompt was still ambiguous and chose a sound one (a header can only follow an empty NUL token). X-Forwarded-For was left as the documented open risk on purpose. By hand afterwards: every diff read, all routes exercised against the real model and a small public GitHub repository.
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Fix the findings of the inquisitor review in docs/kiro-evidence/inquisitor-review-session.txt (read it fully first), test first. For each fix write the failing test, see it fail for the right reason, then change the code. Keep each affected spec truthful: add an "Addendum: inquisitor review (2026-11-11)" section at the end of the affected spec's requirements.md (new requirement ids continuing that spec's numbering), a short design note, and a new task at the end of its tasks.md with the items you complete ticked (ward-hardening for 1, 4 and the ledger bounds; first-seance for 6, 7, 8 and the label; haunting-map for 5). Update .kiro/steering/evidence-rules.md where the verifier rule changes.
+
+Decisions (do exactly these; do not widen the scope):
+1. "Verified" label (their HIGH 1). The ward proves the citation and the quote, not the sentence. Do not change what the verifier accepts and do not add a lexical-overlap rule (it would reject every claim about a non-English commit). Change the wording instead so nothing calls the sentence itself verified: the per-claim label on the page becomes "Citations verified" (it is "Verified" today); the per-answer tally stays "N of M claims verified by the ward." but the sentence in #ward-limit moves directly under each answer's tally as well (class meta), so the limit is read with every result; in the Markdown report the heading "## Verified" becomes "## Citations verified". Update the tests and the ward-report spec note accordingly.
+2. X-Forwarded-For (their HIGH 2): do NOT change clientKey or the limiter keys. The hosting proxy chain is not verified and a wrong guess would put every visitor in one bucket. Leave it as the documented open risk; add nothing.
+3. Whole-summon bounds (their HIGH 3): for remote repositories only, one overall deadline for the whole summon after the clone (env SUMMON_DEADLINE_MS, default 60000): when it passes, the remaining git calls are not started, the summon fails with the existing HISTORY_ERROR sentence (422), the clone is deleted and the clone slot released. And the clone size check runs once more after the ledger and map reads (the same CLONE_MAX_MB cap; over the cap is a CloneError, 422). Keep it simple: a deadline timestamp checked before each git call in buildLedger and a final size check; do not rewrite runGit or add abort signals everywhere. Samples and local paths are not affected. Prove with a mocked slow git layer and a mocked size probe.
+4. Year and author detection (their MEDIUM 4): for detection only, compare NFKC-normalised text with default-ignorable characters removed (U+00AD, U+034F, U+061C, U+115F, U+1160, U+17B4, U+17B5, U+180B-U+180F, U+200B-U+200F, U+202A-U+202E, U+2060-U+206F, U+3164, U+FE00-U+FE0F, U+FEFF, U+FFA0, and the tag/variation ranges U+E0000-U+E0FFF) on both the claim text and the ledger author names and fields. Full-width digits therefore count as a year, and a zero-width character inside a name no longer hides it. Matching stays case-sensitive (a lower-cased name is in the same class as a name outside the ledger; say so in the stated limits, do not case-fold: single-word author names would then strike ordinary words). Quote verification stays raw and case-sensitive, exactly as it is. No regular expression built from untrusted text. The "only stricter" property against the frozen legacy verifier must still pass, plus a new property: for any claim the current verifier (before this change) rejects, the new one rejects too (freeze a copy of today's verifier as test/ghost/pbt/verifier-2026-11-11.ts for that).
+5. Map parser (their MEDIUM 5): a path containing the record or unit separator must not be able to forge a commit. Keep exactly two git calls (R1.2). Make the parse unambiguous instead: with `-z`, git ends each path with NUL and paths cannot contain NUL, so build the record format so that a commit header can only begin right after a NUL (or at the start of output) and is recognised by a fixed-shape prefix that includes the 40-hex sha; then additionally reject any parsed commit whose header fields fail the Zod schema. If you can show a remaining ambiguity with -z output, say so and choose the smallest sound alternative (a third call that lists the real shas is acceptable only then, with R1.2 amended). Test with a real git repository containing such a file name (create it with git update-index/hash-object if the filesystem allows the name; otherwise feed the parser the exact bytes git would emit) and a property test with arbitrary bytes in paths.
+6. Retries in the page (their MEDIUM 6): POSTs to /api/ask and /api/exorcise (the model-calling routes) are retried only on a proxy 502/503/504 that is not our JSON, never on a rejected fetch (network failure), because the server may have accepted the request. GETs, /api/summon, /api/ward and /api/possess keep today's behaviour. The message after a network failure on ask/exorcise: "The connection dropped. The ghost may still have answered; ask again in a moment." Update the e2e wake test and CP4.
+7. Recorded answers unlimited (their MEDIUM 7): recorded responses get their own per-client limiter (default 30 per 600000 ms, env RECORDED_RATE_LIMIT_MAX / RECORDED_RATE_LIMIT_WINDOW_MS), applied whenever a recording is served; the model limiter's global daily counter is still not charged by a recording, and test/server/ratelimit.test.ts stays byte-for-byte unchanged. Update test/server/recorded-limits.test.ts.
+8. ledgerShas (their LOW 8): a recording applies only when its ledgerShas equal the current ledger's short hashes in order; otherwise it is treated as absent (console.warn).
+9. Ledger bounds (their SUSPECTED): buildLedger cuts `author` to 256 and `email` to 256 characters (the schema's limits) as it already cuts subject and body; no other change.
+10. Bidi controls (their SUSPECTED): untrusted text containers on the page get `unicode-bidi: plaintext` (claims, quotes, ledger rows, source lines, map tiles, question lines), and the Markdown report replaces U+202A-U+202E and U+2066-U+2069 with a visible escape like `‮`. Tests: a static CSS test and a report unit/property test.
+Not in scope: anything else in the review.
+
+Hard rules: src/ghost/verifier.ts may only become stricter; do not touch recordings/*.json or test/fixtures/**/*.json; after the verifier change, check with `npx tsx scripts/record-plan-fixture.ts --hash-only` and `--ghost --hash-only` that the prompt hashes are still 464f2680 and b0b2564e and that test/recordings.test.ts still passes on the shipped recordings (the real model's recorded answers must still verify; if any stops verifying, stop and report it, do not edit the recording). Do not run git add/commit/push. Finish by running `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast` and pasting the real summary lines, then a table: finding, fix, test that proves it.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=7
+I'll start with the hook's staged-diff review and read the inquisitor review in full.
+[tool] Check staged diff and working tree status
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+The staged diff is empty, so the hook's review has nothing to check yet. I'll repeat that checklist on the working-tree diff at the end. Now the codebase.
+[tool] List project structure and file sizes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List PBT tests and run baseline suite
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Baseline: 70 files, 1168 tests passing. Reading the verifier PBTs and legacy freeze next.
+[tool] Inspect legacy verifier and hardening PBT structure
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Let me see how git actually emits the map log, using a scratch repo.
+[tool] Read map git calls in git.ts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Inspect raw -z name-only output bytes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Check output with a NUL-prefixed header and evil filename
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests of the map log parser
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Survey spec files and headings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read ward-hardening tasks tail and ward-report spec
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Failed: Read ward-hardening tasks tail and ward-report spec
+[tool] Read task format and ward-report spec
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read spec structure for ward-hardening, first-seance, haunting-map
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the page code for the answer rendering, retries and labels.
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests referencing labels, ward-limit and retries
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read existing label and retry tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read first-seance R5, R7, tail and tasks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+I have enough context to start. Fix 4 (verifier) first: freeze today's verifier, then write failing tests.
+[tool] Freeze today's verifier as a test copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now the failing unit tests for the Unicode detection.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run new unicode tests, expect failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect the raw-quote test failure
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+That one is a bug in my test (the claim names Bob, whose quote was refused); it's a regression guard that should pass both before and after. Fixing it to `toContain`.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the property file: the frozen-copy "only stricter" property plus normalised year and author oracles.
+[tool] Check fast-check version and scripts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run new PBT, expect CP11/CP12 failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run ghost tests and typecheck after verifier change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 18 ghost test files pass, including the d738258 CP4 and the new CP10. Now the hard-rule checks on prompt hashes and shipped recordings.
+[tool] Check prompt hashes and shipped recordings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Hashes are unchanged (464f2680, b0b2564e) and the recordings test passes. To be sure no recorded claim changed bucket, I'll compare the frozen and current verifiers on every shipped recording.
+[tool] See how recordings test builds ledgers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Inspect a recording's shape
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Compare verifier verdicts on all recordings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Every recorded claim lands in the same bucket before and after. Updating the verifier header comment, then fix 1 (labels).
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find all test references to Verified heading/label
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read tally/ward-limit related tests and HTML
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now updating the tests for fix 1 (they should fail before the code change).
+[tool] Rename Verified label expectations in tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Adding the new assertions: the review's /api/ward proof test, no `## Verified` line in the report, and the limit sentence under each tally.
+[tool] Inspect hardening test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run label tests expecting failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All six fail on the old label or heading, as intended. Now the code.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run all affected suites after label change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect hardening R11 failure
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+My test sent the wrong body shape: `/api/ward` takes `{ sessionId, answer }`. Fixing the test.
+[tool] Read /api/ward body handling
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Confirm new test fails without fix, passes with it
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Fails without the fix, passes with it. (I used a one-file `git stash` there to show that; I've checked nothing is left staged and won't do it again.)
+[tool] Confirm nothing staged and stash empty
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Fix 10 next (bidi controls). Checking class names for the untrusted-text containers.
+[tool] List element classes used by the page
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Locate CSS test helpers and report PBT
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Writing the bidi tests: report unit and property tests, plus a static CSS test.
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run bidi tests expecting failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All fail for the expected reason. Now the CSS rule and the escape.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Re-run UI and ghost suites, typecheck
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Fix 9 (ledger author/email bounds). Reading `buildLedger`'s item assembly.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] See how the ledger tests mock git
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests that mock the git layer
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I'll put fixes 9 and 3 in one new test file that mocks the git layer. Reading the clone code first.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read RawCommit, error classes and server use
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read RawCommit and env docs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Writing the failing tests for fixes 9 and 3 (mocked slow git layer, mocked size probe, and the summon route).
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run bounds tests, expect failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All seven fail for the right reasons. Implementing: an exported size probe in git.ts, the deadline and final size check in buildLedger.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+`assertCloneWithinCap` would call the internal `cloneSizeBytes`, bypassing the mock. I'll keep only the probe in git.ts and do the comparison in ledger.ts.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check execFileAsync declared before use
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Declared before use. Now ledger.ts.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the call sites inside `buildLedger`.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run bounds tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Author and email are now cut. The schema still refuses the item; checking why.
+[tool] Read EvidenceItemSchema
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Run evidence and server suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+Fixes 9 and 3 pass. Documenting the new variable in `.env.example`, then fix 8 (ledgerShas).
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Locate recording gate in server
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find recording serve sites in server
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect scripted clients and limiter API
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect recordings unit tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Writing fix 8's failing tests (unit, then server).
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] See how tests simulate model failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now the server-side tests in `recorded-limits.test.ts` (existing tests kept; env, reset and new cases added).
+[tool] Patch recorded-limits test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Append to File
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run recordings tests expecting failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Both files fail on missing exports. I'll add `loadRecordingFor` and an unused `recordedLimiter` export first, so the behaviour tests can fail for the real reason before the limiter is wired in.
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run tests to see behavioural failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The six behaviour tests fail for the right reasons. Wiring in the ledger check and the limiter at every serve site.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check remaining loadRecording uses
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Failed: Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the four serve sites.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run server and recording suites after wiring limiter
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Run R14.3 test alone, inspect reset
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find failing assertion line
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Rerun and format changed files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Documenting the new environment variables.
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+Fix 6 (page retries). Checking how the e2e harness proxy works.
+[tool] Inspect harness proxy semantics
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] See exorcise error display and e2e ask helpers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read chip and exorcise e2e steps
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Writing the e2e tests for fix 6 (the ask and exorcise drop cases, a proxy 502 on ask still retried, and summon unchanged).
+[tool] Replace in File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run wake tests expecting failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+They time out waiting while the page sleeps in its retry timers, which hides the actual reason. I'll advance the clock first, then wait, so the assertion names the replay.
+[tool] Restructure timing and rerun wake tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+`requests` only logs completed responses, so a thrown fetch isn't counted. I'll count attempts inside the proxy instead.
+[tool] Count attempts in proxy and rerun
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Failing for the right reason: four attempts, so four model calls. Adding the CP4 property for the new rule, then the code.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check imports for 'it' in PBT file
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Fix import, rename CP4, run
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the page code.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run UI and e2e suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Rerun UI and e2e suites after page change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Fix 6 passes. Now fix 5 (map parser). Checking the existing parser tests and the real-git test setup.
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read real-git test setup and unit parser tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Move parser test literals to the new format
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Failed: Move parser test literals to the new format
+Old literals moved to the new byte format. Now the new unit test, a real-git test and a property test for forged paths.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the real-git test. First checking that git accepts such a path through `update-index` without touching the filesystem.
+[tool] Create the hostile path via update-index
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+git accepts it. Writing the real-git test.
+[tool] Read map schema field names
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run map tests expecting failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All nine fail for the right reasons; the real repository shows three commits where git has two. Implementing the parser and the format change.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run evidence suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Rerun evidence suites, summary only
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+That assertion was wrong in my test: the hostile path is a real file and legitimately carries the word "Mallory" in its name. I'll check the ghosts and attributions instead.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Rerun the real-git map test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Map fixes pass (the earlier old-code run failed at `commitsRead` 3 vs 2, which is unchanged in the corrected test). Running the full suite and lint before the spec work.
+[tool] Format, run full tests and lint
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show all lint errors
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Six lint errors. Fixing each: no control chars in the haunting regex, no combining marks in the verifier's character class (a code-point loop instead), and the `HTMLElement` global in the e2e test.
+[tool] Check Page.click signature
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Lint, typecheck and rerun touched suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Lint and typecheck again
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Lint and typecheck are clean. Checking that the formatter touched only files I changed.
+[tool] List changed files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Confirming the frozen verifier copy is still byte-identical to the committed verifier, apart from the header and import paths.
+[tool] Verify frozen copy and protected files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find R11.1 references to retarget
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read spec anchors for addenda
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read haunting-map and first-seance spec tails
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Code is done. Now the spec addenda, design notes, tasks and steering. Reading the steering file and the R2.3 design section first.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read ward-hardening intro and §4.3 limits
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Writing the ward-hardening addendum, design note and task.
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the first-seance addendum, design note and task.
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+Now haunting-map.
+[tool] Find format string mentions in specs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read haunting-map design §4
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Mark superseded format text in haunting-map design
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+Now the ward-report design note and the steering file.
+[tool] Add ward-report design note
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+All docs updated. Final verification run: tests, typecheck, lint, contrast.
+[tool] Run final test, typecheck, lint, contrast
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Checking that the formatter left the existing spec text alone, then re-running the hard-rule checks on the final tree.
+[tool] Check spec diff size and hard rules on final tree
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I fixed all eight findings you scoped in, plus the two suspected ones, each test first. Every new test failed for the stated reason before its code change. The four checks pass, nothing is staged or committed, and no recording or fixture was touched.
+
+```
+ Test Files  74 passed (74)
+      Tests  1237 passed (1237)
+> tsc --noEmit                       (no output, exit 0)
+Checking formatting...
+All matched files use Prettier code style!   (eslint: no output)
+All 20 table pairs and 28 usage pairs pass; the table agrees with :root. ✓
+```
+
+After the verifier change, `--hash-only` printed `464f2680` and `--ghost --hash-only` printed `b0b2564e`. `test/recordings.test.ts` passes (17 tests). I also ran the frozen and the current verifier on all eight shipped recordings: every recording gets the same verified, rejected and silent counts with both. `test/server/ratelimit.test.ts` and `src/ratelimit.ts` are unchanged.
+
+| Finding | Fix | Test that proves it |
+|---|---|---|
+| HIGH 1: "Verified" names the sentence | The page label is now "Citations verified" and the report heading `## Citations verified`. The `#ward-limit` sentence also appears as `p.meta` under each answer's tally. What the verifier accepts is unchanged. | `test/server/hardening.test.ts` (the review's input: still 1 of 1, no `## Verified` line); `test/e2e/crypt.test.ts` step 5; `test/e2e/recorded.test.ts`; `test/ui/pbt/ui.pbt.ts` |
+| HIGH 2: X-Forwarded-For | Not changed, as you decided; it stays the open risk in ward-hardening design §14 | none |
+| HIGH 3: no bounds after the clone | For remote summons only: `SUMMON_DEADLINE_MS` (default 60000) is checked before each git call and fails with HISTORY_ERROR (422). The clone size is checked again against `CLONE_MAX_MB` after the ledger and map reads. | `test/evidence/summon-bounds.test.ts` (slow mocked git, mocked size probe, the route's 422, clone deleted, slot released, local paths unaffected) |
+| MEDIUM 4: Unicode in year and author checks | The year and author checks run a second time on the NFKC form with the listed ignorable characters removed. This pass only adds rejection reasons. Quotes are still compared raw. Case is not folded (now a stated limit). | `test/ghost/verifier.unicode.test.ts`; `test/ghost/pbt/verifier.unicode.pbt.ts` (CP10: stricter than the frozen `verifier-2026-11-11.ts`); the existing CP4 against `d738258` |
+| MEDIUM 5: map parser forgery | The format now starts with `%x00`. A commit header is read only right after an empty NUL token and must have the fixed shape, then pass Zod. Still two git calls. | `test/evidence/haunting.git.test.ts` (real repo, hostile path added via `update-index`: 3 commits read before, 2 now); exact-bytes cases in `haunting.test.ts`; HM10 property over hostile paths |
+| MEDIUM 6: page retries replay model calls | A failed fetch on a POST to `/api/ask` or `/api/exorcise` is not retried and shows the dropped-connection message. A proxy 502/503/504 page is still retried. | `test/e2e/wake.test.ts` flow 4b (server ran, connection dropped: one attempt, one model call); CP4 in `test/ui/pbt/first-seance.pbt.ts` |
+| MEDIUM 7: recorded answers unlimited | `recordedLimiter` (30 per 600000 ms by default, env-configurable) is checked at all four places a recording is served. The daily model counter is still not charged. | `test/server/recorded-limits.test.ts` (R14.1 cases: no key, daily cap, model failure, other client, default 30) |
+| LOW 8: `ledgerShas` unchecked | `loadRecordingFor` uses a recording only when its `ledgerShas` match the ledger in order; otherwise `console.warn` and treated as absent | `test/ghost/recordings.test.ts`; `recorded-limits.test.ts` (R14.3) |
+| SUSPECTED: ledger bounds | `author` and `email` are cut to 256 characters | `summon-bounds.test.ts` (R11.13) |
+| SUSPECTED: bidi controls | `unicode-bidi: plaintext` on the untrusted text containers; the report shows the controls as text like `\u202E` | `test/ui/bidi.test.ts`; `report.test.ts`; P5 in `report.pbt.ts` |
+
+Things you should know:
+
+- **Finding 5: a gap in the suggested design.** "A header begins only right after a NUL" is still ambiguous. With `-z`, every path also begins right after a NUL, so a path shaped like a header is byte-for-byte a header. What a path can never be is empty. Putting `%x00` at the start of the format makes every header follow an empty token, and no sequence of paths can produce one. That closes it without a third git call, so R1.2 is not amended. The reasoning is in haunting-map design §13.
+- **Spec placement.** You didn't assign fixes 3 and 10 to a spec. I put both in ward-hardening (R11.8–R11.12) because that spec owns the abuse limits and the report escaping. The per-answer limit sentence also went there (R11.2), and the page label went to first-seance (R14.6).
+- **Escape format.** In your message the example escape came through as a raw control character, so I chose `\u` plus four upper-case hex digits, e.g. `\u202E`.
+- **Test harness.** `ProxyRequest` in `test/e2e/harness.ts` gained `forward()`, so the wake test can let the server run the request and then drop the answer.
+- **New env vars** `SUMMON_DEADLINE_MS`, `RECORDED_RATE_LIMIT_MAX` and `RECORDED_RATE_LIMIT_WINDOW_MS` are documented in `.env.example` only, not in `render.yaml`.
+- **One stash.** To show one test failing without the fix, I briefly stashed `src/ghost/report.ts` and popped it right after. The stash list and the index are empty.
+
+The specs and steering file were updated as you listed:
+
+- **ward-hardening:** R11.1–R11.13, design §16, task T10.
+- **first-seance:** R14.1–R14.6, design §17, task T11.
+- **haunting-map:** R10.1–R10.3, design §13, task T7.
+- **ward-report:** a design note.
+- **`.kiro/steering/evidence-rules.md`:** the detection form, raw quotes, the stated limits and the ledger bounds.
+
+**Evidence-rules hook checklist.** The staged diff is empty because nothing was staged, so I checked the working-tree diff instead:
+
+- ✅ `src/ghost/schema.ts` is unchanged.
+- ✅ The verifier only becomes stricter. The new pass only adds reasons, and both CP4 (against `d738258`) and CP10 (against the frozen copy) pass.
+- ✅ Memory and speculation claims still need 1–10 citations, each with a mandatory 8–500 character quote found in one field of the cited item.
+- ✅ A silence claim can never land in `verified`.
+- ✅ Quotes are still compared raw and case-sensitively.
+- ✅ The score formula is unchanged.
+- ✅ `recordings/*.json` and `test/fixtures/**/*.json` are unchanged.
+exit 0

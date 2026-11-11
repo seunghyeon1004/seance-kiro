@@ -30,14 +30,17 @@ import {
   showHunk,
   changedFiles,
   cloneRepo,
+  cloneSizeBytes,
   readLines,
   lineCountAtHead,
+  CLONE_MAX_BYTES,
+  CLONE_MAX_MB,
   WHOLE_FILE_MAX_LINES,
 } from './git.js';
 import { parseRefs, isSuspicious } from './refs.js';
 import { parseGitHubRemote, fetchGitHubRef } from './github.js';
 import { readHauntingMap, MAP_NOTE_FAILED } from './haunting.read.js';
-import { GitError, ValidationError } from '../errors.js';
+import { CloneError, GitError, HistoryError, ValidationError } from '../errors.js';
 import type { LedgerInput, WholeFileInput } from './ledger.input.js';
 import type {
   EvidenceItem,
@@ -53,6 +56,36 @@ import type { RawCommit } from './git.js';
 
 const MAX_ITEMS = 50;
 const MAX_HUNK_BYTES = 512 * 1024; // 512 KB combined
+/** EvidenceItemSchema's limits for author and email (ward-hardening R11.13). */
+const MAX_AUTHOR_CHARS = 256;
+const MAX_EMAIL_CHARS = 256;
+
+// ---------------------------------------------------------------------------
+// Whole-summon deadline for remote repositories (ward-hardening R11.10)
+// ---------------------------------------------------------------------------
+
+export const SUMMON_DEADLINE_DEFAULT_MS = 60_000;
+
+/** SUMMON_DEADLINE_MS, read per summon; a missing or invalid value gives the default. */
+function summonDeadlineMs(): number {
+  const n = Number(process.env['SUMMON_DEADLINE_MS']);
+  return Number.isFinite(n) && n > 0 ? n : SUMMON_DEADLINE_DEFAULT_MS;
+}
+
+/**
+ * A check run before each git call. For a remote repository it throws HistoryError once the
+ * deadline has passed, so the remaining git calls are not started; otherwise it does nothing.
+ */
+function deadlineGuard(remote: boolean): (step: string) => void {
+  if (!remote) return () => undefined;
+  const ms = summonDeadlineMs();
+  const deadline = Date.now() + ms;
+  return (step) => {
+    if (Date.now() >= deadline) {
+      throw new HistoryError(`The summon deadline of ${ms} ms passed before ${step}`);
+    }
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Whole-file summons and the map option (haunting-map design.md §6.2)
@@ -93,8 +126,13 @@ function startHauntingMap(repoRoot: string): Promise<HauntingOutcome> {
 }
 
 /** The line range for a whole-file input; refuses an unreadable or empty file (R6.4, R6.5). */
-async function resolveWholeFile(repoRoot: string, file: string): Promise<LineRange> {
+async function resolveWholeFile(
+  repoRoot: string,
+  file: string,
+  beforeGit: (step: string) => void,
+): Promise<LineRange> {
   let n: number;
+  beforeGit('lineCountAtHead');
   try {
     n = await lineCountAtHead(repoRoot, file);
   } catch (err) {
@@ -156,13 +194,17 @@ export async function buildLedger(
     // git calls (haunting-map R1.1, R1.5). The reader never rejects; the catch is a guard.
     if (opts.hauntingMap === true) mapRun = startHauntingMap(repoRoot);
 
+    // ward-hardening R11.10: one deadline from here on, checked before each git call
+    const beforeGit = deadlineGuard(isRemote);
+
     // The range: given, or the whole file at HEAD (haunting-map R6.4, R6.5)
     const range: LineRange =
       'wholeFile' in input
-        ? await resolveWholeFile(repoRoot, input.file)
+        ? await resolveWholeFile(repoRoot, input.file, beforeGit)
         : { startLine: input.startLine, endLine: input.endLine };
 
     // Step 2 — blame to collect commit SHAs in the range
+    beforeGit('blame');
     const blameEntries = await blame(
       repoRoot,
       input.file,
@@ -171,9 +213,11 @@ export async function buildLedger(
     );
 
     // Step 3 — log -L for ordered history + rename events
+    beforeGit('log -L');
     const logCommits = await logL(repoRoot, input.file, range.startLine, range.endLine);
 
     // The selected lines at HEAD, read before the clone is deleted (first-seance R2.1)
+    beforeGit('reading the lines');
     const lines = await readLines(repoRoot, input.file, range.startLine, range.endLine);
 
     // Step 4 — deduplicate SHAs (blame + log combined)
@@ -216,6 +260,7 @@ export async function buildLedger(
       // Hunk (R4.3)
       let hunk = '';
       if (combinedHunkBytes < MAX_HUNK_BYTES) {
+        beforeGit('git show');
         hunk = await showHunk(
           repoRoot,
           commit.sha,
@@ -235,6 +280,7 @@ export async function buildLedger(
 
       // Changed files (R4.2)
       let files: string[] = [];
+      beforeGit('listing changed files');
       try {
         files = await changedFiles(repoRoot, commit.sha);
       } catch {
@@ -266,7 +312,8 @@ export async function buildLedger(
         }
       }
 
-      // Truncate subject/body to spec limits (R10.3)
+      // Truncate subject/body to spec limits (R10.3), and author/email to the schema's
+      // limits (ward-hardening R11.13); isSuspicious above saw the full author
       const subject = commit.subject.slice(0, 512);
       const body = commit.body.slice(0, 4096);
 
@@ -274,8 +321,8 @@ export async function buildLedger(
         id: `E${i + 1}`,
         sha: commit.sha,
         shortSha: commit.sha.slice(0, 7),
-        author: commit.author,
-        email: commit.email,
+        author: commit.author.slice(0, MAX_AUTHOR_CHARS),
+        email: commit.email.slice(0, MAX_EMAIL_CHARS),
         date: commit.date,
         subject,
         body,
@@ -297,6 +344,18 @@ export async function buildLedger(
 
     const buildDurationMs = performance.now() - t0;
 
+    // ward-hardening R11.12: the map read has settled; check the clone size once more, since
+    // blame, log -L and show may have fetched blobs the blob-less clone left out
+    const haunting = mapRun ? await mapRun : undefined;
+    if (isRemote) {
+      const bytes = await cloneSizeBytes(repoRoot);
+      if (bytes !== null && bytes > CLONE_MAX_BYTES) {
+        throw new CloneError(
+          `The clone grew past the size cap (${CLONE_MAX_MB} MB) while its history was read`,
+        );
+      }
+    }
+
     return {
       items: items as readonly EvidenceItem[],
       truncated,
@@ -304,7 +363,7 @@ export async function buildLedger(
       lines,
       shallow,
       range,
-      ...(mapRun ? { haunting: await mapRun } : {}),
+      ...(haunting ? { haunting } : {}),
     };
   } finally {
     // The reader settles before the clone is deleted, whether the ledger succeeded or not, so

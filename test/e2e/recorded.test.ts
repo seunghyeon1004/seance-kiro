@@ -80,7 +80,7 @@ describe('flow 3: the model is down', { timeout: 30_000 }, () => {
     expect(turn.firstElementChild?.className).toBe('lab recorded');
     expect(turn.firstElementChild?.textContent).toBe(RECORDED_LABEL);
     const mem = turn.querySelector('article.claim.memory')!;
-    expect(mem.querySelector('.lab')?.textContent).toBe('Verified');
+    expect(mem.querySelector('.lab')?.textContent).toBe('Citations verified');
     expect(mem.querySelector('.found-head')?.textContent).toBe(
       'The words the ward found',
     );

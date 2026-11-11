@@ -299,6 +299,7 @@ The verifier builds no regular expression from ledger or claim text. Author matc
 - **UTC year.** The year comes from the UTC `date`. A commit made on 31 December in UTC−5 is dated the next year if it was made after 19:00 local time.
 - **Fails closed on short names.** A very short or common author name, such as "Will", also matches ordinary words. Claims that use such a word are rejected.
 - **Astral boundary.** A boundary check against an astral-plane character before a name sees only half of a surrogate pair. Such a character counts as a boundary.
+- **Case and confusables (R11.6, added 2026-11-11).** Detection also runs on the NFKC form with default-ignorable characters removed (§16), but it stays case-sensitive: `alice` is not detected as the ledger author `Alice`, like a name outside the ledger. Letters that only look alike across scripts are not detected.
 
 ## 5. Prompt layout (`src/ghost/persona.ts`)
 
@@ -799,7 +800,7 @@ Update `.kiro/steering/evidence-rules.md` (N7): mandatory quotes, the one-field 
 - **Escaped characters in quotes.** If the model copies `&lt;` instead of `<`, the quote is rejected. This fails closed, and the system prompt tells the model to unescape.
 - **Duplicate DOM ids.** Ledger rows still use `ledger-item-${shortSha}`, so two items with the same short hash share an id. Citations of such a hash are refused (R1.7), so no cite button points at one. The duplicate id is cosmetic.
 - **Fixture-mode error text.** `ParseError` messages from fixture mode, including the fixture path, still reach `/api/ask` clients. This only happens when `ANTHROPIC_FIXTURE=1`, which is never set in production.
-- **No overall summon deadline (R1 in the review).** Blob fetches after the clone, and the git calls of one summon, have per-call timeouts but no total deadline. Concurrency is now bounded (R10.6).
+- **No overall summon deadline (R1 in the review).** Blob fetches after the clone, and the git calls of one summon, have per-call timeouts but no total deadline. Concurrency is now bounded (R10.6). (Closed on 2026-11-11 by R11.10–R11.12, §16.)
 
 ## 15. Audit finding → requirement map
 
@@ -816,3 +817,24 @@ Update `.kiro/steering/evidence-rules.md` (N7): mandatory quotes, the one-field 
 | R1 | high | `/api/summon` unlimited | R10.5, R10.6 |
 | R2 | medium | Spoofable `X-Forwarded-For` | none: open risk, §14 |
 | R3 | medium | Sessions, bodies and `/api/ward` unbounded | R10.3, R10.4, R10.7, R10.8, N2 |
+
+## 16. Addendum: inquisitor review (2026-11-11)
+
+Requirements R11.1–R11.13. The review is `docs/kiro-evidence/inquisitor-review-session.txt`.
+
+- **Wording, not acceptance (R11.1–R11.3).** `renderWardReport` writes `## Citations verified`. `renderAnswer` in `public/app.js` appends `<p class="meta">` with the `WARD_LIMIT_TEXT` constant (the R2.3 sentence) after each `.tally`. The page label is `first-seance` R14.6. `verify` is unchanged by these three.
+- **Detection form (R11.4–R11.7).** `detectionText(s)` in `src/ghost/verifier.ts` walks the string by code point and drops the ranges of R11.4 (a fixed table, no pattern built from input), applies `normalize('NFKC')`, and drops them again: NFKC turns U+FFA0 and U+3164 into U+1160. `buildIndex` stores, per item, the detection form of each field, the years in it and the author, and a list of distinct detection-form authors sorted longest first. A new step 7b runs the year and author checks of steps 6 and 7 on `detectionText(claim.text)` against those forms. It only pushes reasons, skipping a reason identical to one already pushed, so a claim rejected before is rejected now (R11.7, property CP10 in `test/ghost/pbt/verifier.unicode.pbt.ts` against the frozen copy). Quotes are still compared with `includes` on the raw fields (R11.5, CP13). The shipped recordings give the same verified, rejected and silent counts with both verifiers, and the prompt hashes are still `464f2680` and `b0b2564e`.
+- **Stated limits added to §4.3 (R11.6).** Case is not folded. `alice` is not detected as the ledger author `Alice`, in the same way as a name outside the ledger. Folding would make a single-word author such as "Will" or "May" strike ordinary words. Confusables across scripts are not detected; NFKC does not map them.
+- **Bidi (R11.8, R11.9).** One CSS rule lists the containers. `unicode-bidi: plaintext` isolates each element and takes its direction from its own first strong character, so an RLO inside a subject cannot reorder the fixed labels around it. `escapeMd` replaces the controls after the backslash escaping, so the backslash it adds is not doubled, and an author's literal `\u202E` still reads `\\u202E`.
+- **Whole-summon bounds (R11.10–R11.12).** `deadlineGuard(isRemote)` in `src/evidence/ledger.ts` returns a check that throws `HistoryError` once `Date.now()` reaches the deadline. It is called before each git call. A call already running finishes under its own 10 s timeout, so a summon ends at most one git call after the deadline. Before returning, `buildLedger` awaits the map read and then calls `cloneSizeBytes` (new in `src/evidence/git.ts`, `du -sk`, `null` on failure) against `CLONE_MAX_BYTES`. The existing `finally` deletes the clone, and the summon route's `finally` releases the slot. `SUMMON_DEADLINE_MS` is documented in `.env.example`.
+- **Bounds (R11.13).** `author.slice(0, 256)` and `email.slice(0, 256)` next to the subject and body cuts.
+- **X-Forwarded-For (review HIGH 2).** Unchanged; §14 stays the record of this open risk.
+
+| Review finding | Requirement | Test |
+| --- | --- | --- |
+| HIGH 1 "Verified" means only that a quote exists | R11.1–R11.3 | `test/server/hardening.test.ts` (R11.1–R11.3), `test/ghost/report.test.ts`, `test/e2e/crypt.test.ts` step 5 |
+| HIGH 3 caps end at the clone | R11.10–R11.12 | `test/evidence/summon-bounds.test.ts` |
+| MEDIUM 4 Unicode and the year and author checks | R11.4–R11.7 | `test/ghost/verifier.unicode.test.ts`, `test/ghost/pbt/verifier.unicode.pbt.ts` (CP10–CP13) |
+| SUSPECTED unbounded author | R11.13 | `test/evidence/summon-bounds.test.ts` |
+| SUSPECTED bidi controls | R11.8, R11.9 | `test/ui/bidi.test.ts`, `test/ghost/report.test.ts`, `test/ghost/pbt/report.pbt.ts` (P5) |
+| HIGH 2 `X-Forwarded-For` | none: open risk, §14 | none |

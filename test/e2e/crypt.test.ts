@@ -166,7 +166,7 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     expect(q.textContent).toBe(`You asked: ${CRYPT_QUESTIONS[0]}`);
 
     const mem = turn.querySelector('article.claim.memory')!;
-    expect(mem.querySelector('.lab')?.textContent).toBe('Verified');
+    expect(mem.querySelector('.lab')?.textContent).toBe('Citations verified');
     expect(mem.querySelector('.lab')?.nextElementSibling?.className).toBe('txt');
     expect(mem.querySelector('.found-head')?.textContent).toBe(
       'The words the ward found',
@@ -175,6 +175,16 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     const tally = turn.querySelector('.tally')!;
     for (const a of ['role', 'aria-live', 'aria-atomic'])
       expect(tally.hasAttribute(a)).toBe(false);
+    // ward-hardening R11.2: the ward's limit is read with every result
+    const limit = tally.nextElementSibling!;
+    expect(limit.tagName).toBe('P');
+    expect(limit.className).toBe('meta');
+    expect(limit.textContent).toBe(
+      "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.",
+    );
+    expect(limit.textContent).toBe(
+      norm(page.doc.getElementById('ward-limit')?.textContent),
+    );
 
     const lit = [...page.doc.querySelectorAll('#ledger li.lit')];
     expect(lit.length).toBeGreaterThan(0);

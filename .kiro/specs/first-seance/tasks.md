@@ -359,3 +359,17 @@ Covers: R1.6, R10.5 (re-check: no reason string changed, since `verifier.ts` is 
 | N6 | T1, T2, T3, T5, T6, T8 |
 | N7 | T3, T9 |
 | N8 | every task, T10 |
+
+---
+
+## T11 — Inquisitor review (2026-11-11)
+
+Each item began with a test that failed for the stated reason before the code changed.
+
+- [x] Write the failing tests for R14.4 and R14.5 in `test/e2e/wake.test.ts` (flow 4b): the proxy lets the server run `/api/ask`, then drops the answer; the page sends it once, the model is called once, and the notice reads the R14.5 sentence. The same for `/api/exorcise`. A proxy 502 page on `/api/ask` is still retried. Add the `retriesNetworkFailure` property to CP4. Implement `retriesNetworkFailure` and `CONNECTION_DROPPED` in `public/app.js`. The summon tests of flow 4 pass unchanged.
+- [x] Write the failing tests for R14.1 and R14.2 in `test/server/recorded-limits.test.ts`: with no key the 13th recorded request (limit 12 in the test) gets the 429 and the daily slot is still free; another client has its own allowance; recordings at the daily cap and after a model failure (an overloaded client) count against the same limit; the default is 30. Add `recordedLimiter` and `recordedLimitRefusal` to `src/server.ts`, and `RECORDED_RATE_LIMIT_MAX` and `RECORDED_RATE_LIMIT_WINDOW_MS` to `.env.example`. `test/server/ratelimit.test.ts` is unchanged.
+- [x] Write the failing tests for R14.3 in `test/ghost/recordings.test.ts` (`loadRecordingFor`: another hash, an extra item, an empty ledger, another order) and `test/server/recorded-limits.test.ts` (a changed ledger gets `CONFIG_ERROR`, with the warning). Add `loadRecordingFor` and use it in `recordingForRequest`.
+- [x] Change the R12.7 label expectations in `test/e2e/crypt.test.ts`, `test/e2e/recorded.test.ts`, `test/ui/pbt/ui.pbt.ts` and `test/ui/first-seance.test.ts` to "Citations verified", see them fail, then change `claimNode` (R14.6).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+
+Covers: R14.1–R14.6.

@@ -175,3 +175,101 @@ describe('flow 4: the sleepy host', { timeout: 30_000 }, () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// inquisitor review (2026-11-11), finding 6 — first-seance R14.4, R14.5
+// ---------------------------------------------------------------------------
+
+const DROPPED =
+  'The connection dropped. The ghost may still have answered; ask again in a moment.';
+
+const attemptsAt = (p: Page, path: string): number =>
+  p.requests.filter((r) => r.path === path).length;
+
+/** Open the page, summon crypt with real timers, then hand the clock to vi. */
+async function openSeance(
+  client: CryptClient,
+  proxy: (req: ProxyRequest) => Response | Promise<Response> | undefined,
+): Promise<Page> {
+  const p = await openPage({ samples, client, proxy, nodeTimers: true });
+  p.submit('summon-form');
+  await p.until(() => !p.$('seance').hidden, 'the séance', 20_000);
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  return p;
+}
+
+const firstChip = (p: Page): ReturnType<Page['$']> =>
+  p.doc.querySelector('#guide-chips button') as ReturnType<Page['$']>;
+
+const notices = (p: Page): string[] =>
+  [...p.doc.querySelectorAll('#log .notice')].map((n) => n.textContent ?? '');
+
+describe(
+  'flow 4b: a model-calling POST is never replayed after a network failure',
+  { timeout: 30_000 },
+  () => {
+    it('/api/ask: the server answered, the connection dropped; one attempt, one model call, the drop named', async () => {
+      const client = new CryptClient();
+      let tries = 0;
+      page = await openSeance(client, async (req) => {
+        if (req.path !== '/api/ask') return undefined;
+        tries += 1;
+        await req.forward(); // the server runs the ask, model call included
+        throw new TypeError('fetch failed'); // …and the browser never sees the answer
+      });
+      const p = page;
+      const before = client.calls.length;
+      p.click(firstChip(p));
+      for (let i = 0; i < 40 && notices(p).length === 0; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        await settle();
+      }
+      expect(tries).toBe(1);
+      expect(client.calls.length - before).toBe(1);
+      expect(notices(p)).toEqual([DROPPED]);
+      expect(p.$('ask-status').textContent).not.toBe(WAKE_TEXT);
+    });
+
+    it('/api/exorcise: a network failure is not retried and is named the same way', async () => {
+      const client = new CryptClient();
+      let tries = 0;
+      page = await openSeance(client, async (req) => {
+        if (req.path !== '/api/exorcise') return undefined;
+        tries += 1;
+        await req.forward();
+        throw new TypeError('fetch failed');
+      });
+      const p = page;
+      const before = client.calls.length;
+      p.click(p.$('exorcise-btn'));
+      for (let i = 0; i < 40 && notices(p).length === 0; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        await settle();
+      }
+      expect(tries).toBe(1);
+      expect(client.calls.length - before).toBe(1);
+      expect(notices(p)).toEqual([DROPPED]);
+      expect(p.$('exorcise-status').textContent).not.toBe(WAKE_TEXT);
+    });
+
+    it('/api/ask: a proxy 502 page is still retried, because it never reached the server', async () => {
+      const client = new CryptClient();
+      page = await openSeance(client, (req) =>
+        req.path === '/api/ask' && req.attempt === 1
+          ? new Response('<html>502</html>', { status: 502 })
+          : undefined,
+      );
+      const p = page;
+      p.click(firstChip(p));
+      await vi.advanceTimersByTimeAsync(0);
+      await p.until(
+        () => p.$('ask-status').textContent === WAKE_TEXT,
+        'the wake-up text',
+      );
+      await vi.advanceTimersByTimeAsync(2_000);
+      await p.until(() => p.turns().length === 1, 'the answer');
+      expect(attemptsAt(p, '/api/ask')).toBe(2);
+      expect(notices(p)).toEqual([]);
+    });
+  },
+);

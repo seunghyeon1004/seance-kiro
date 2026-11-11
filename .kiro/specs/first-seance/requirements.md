@@ -290,3 +290,30 @@ The decisions behind each group of requirements:
 - A repository link in the footer, the "nothing else" wording of rule 1 next to PR text, the README test count (audit §6).
 - A total deadline across all git calls of one summon.
 - The remaining accessibility findings, as a separate follow-up: C1 (summon field errors not tied to inputs; this spec ties only its new `#q-err` to its field), C3 (`minmax(0, 1fr)` columns at 320 px; the `overflow-wrap` half is already done), C4 (plant errors far from the fields), C5 (input border contrast), C6 (`color-scheme`), C8 (a control to stop the candles), C9 (ledger rows as tab stops), C13 (the planchette on narrow screens), C17 (the crypt as `<aside>`), C18 (`contrast.mjs` reads only the table), and the suspected S1–S7 (busy buttons losing focus, `aria-busy` on the form, ledger height at 200% zoom, grid on `<details>`, native control glyphs, forced colours, the name of a focused ledger row).
+
+## Addendum: inquisitor review (2026-11-11)
+
+Input: `docs/kiro-evidence/inquisitor-review-session.txt`. This spec takes MEDIUM 6 (the page can replay a model call), MEDIUM 7 (recorded answers have no limit), LOW 8 (`ledgerShas` is never checked) and the page's "Verified" label from HIGH 1. The rest of HIGH 1, HIGH 3, MEDIUM 4 and the suspected findings are in `ward-hardening` R11; MEDIUM 5 is in `haunting-map` R10.
+
+Decisions:
+
+- **A network failure may hide an answered request.** When `fetch` rejects, the server may already have run the request. For the routes that call the model, sending it again can mean a second model call, so the page says what happened instead. A proxy's own 502, 503 or 504 page never reached the app, so it is still retried. GETs, `/api/summon`, `/api/ward` and `/api/possess` keep R5.4.
+- **Recorded answers get their own limit.** A recording costs a file read, a `verify` and a report, so it gets a per-client limiter of its own. The model limiter's global daily counter is still never charged by a recording (R7.7).
+- **A recording belongs to one ledger.** It applies only to the exact ledger the model saw.
+- **The label names what was checked.** The ward found the citations; the sentence is the ghost's.
+
+This addendum changes `src/ghost/verifier.ts` only through `ward-hardening` R11.4, so N2 does not apply to T11. `src/ratelimit.ts` and `test/server/ratelimit.test.ts` are unchanged.
+
+### R14 Inquisitor review (2026-11-11)
+
+**R14.1** The server shall have a recorded-response limiter, per client (the same `clientKey` as the other limiters), with a default of 30 responses per 600,000 ms, set by `RECORDED_RATE_LIMIT_MAX` and `RECORDED_RATE_LIMIT_WINDOW_MS`, and no daily cap. It shall be checked whenever a recorded answer or plan is about to be served: with no model configured, at the model limiter's daily cap, and after a model failure (R7.3). Over the limit the response shall be 429 `{ error: "The recorded answers need a short rest. Wait a few minutes before asking again.", code: "RATE_LIMITED" }` with a `Retry-After` header.
+
+**R14.2** Serving a recording shall still not charge the model limiter's global daily counter, and R7.7 shall otherwise hold. `test/server/ratelimit.test.ts` shall stay byte-for-byte unchanged.
+
+**R14.3** A recording shall apply only when its `ledgerShas` equal the current session ledger's `items.map(i => i.shortSha)`, element by element and in order. Otherwise it shall be treated as absent (R7.9), with `console.warn`.
+
+**R14.4** When `fetch` rejects (a network failure) for a POST to `/api/ask` or `/api/exorcise`, `api()` shall not retry it. A proxy 502, 503 or 504 response whose body is not our JSON shall still be retried for these routes as R5.4 says. GET requests and POSTs to every other route, including `/api/summon`, `/api/ward` and `/api/possess`, shall keep R5.4–R5.6. This amends R5.4 and R5.5.
+
+**R14.5** After a network failure on `/api/ask` or `/api/exorcise`, `api()` shall throw at once with the message "The connection dropped. The ghost may still have answered; ask again in a moment." The callers show it as they show any other error.
+
+**R14.6** A verified memory claim shall carry the label "Citations verified". This amends R12.7 ("Verified"). Speculation keeps the label "Speculation".

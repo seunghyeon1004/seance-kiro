@@ -19,6 +19,7 @@ import {
   SAMPLE_QUESTIONS,
   SAMPLE_RANGES,
   loadRecording,
+  loadRecordingFor,
   recordingKey,
   recordingTargetFor,
 } from '../../src/ghost/recordings.js';
@@ -191,6 +192,49 @@ function validRecording(t: RecordingTarget = TARGET): Record<string, unknown> {
     },
   };
 }
+
+describe('loadRecordingFor: the ledger must be the one recorded (first-seance R14.3)', () => {
+  function writeValid(name: string): string {
+    const dir = freshDir(name);
+    fs.writeFileSync(
+      path.join(dir, `${recordingKey(TARGET)}.json`),
+      JSON.stringify(validRecording()),
+    );
+    return dir;
+  }
+
+  it('applies when ledgerShas equal the current short hashes in order', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(loadRecordingFor(TARGET, ['abc1234'], writeValid('shas-equal'))?.kind).toBe(
+      'ask',
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['another hash', ['def5678']],
+    ['an extra item', ['abc1234', 'def5678']],
+    ['an empty ledger', []],
+  ])('is absent, with a warning, for %s', (_label, shas) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(loadRecordingFor(TARGET, shas, writeValid(`shas-${shas.length}`))).toBe(null);
+    expect(warn).toHaveBeenCalledWith(
+      '[seance] recording was made from another ledger, ignored',
+      expect.objectContaining({ file: expect.any(String) }),
+    );
+  });
+
+  it('is absent when the hashes are the same but in another order', () => {
+    const dir = freshDir('shas-order');
+    fs.writeFileSync(
+      path.join(dir, `${recordingKey(TARGET)}.json`),
+      JSON.stringify({ ...validRecording(), ledgerShas: ['abc1234', 'def5678'] }),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(loadRecordingFor(TARGET, ['def5678', 'abc1234'], dir)).toBe(null);
+    expect(loadRecordingFor(TARGET, ['abc1234', 'def5678'], dir)?.kind).toBe('ask');
+  });
+});
 
 describe('loadRecording (R7.9)', () => {
   it('reads a valid file named by the key', () => {

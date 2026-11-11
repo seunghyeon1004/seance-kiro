@@ -205,3 +205,13 @@ Covers: N1, N2, N3, R7.1, R7.3, R8.1 (re-check), and the traceability check.
 | N5 | T1 |
 | N6 | every task |
 | N7 | T5 |
+
+---
+
+## T7 — Inquisitor review (2026-11-11)
+
+- [x] Write the failing tests: in `test/evidence/haunting.git.test.ts`, a real repository whose second commit adds a file named `a` RS, `f` × 40, US, `Mallory`, US, an email, US, a date, through `git hash-object` and `git update-index --cacheinfo` (no file on disk); the map reads 2 commits, names no ghost Mallory and credits every file to a real sha (it read 3 before). In `test/evidence/haunting.test.ts`, the exact bytes git emits with a fake header inside a path, at its start, after a newline, and as the last path, plus a malformed header and old-format output. In `test/evidence/pbt/haunting.pbt.ts`, HM10 over hostile paths. Move the parser literals and the argument-array check to the R10.1 format.
+- [x] Change the format in `logNameOnly` and the parse in `parseNameLog` (R10.1, R10.2). The reader still makes exactly two git calls.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+
+Covers: R10.1–R10.3.

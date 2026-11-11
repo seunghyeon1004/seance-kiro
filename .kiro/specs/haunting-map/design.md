@@ -136,7 +136,7 @@ Both call the existing `runGit(args, repo, timeoutMs, { maxBuffer })`, so they i
 
 ```
 ['log', '--root', '--no-merges', '--no-renames', '--no-mailmap', '--no-show-signature',
- '--name-only', '-z', '--format=%x1e%H%x1f%an%x1f%ae%x1f%aI', '-n', String(maxCount), 'HEAD', '--']
+ '--name-only', '-z', '--format=%x00%x1e%H%x1f%an%x1f%ae%x1f%aI', '-n', String(maxCount), 'HEAD', '--']
 
 ['ls-tree', '-r', '-z', '--name-only', 'HEAD']
 ```
@@ -148,7 +148,7 @@ Both call the existing `runGit(args, repo, timeoutMs, { maxBuffer })`, so they i
 - Neither call reads a blob. Commits and trees are present in a `--filter=blob:none` clone (R1.3).
 - `maxCount` is `MAP_MAX_COMMITS + 1` (2,001), so the pure function can tell that more than 2,000 commits exist (R2.9).
 
-The output of the log, for each commit, is `\x1e<sha>\x1f<name>\x1f<email>\x1f<date>\0\n<path>\0<path>\0…`. This was checked on git 2.50.1 against the crypt.
+The output of the log, for each commit, is `\x1e<sha>\x1f<name>\x1f<email>\x1f<date>\0\n<path>\0<path>\0…`. This was checked on git 2.50.1 against the crypt. Since R10.1 (2026-11-11) the format starts with `%x00`, so each record is `\0\x1e<sha>…`; see §13.
 
 ### 4.2 Parsers (`src/evidence/haunting.ts`, pure)
 
@@ -167,7 +167,7 @@ export function parseLsTree(raw: string): string[];
 
 `parseNameLog`:
 
-1. Split `raw` on `\x1e`. Drop the first piece, which is empty.
+1. Split `raw` on `\x1e`. Drop the first piece, which is empty. (Replaced by the NUL-token parse of §13 on 2026-11-11, R10.2.)
 2. For each piece, the header is the text before the first `\0`. If there is no `\0`, the header is the whole piece and there are no paths.
 3. Split the header on `\x1f`. Exactly four fields are required.
 4. The rest after the first `\0` loses one leading `\n` if it has one. It is split on `\0`, and empty strings are dropped.
@@ -681,3 +681,21 @@ No browser is launched. These checks cover behaviour and text, not layout. The f
 - **Same name, two emails.** Two ghosts can share a name. The glyphs differ (`-k` suffix), and so do the ids.
 - **Suspicious names are hidden, not proven harmless.** `isSuspicious` uses fixed needles (`ward-hardening` §14). A paraphrased order in a name is printed as a name, as text only. It never reaches a model.
 - **Concurrent a11y work.** The design targets the page's structure, not line numbers (N7). If the a11y session changes `openSeance`, the call to `renderMap` is placed after the crypt is rendered, wherever that is.
+
+## 13. Addendum: inquisitor review (2026-11-11)
+
+Requirements R10.1–R10.3.
+
+Output of the log since R10.1, checked on git 2.50.1 (the second commit is empty):
+
+```
+\0 \x1e<sha1>\x1f<name>\x1f<email>\x1f<date> \0 \n<path> \0 <path> \0
+\0 \x1e<sha2>\x1f…<date> \0
+\0 \x1e<sha3>\x1f…<date> \0 \n<path> \0
+```
+
+Split on NUL, this is `'', H1, '\n'+p, p, '', H2, '', H3, '\n'+p, ''`. `parseNameLog` walks the tokens: a header is the token after an empty one, and its paths run to the next empty token. A path is never empty, so only the leading `%x00` creates an empty token, and the token after it is always git's header. The fixed prefix check (`hasHeaderPrefix`: RS, then exactly 40 or 64 characters of `0-9a-f`, then US, without a regular expression) and the existing Zod record schema only reject malformed headers; they are no longer what keeps a path from being read as one. Names and emails cannot contain NUL; a name holding US gives more than four fields and is skipped, as before. Output in the old format has no empty token before a header and gives no commit.
+
+| Review finding | Requirement | Test |
+| --- | --- | --- |
+| MEDIUM 5 a file name forges map commits | R10.1–R10.3 | `test/evidence/haunting.git.test.ts` (real repository), `test/evidence/haunting.test.ts` (exact bytes), HM10 in `test/evidence/pbt/haunting.pbt.ts` |

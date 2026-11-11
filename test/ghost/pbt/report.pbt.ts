@@ -222,6 +222,40 @@ describe('P3 — escapeMd output is free of newlines and unescaped structural ch
 });
 
 // ---------------------------------------------------------------------------
+// P5 — bidi controls (ward-hardening R11.9)
+// ---------------------------------------------------------------------------
+
+describe('P5 — escapeMd leaves no bidi embedding, override or isolate control (R11.9)', () => {
+  const BIDI = [
+    '\u202A',
+    '\u202B',
+    '\u202C',
+    '\u202D',
+    '\u202E',
+    '\u2066',
+    '\u2067',
+    '\u2068',
+    '\u2069',
+  ];
+  const withBidi = fc
+    .array(fc.oneof(fc.constantFrom(...BIDI), fc.string({ maxLength: 4 })), {
+      maxLength: 30,
+    })
+    .map((a) => a.join(''));
+
+  test.prop([withBidi], fcParams)(
+    'no control survives, and each becomes one visible \\uXXXX escape',
+    (input) => {
+      const out = escapeMd(input);
+      expect(out).not.toMatch(/[\u202A-\u202E\u2066-\u2069]/);
+      const controls = [...input].filter((ch) => BIDI.includes(ch)).length;
+      const escapes = out.match(/(?<!\\)(?:\\\\)*\\u(?:202[A-E]|206[6-9])/g) ?? [];
+      expect(escapes.length).toBe(controls);
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
 // P4 — Determinism and input immutability
 // ---------------------------------------------------------------------------
 

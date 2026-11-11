@@ -356,7 +356,7 @@ describe('the git calls (R1.2, R1.3, R1.4)', () => {
         '--no-show-signature',
         '--name-only',
         '-z',
-        '--format=%x1e%H%x1f%an%x1f%ae%x1f%aI',
+        '--format=%x00%x1e%H%x1f%an%x1f%ae%x1f%aI',
         '-n',
         '2001',
         'HEAD',
@@ -381,5 +381,59 @@ describe('the git calls (R1.2, R1.3, R1.4)', () => {
     expect(fresh.HAUNTING_TIMEOUT_MS).toBe(10_000);
     // both started before either finished (R1.4)
     expect(events.slice(0, 2)).toEqual(['start log', 'start ls-tree']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// haunting-map R10.1–R10.3 (inquisitor review, 2026-11-11, finding 5)
+// ---------------------------------------------------------------------------
+
+describe('a file name holding the record separator and a fake header (R10.2)', () => {
+  const FAKE_SHA = 'f'.repeat(40);
+  const EVIL = `a\u001e${FAKE_SHA}\u001fMallory\u001fm@x.example\u001f2000-01-01T00:00:00Z`;
+
+  /** Two real commits; the second adds EVIL through the index, with no file on disk. */
+  function evilRepo(): string {
+    const dir = initRepo('evil-path');
+    commit(dir, TOM('2025-01-01T00:00:00Z'), { 'z.ts': 'one\n' }, 'one');
+    const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+      cwd: dir,
+      env: BASE_ENV,
+      input: 'evil\n',
+      encoding: 'utf8',
+    }).trim();
+    git(dir, ['update-index', '--add', '--cacheinfo', `100644,${blob},${EVIL}`]);
+    fs.writeFileSync(path.join(dir, 'z.ts'), 'two\n');
+    git(dir, ['add', 'z.ts']);
+    git(dir, ['commit', '-q', '-m', 'two'], OLD('2025-02-01T00:00:00Z'));
+    return dir;
+  }
+
+  it('the path is really in HEAD, next to z.ts', () => {
+    const dir = evilRepo();
+    const tree = git(dir, ['ls-tree', '-r', '-z', '--name-only', 'HEAD']);
+    expect(tree.split('\u0000').filter(Boolean)).toEqual([EVIL, 'z.ts']);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('the map shows only the real commits and authors; the fake sha and Mallory appear nowhere', async () => {
+    const dir = evilRepo();
+    const real = git(dir, ['rev-list', 'HEAD']).trim().split('\n');
+    const out = await readHauntingMap(dir);
+    fs.rmSync(dir, { recursive: true, force: true });
+    if (out.kind !== 'map') throw new Error(`no map: ${out.note}`);
+    expect(out.map.commitsRead).toBe(2);
+    expect(out.map.ghosts.map((g) => g.name)).not.toContain('Mallory');
+    // the path itself is a real file and keeps its name; nothing else names the fake commit
+    expect(JSON.stringify(out.map.ghosts)).not.toContain('Mallory');
+    expect(JSON.stringify(out.map)).not.toContain(`"${FAKE_SHA.slice(0, 7)}"`);
+    for (const f of out.map.files) {
+      expect(real.some((s) => s.startsWith(f.lastSha7))).toBe(true);
+      expect(f.hauntedBy).not.toBe('Mallory');
+    }
+    const z = out.map.files.find((f) => f.path === 'z.ts');
+    expect(z?.totalTouches).toBe(2);
+    const evil = out.map.files.find((f) => f.path === EVIL);
+    expect(evil?.totalTouches).toBe(1);
   });
 });

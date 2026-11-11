@@ -83,6 +83,8 @@ export interface ProxyRequest {
   readonly method: string;
   /** 1 for the first request with this method and path, 2 for the second, … */
   readonly attempt: number;
+  /** Send the request on to the in-process server, so a proxy can drop the answer after it ran. */
+  readonly forward: () => Promise<Response>;
 }
 
 export interface OpenOptions {
@@ -238,7 +240,12 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
     if (isHealth) pendingHealth++;
     try {
       const proxied = opts.proxy
-        ? await opts.proxy({ path: p, method, attempt })
+        ? await opts.proxy({
+            path: p,
+            method,
+            attempt,
+            forward: async () => app.request(p, init),
+          })
         : undefined;
       const res = proxied ?? (await app.request(p, init));
       const data: unknown = await res

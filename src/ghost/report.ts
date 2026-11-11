@@ -30,6 +30,10 @@ export interface WardReportMeta {
  *
  * 1. Replace \r\n, \r, \n with a single space.
  * 2. Backslash-escape: \ ` ~ * _ [ ] < > |
+ * 3. ward-hardening R11.9: replace the bidi embedding, override and isolate controls
+ *    U+202A–U+202E and U+2066–U+2069 with the visible text `\u202E` (and so on), so a
+ *    pasted report cannot be visually reordered. Done last, so the backslash it adds is
+ *    not escaped again; a literal `\u202E` typed by an author still reads `\\u202E`.
  *
  * The sha7 inside backticks is NOT passed through this function — it is
  * already validated as 7 lowercase hex chars.
@@ -40,7 +44,13 @@ export function escapeMd(text: string): string {
 
   // Step 2: backslash-escape structural characters (backslash first to avoid
   // double-escaping the escapes we add)
-  return noNewlines.replace(/[\\`~*_[\]<>|]/g, (ch) => `\\${ch}`);
+  const escaped = noNewlines.replace(/[\\`~*_[\]<>|]/g, (ch) => `\\${ch}`);
+
+  // Step 3: bidi controls become visible escapes
+  return escaped.replace(
+    /[\u202A-\u202E\u2066-\u2069]/g,
+    (ch) => `\\u${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -113,9 +123,10 @@ export function renderWardReport(result: VerifierResult, meta?: WardReportMeta):
   // blank line before sections
   lines.push('');
 
-  // R1.4 — verified section (heading omitted when empty)
+  // R1.4 — verified section (heading omitted when empty). ward-hardening R11.1: the ward
+  // proves the citations and quotes, not the sentence, so the heading says so.
   if (result.verified.length > 0) {
-    lines.push('## Verified');
+    lines.push('## Citations verified');
     for (const vc of result.verified) {
       lines.push(renderVerifiedItem(vc));
     }

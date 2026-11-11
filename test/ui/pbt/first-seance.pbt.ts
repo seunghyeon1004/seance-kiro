@@ -3,7 +3,7 @@
  * FAST_CHECK_SEED honoured). public/app.js is a classic browser script, so the pure functions
  * under test are extracted from its source text, as test/ui/pbt/ui.pbt.ts does.
  */
-import { describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
 import { readFileSync } from 'node:fs';
@@ -43,7 +43,7 @@ function extractConst(name: string): string {
 // CP4 — retry rule (R5.4, R5.5)
 // ---------------------------------------------------------------------------
 
-describe('CP4 — shouldRetry retries only a proxy 502/503/504 page (R5.4, R5.5)', () => {
+describe('CP4 — shouldRetry retries only a proxy 502/503/504 page; a network failure only where no model can run twice (R5.4, R5.5, R14.4)', () => {
   const shouldRetry = (): ((status: number, data: unknown) => boolean) =>
     new Function(`${extractFunction('shouldRetry')}; return shouldRetry;`)() as (
       status: number,
@@ -77,6 +77,41 @@ describe('CP4 — shouldRetry retries only a proxy 502/503/504 page (R5.4, R5.5)
     params,
   )('false for every status when the body has a string code', (status, code, extra) => {
     expect(shouldRetry()(status, { ...extra, code })).toBe(false);
+  });
+
+  // first-seance R14.4 (inquisitor review, 2026-11-11): a rejected fetch may hide a request the
+  // server already ran, so the model-calling POSTs are never sent again after one
+  const retriesNetworkFailure = (): ((path: string, method: string) => boolean) =>
+    new Function(
+      `${extractConst('NO_REPLAY_PATHS')}\n${extractFunction('retriesNetworkFailure')}; return retriesNetworkFailure;`,
+    )() as (path: string, method: string) => boolean;
+
+  const MODEL_POSTS = ['/api/ask', '/api/exorcise'];
+  const pathArb = fc.oneof(
+    fc.constantFrom(
+      '/api/ask',
+      '/api/exorcise',
+      '/api/summon',
+      '/api/ward',
+      '/api/possess',
+      '/api/health',
+    ),
+    fc.string(),
+  );
+
+  test.prop([pathArb, fc.constantFrom('GET', 'POST')], params)(
+    'false exactly for a POST to /api/ask or /api/exorcise',
+    (path, method) => {
+      expect(retriesNetworkFailure()(path, method)).toBe(
+        !(method === 'POST' && MODEL_POSTS.includes(path)),
+      );
+    },
+  );
+
+  it('api() asks retriesNetworkFailure before retrying a rejected fetch', () => {
+    const src = extractFunction('api');
+    expect(src).toContain('retriesNetworkFailure(path, init.method)');
+    expect(src).toContain('CONNECTION_DROPPED');
   });
 });
 

@@ -11,6 +11,10 @@
  *
  * No regular expression is built from ledger or claim text. Author names are
  * matched with indexOf, so a hostile name cannot cause catastrophic backtracking.
+ *
+ * ward-hardening R11.4 (inquisitor review, 2026-11-11): the year and author checks run
+ * twice, on the raw text and on its detection form (NFKC, default-ignorables removed).
+ * The second pass only adds reasons. Quotes are always compared raw.
  */
 
 import {
@@ -81,21 +85,75 @@ const FIELD_ORDER: readonly QuoteField[] = ['subject', 'body', 'hunk'];
 /** Four-digit years 1970–2099 not touching another ASCII digit. Used only via matchAll. */
 const YEAR_RE = /(?<![0-9])(?:19[7-9][0-9]|20[0-9][0-9])(?![0-9])/g;
 
+/**
+ * Default-ignorable characters removed before year and author detection (ward-hardening
+ * R11.4), as inclusive code point ranges. Nothing from the ledger or the claim is compiled
+ * into a pattern; the text is walked one code point at a time.
+ */
+const IGNORABLE_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x00ad, 0x00ad],
+  [0x034f, 0x034f],
+  [0x061c, 0x061c],
+  [0x115f, 0x1160],
+  [0x17b4, 0x17b5],
+  [0x180b, 0x180f],
+  [0x200b, 0x200f],
+  [0x202a, 0x202e],
+  [0x2060, 0x206f],
+  [0x3164, 0x3164],
+  [0xfe00, 0xfe0f],
+  [0xfeff, 0xfeff],
+  [0xffa0, 0xffa0],
+  [0xe0000, 0xe0fff],
+];
+
+function isIgnorable(cp: number): boolean {
+  for (const [lo, hi] of IGNORABLE_RANGES) if (cp >= lo && cp <= hi) return true;
+  return false;
+}
+
+function stripIgnorables(s: string): string {
+  let out = '';
+  for (const ch of s) if (!isIgnorable(ch.codePointAt(0) ?? 0)) out += ch;
+  return out;
+}
+
+/**
+ * The text that year and author detection reads (R11.4): default-ignorable characters
+ * removed, NFKC applied, and the ignorables NFKC may produce (U+FFA0 and U+3164 become
+ * U+1160) removed again. Case is kept. Quotes are never compared in this form (R11.5).
+ */
+export function detectionText(s: string): string {
+  return stripIgnorables(stripIgnorables(s).normalize('NFKC'));
+}
+
 interface IndexedItem {
   readonly item: EvidenceItem;
   readonly fields: Readonly<Record<QuoteField, string>>;
   readonly years: ReadonlySet<string>;
+  /** R11.4: the same fields, the years in them and the author, in detection form. */
+  readonly normFields: Readonly<Record<QuoteField, string>>;
+  readonly normYears: ReadonlySet<string>;
+  readonly normAuthor: string;
 }
 
 interface LedgerIndex {
   readonly bySha: ReadonlyMap<string, readonly IndexedItem[]>;
   /** Distinct authors, longest first, then by UTF-16 code unit order. */
   readonly authors: readonly string[];
+  /** R11.4: distinct authors in detection form, in the same order. */
+  readonly normAuthors: readonly string[];
+}
+
+function longestFirst(a: string, b: string): number {
+  if (a.length !== b.length) return b.length - a.length;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function buildIndex(ledger: ReadonlyArray<EvidenceItem>): LedgerIndex {
   const bySha = new Map<string, IndexedItem[]>();
   const authorSet = new Set<string>();
+  const normAuthorSet = new Set<string>();
 
   for (const item of ledger) {
     const fields: Record<QuoteField, string> = {
@@ -103,23 +161,30 @@ function buildIndex(ledger: ReadonlyArray<EvidenceItem>): LedgerIndex {
       body: item.body,
       hunk: item.hunk.slice(0, HUNK_UI_CHARS),
     };
+    const normFields: Record<QuoteField, string> = {
+      subject: detectionText(fields.subject),
+      body: detectionText(fields.body),
+      hunk: detectionText(fields.hunk),
+    };
     const years = new Set<string>();
+    const normYears = new Set<string>();
     for (const f of FIELD_ORDER) {
       for (const y of yearsIn(fields[f])) years.add(y);
+      for (const y of yearsIn(normFields[f])) normYears.add(y);
     }
-    const entry: IndexedItem = { item, fields, years };
+    const normAuthor = detectionText(item.author);
+    const entry: IndexedItem = { item, fields, years, normFields, normYears, normAuthor };
     const list = bySha.get(item.shortSha);
     if (list === undefined) bySha.set(item.shortSha, [entry]);
     else list.push(entry);
     authorSet.add(item.author);
+    normAuthorSet.add(normAuthor);
   }
 
-  const authors = [...authorSet].sort((a, b) => {
-    if (a.length !== b.length) return b.length - a.length;
-    return a < b ? -1 : a > b ? 1 : 0;
-  });
+  const authors = [...authorSet].sort(longestFirst);
+  const normAuthors = [...normAuthorSet].sort(longestFirst);
 
-  return { bySha, authors };
+  return { bySha, authors, normAuthors };
 }
 
 function yearsIn(s: string): string[] {
@@ -275,6 +340,37 @@ function checkClaim(raw: unknown, i: number, index: LedgerIndex): Outcome {
     }
   }
 
+  // Step 7b — the same two checks again on the detection form of the claim and the
+  // ledger (R11.4). They only add reasons, so the ward only becomes stricter (R11.7).
+  const normText = detectionText(shape.text);
+  const seenNormYears = new Set<string>();
+  for (const y of yearsIn(normText)) {
+    if (seenNormYears.has(y)) continue;
+    seenNormYears.add(y);
+    const supported = cited.some(
+      (e) => e.item.date.slice(0, 4) === y || e.normYears.has(y),
+    );
+    if (!supported) {
+      pushOnce(
+        reasons,
+        `The claim names the year ${y}, but no cited commit is dated ${y} or mentions it.`,
+      );
+    }
+  }
+  for (const name of namedAuthors(normText, index.normAuthors)) {
+    const supported = cited.some(
+      (e) =>
+        e.normAuthor === name ||
+        FIELD_ORDER.some((f) => containsWholeWord(e.normFields[f], name)),
+    );
+    if (!supported) {
+      pushOnce(
+        reasons,
+        `The claim names ${name}, but no cited commit is by ${name} or mentions them.`,
+      );
+    }
+  }
+
   // Step 8 — strict guard
   if (reasons.length === 0) {
     const strict = ClaimSchema.safeParse(raw);
@@ -346,6 +442,10 @@ function namedAuthors(text: string, authors: readonly string[]): string[] {
     if (counted) named.push(name);
   }
   return named;
+}
+
+function pushOnce(reasons: string[], reason: string): void {
+  if (!reasons.includes(reason)) reasons.push(reason);
 }
 
 // ---------------------------------------------------------------------------

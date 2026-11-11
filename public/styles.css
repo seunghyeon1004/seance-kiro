@@ -1024,6 +1024,22 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+/* ward-hardening R11.8: an embedding or override control in untrusted text stays inside its
+   own element, and the fixed labels around it keep their order */
+.claim .txt,
+.claim .why,
+.found-quote,
+.ledger li,
+.ledger .who,
+.ledger .subject,
+.ledger pre,
+.source-lines li,
+.map-tile,
+.map-path,
+.turn-q {
+  unicode-bidi: plaintext;
+}
+
 /* first-seance (design.md §8.10). Tokens only, no new animation. */
 #summon-elapsed:empty {
   display: none;

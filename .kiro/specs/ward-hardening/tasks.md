@@ -267,3 +267,20 @@ Covers: N1, N3, N5, R10.9 (re-check), and the traceability check.
 | N5 | T1, T2, T3, T9 |
 | N6 | T1, T2, T4 |
 | N7 | T8 |
+
+---
+
+## T10 — Inquisitor review (2026-11-11)
+
+Each item began with a test that failed for the stated reason before the code changed.
+
+- [x] Write the failing tests for R11.1–R11.3: `/api/ward` with the review's unrelated sentence still gives `1 of 1` and a report with `## Citations verified` and no `## Verified` line (`test/server/hardening.test.ts`); the report heading in `test/ghost/report.test.ts`; the `.meta` limit sentence right after each tally (`test/e2e/crypt.test.ts` step 5). Change `renderWardReport` and `renderAnswer`.
+- [x] Freeze today's verifier as `test/ghost/pbt/verifier-2026-11-11.ts` (import paths only changed; checked byte for byte against `HEAD`).
+- [x] Write the failing tests for R11.4–R11.6 in `test/ghost/verifier.unicode.test.ts` (`２０２４`, `20\u200B24`, `A\u200Blice`, a tag character, a Hangul filler, a soft hyphen, a decomposed `José`, a ledger name hiding U+200B, quotes that match only in detection form, and the lower-case limit) and the properties CP10–CP13 in `test/ghost/pbt/verifier.unicode.pbt.ts`. Add `detectionText` and step 7b to `src/ghost/verifier.ts` (R11.4, R11.5, R11.7).
+- [x] Check R11.7 and the hard rules: CP4 against `d738258` and CP10 against the frozen copy pass; `npx tsx scripts/record-plan-fixture.ts --hash-only` prints `464f2680` and `--ghost --hash-only` prints `b0b2564e`; `test/recordings.test.ts` passes, and all eight shipped recordings give the same verified, rejected and silent counts with both verifiers. No recording or fixture was edited.
+- [x] Write the failing tests for R11.8 (`test/ui/bidi.test.ts`) and R11.9 (`test/ghost/report.test.ts`, P5 in `test/ghost/pbt/report.pbt.ts`). Add the CSS rule to `public/styles.css` and step 3 to `escapeMd`.
+- [x] Write the failing tests for R11.10–R11.13 in `test/evidence/summon-bounds.test.ts`, with a mocked slow git layer and a mocked size probe: 50 slow `git show` calls fail with `HistoryError` within the deadline and start no further git call; the 60,000 ms default; local paths unaffected; a clone over `CLONE_MAX_MB` after the reads gives `CloneError`, after the map read has settled; `/api/summon` returns the fixed 422 for both, deletes the clone and frees the slot; a 300-character author and email become 256. Add `deadlineGuard`, `cloneSizeBytes` and the cuts. Document `SUMMON_DEADLINE_MS` in `.env.example`.
+- [x] Update `.kiro/steering/evidence-rules.md` (detection form, raw quotes, the stated limits) and the `ward-report` design note.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+
+Covers: R11.1–R11.13.

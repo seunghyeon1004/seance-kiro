@@ -136,7 +136,8 @@ describe('renderWardReport', () => {
       score: 1,
     });
     const report = renderWardReport(result);
-    expect(report).toContain('## Verified');
+    expect(report).toContain('## Citations verified');
+    expect(report.split('\n')).not.toContain('## Verified');
     expect(report).toContain('[memory] Retry after 3 s');
     expect(report).toContain('`a1b2c3d`');
     expect(report).toContain('"vendor returns 429"');
@@ -167,7 +168,7 @@ describe('renderWardReport', () => {
     });
     const report = renderWardReport(result);
     expect(report).toContain('**0 of 0 claims verified**');
-    expect(report).not.toContain('## Verified');
+    expect(report).not.toContain('## Citations verified');
   });
 
   // -------------------------------------------------------------------------
@@ -223,10 +224,10 @@ describe('renderWardReport', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Verified heading omitted when no verified claims
+  // Citations verified heading omitted when no verified claims
   // -------------------------------------------------------------------------
 
-  it('omits ## Verified when there are no verified claims', () => {
+  it('omits ## Citations verified when there are no verified claims', () => {
     const result = makeResult({
       rejected: [
         rejectedMemory('Bad', 'dead000', 'Commit dead000 is not in the ledger.'),
@@ -234,7 +235,7 @@ describe('renderWardReport', () => {
       score: 0,
     });
     const report = renderWardReport(result);
-    expect(report).not.toContain('## Verified');
+    expect(report).not.toContain('## Citations verified');
     expect(report).toContain('## Struck by the ward');
   });
 
@@ -360,10 +361,51 @@ describe('renderWardReport (ward-hardening T3)', () => {
     expect(report).not.toContain('[silence]');
   });
 
-  it('never lists a silence claim under ## Verified', () => {
+  it('never lists a silence claim under ## Citations verified', () => {
     const result = makeResult({ silent: [silentClaim('Silent words', 'Q?')] });
     const report = renderWardReport(result);
-    expect(report).not.toContain('## Verified');
+    expect(report).not.toContain('## Citations verified');
     expect(report).not.toContain('[memory] Silent words');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ward-hardening R11.9 (inquisitor review, suspected bidi finding)
+// ---------------------------------------------------------------------------
+
+describe('bidi controls become visible escapes (R11.9)', () => {
+  it('escapeMd replaces U+202A–U+202E and U+2066–U+2069 with \\uXXXX text', () => {
+    expect(escapeMd('a\u202Eb\u202Cc')).toBe('a\\u202Eb\\u202Cc');
+    expect(escapeMd('\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069')).toBe(
+      '\\u202A\\u202B\\u202C\\u202D\\u202E\\u2066\\u2067\\u2068\\u2069',
+    );
+    // other characters, and a literal backslash-u typed by the author, stay distinguishable
+    expect(escapeMd('\\u202E')).toBe('\\\\u202E');
+    expect(escapeMd('\u200F\u061C')).toBe('\u200F\u061C');
+  });
+
+  it('a report built from claims, quotes, reasons and the file name holds no bidi control', () => {
+    const rlo = '\u202E';
+    const result = makeResult({
+      verified: [verifiedMemory(`fact ${rlo}deifirev`, 'a1b2c3d', `quote ${rlo}here ok`)],
+      rejected: [rejectedMemory(`bad ${rlo}x`, 'dead000', `reason ${rlo}y`)],
+      silent: [
+        {
+          index: 2,
+          claim: {
+            kind: 'silence',
+            text: `silent ${rlo}z`,
+            citations: [],
+            silenceReason: `why ${rlo}w`,
+          },
+        },
+      ],
+    });
+    const report = renderWardReport(result, {
+      file: `a${rlo}.js`,
+      lines: { start: 1, end: 2 },
+    });
+    expect(report).not.toMatch(/[\u202A-\u202E\u2066-\u2069]/);
+    expect(report.split('\\u202E').length - 1).toBe(7);
   });
 });

@@ -76,6 +76,19 @@ const NET_FAIL =
   'Could not reach the server. It may still be waking up; try again in a minute.';
 const proxyFail = (status) =>
   `The server did not answer (${status}). It may still be waking up; try again in a minute.`;
+const CONNECTION_DROPPED =
+  'The connection dropped. The ghost may still have answered; ask again in a moment.';
+
+/** The model-calling routes: their POSTs are never sent again after a rejected fetch (R14.4). */
+const NO_REPLAY_PATHS = ['/api/ask', '/api/exorcise'];
+
+/**
+ * A rejected fetch (a network failure) may hide a request the server already accepted, so it is
+ * retried only where repeating it cannot call the model twice (first-seance R14.4).
+ */
+function retriesNetworkFailure(path, method) {
+  return !(method === 'POST' && NO_REPLAY_PATHS.includes(path));
+}
 
 /** True only for a proxy's 502/503/504 page: our own errors are JSON with a string code (R5.4, R5.5). */
 function shouldRetry(status, data) {
@@ -116,6 +129,10 @@ async function api(path, body, opts = {}) {
       res = await fetch(path, init);
     } catch {
       res = null;
+    }
+    // R14.4: after a network failure on /api/ask or /api/exorcise, say so and send nothing more
+    if (res === null && !retriesNetworkFailure(path, init.method)) {
+      throw new Error(CONNECTION_DROPPED);
     }
     let data = null;
     if (res) {
@@ -837,10 +854,11 @@ function claimNode(c, bucket) {
   }
   const kind = c.kind === 'speculation' ? 'speculation' : 'memory';
   const node = el('article', { class: `claim ${kind}` });
+  // first-seance R14.6: the ward proves the citations and quotes, not the sentence
   node.append(
     el('span', {
       class: 'lab',
-      text: kind === 'speculation' ? 'Speculation' : 'Verified',
+      text: kind === 'speculation' ? 'Speculation' : 'Citations verified',
     }),
   );
   node.append(el('span', { class: 'txt', text: c.text }));
@@ -867,6 +885,9 @@ function counterText(tv, tc, ts) {
 
 const RECORDED_LABEL =
   'A recorded answer (the model is resting). The ward checked it again just now.';
+/** The #ward-limit sentence (ward-hardening R2.3), repeated under each answer's tally (R11.2). */
+const WARD_LIMIT_TEXT =
+  "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.";
 const SCRIPTED_LABEL =
   'A scripted ghost that obeys every order in these commits (no model was called). The ward checked it just now.';
 
@@ -908,6 +929,8 @@ function renderAnswer(data, question, opts = {}) {
     ),
   ]);
   turn.append(tally);
+  // ward-hardening R11.2: the ward's limit is read with every result, not only at the top
+  turn.append(el('p', { class: 'meta', text: WARD_LIMIT_TEXT }));
   $('log').append(turn);
   const cited = data.verified
     .flatMap((v) => v.citations.map((c) => c.sha7))

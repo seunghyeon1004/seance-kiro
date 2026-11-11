@@ -1,8 +1,10 @@
 /**
- * first-seance T3 — the model limiter and recorded answers (R7.7).
+ * first-seance T3 — the model limiter and recorded answers (R7.7), and the inquisitor review
+ * (2026-11-11): recorded answers have their own per-client limiter (R14.1, R14.2) and apply
+ * only to the ledger they were recorded from (R14.3).
  *
- * MAX_MODEL_CALLS_PER_DAY=1 and RATE_LIMIT_MAX=2 are set before src/server.ts loads, because
- * the limiter reads them once. The real askGhost runs with a scripted client (CryptClient);
+ * MAX_MODEL_CALLS_PER_DAY=1, RATE_LIMIT_MAX=2 and RECORDED_RATE_LIMIT_MAX=12 are set before
+ * src/server.ts loads, because the limiters read them once. The real askGhost runs with a scripted client (CryptClient);
  * recordings are written into a temp dir by recordAnswers. No test calls the model or the network.
  *
  * With a daily cap of 1 below a per-client cap of 2, the limiter's daily check (which runs
@@ -16,6 +18,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Anthropic from '@anthropic-ai/sdk';
 import { recordAnswers } from '../../scripts/record-answers.js';
 import {
   SAMPLE_QUESTIONS,
@@ -33,6 +36,7 @@ execFileSync('bash', [path.join(ROOT, 'scripts/make-crypt.sh'), CRYPT], { cwd: R
 process.env['CRYPT_DIR'] = CRYPT;
 process.env['MAX_MODEL_CALLS_PER_DAY'] = '1';
 process.env['RATE_LIMIT_MAX'] = '2';
+process.env['RECORDED_RATE_LIMIT_MAX'] = '12';
 
 const KEY = 'test-dummy-key-not-a-secret';
 const DAILY = 'The séance is closed for tonight. The spirits will answer again tomorrow.';
@@ -40,6 +44,8 @@ const CLIENT =
   'The spirits are tired. Let them rest a few minutes before you call again.';
 const CHIP = SAMPLE_QUESTIONS.crypt[0]!;
 const FREE = 'Why is the sky blue?';
+const RECORDED =
+  'The recorded answers need a short rest. Wait a few minutes before asking again.';
 
 type ServerModule = typeof import('../../src/server.js');
 const server: ServerModule = await import('../../src/server.js');
@@ -83,6 +89,7 @@ beforeEach(() => {
   server.modelLimiter.reset();
   server.summonLimiter.reset();
   server.wardLimiter.reset();
+  server.recordedLimiter.reset();
   server.sessions.clear();
   client.calls.length = 0;
   process.env['ANTHROPIC_API_KEY'] = KEY;
@@ -96,6 +103,7 @@ afterAll(() => {
   delete process.env['ANTHROPIC_API_KEY'];
   delete process.env['MAX_MODEL_CALLS_PER_DAY'];
   delete process.env['RATE_LIMIT_MAX'];
+  delete process.env['RECORDED_RATE_LIMIT_MAX'];
   delete process.env['CRYPT_DIR'];
   fs.rmSync(TMP, { recursive: true, force: true });
 });
@@ -187,3 +195,175 @@ describe(
     });
   },
 );
+
+// ---------------------------------------------------------------------------
+// inquisitor review (2026-11-11), finding 7 — the recorded-answer limiter (R14.1, R14.2)
+// ---------------------------------------------------------------------------
+
+/** A client whose every call fails as an overloaded model (529 → MODEL_BUSY). */
+function overloaded(): { messages: { create: () => Promise<never> }; calls: number } {
+  const c = {
+    calls: 0,
+    messages: {
+      create: async (): Promise<never> => {
+        c.calls += 1;
+        throw new Anthropic.APIError(
+          529,
+          { type: 'error', error: { message: 'overloaded' } },
+          'overloaded',
+          undefined,
+        );
+      },
+    },
+  };
+  return c;
+}
+
+async function expectRecordedLimit(res: Response): Promise<void> {
+  expect(res.status).toBe(429);
+  expect(await res.json()).toEqual({ error: RECORDED, code: 'RATE_LIMITED' });
+  expect(Number(res.headers.get('Retry-After'))).toBeGreaterThanOrEqual(1);
+}
+
+describe(
+  'R14.1 — recorded answers have their own per-client limit',
+  { timeout: 30_000 },
+  () => {
+    it('with no key, the 13th recorded request is refused; the model limiter is never charged', async () => {
+      const sid = await summon(app);
+      delete process.env['ANTHROPIC_API_KEY'];
+      for (let i = 0; i < 11; i++) {
+        const res = await post(app, '/api/ask', { sessionId: sid, question: CHIP });
+        expect(res.status).toBe(200);
+      }
+      expect((await post(app, '/api/exorcise', { sessionId: sid })).status).toBe(200);
+      await expectRecordedLimit(
+        await post(app, '/api/ask', { sessionId: sid, question: CHIP }),
+      );
+      await expectRecordedLimit(await post(app, '/api/exorcise', { sessionId: sid }));
+      expect(server.modelLimiter.size()).toBe(0);
+      expect(client.calls).toHaveLength(0);
+
+      // the global daily counter was not charged: the one daily slot is still free
+      process.env['ANTHROPIC_API_KEY'] = KEY;
+      const live = await post(app, '/api/ask', { sessionId: sid, question: FREE });
+      expect(live.status).toBe(200);
+      expect(((await live.json()) as { recorded: boolean }).recorded).toBe(false);
+    });
+
+    it('another client has its own recorded allowance', async () => {
+      const sid = await summon(app);
+      delete process.env['ANTHROPIC_API_KEY'];
+      for (let i = 0; i < 12; i++)
+        expect(
+          (await post(app, '/api/ask', { sessionId: sid, question: CHIP })).status,
+        ).toBe(200);
+      await expectRecordedLimit(
+        await post(app, '/api/ask', { sessionId: sid, question: CHIP }),
+      );
+      const other = await Promise.resolve(
+        app.request('/api/ask', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-forwarded-for': '198.51.100.9',
+          },
+          body: JSON.stringify({ sessionId: sid, question: CHIP }),
+        }),
+      );
+      expect(other.status).toBe(200);
+    });
+
+    it('at the daily cap, recorded answers count against the same limit', async () => {
+      const sid = await summon(app);
+      expect(
+        (await post(app, '/api/ask', { sessionId: sid, question: FREE })).status,
+      ).toBe(200);
+      for (let i = 0; i < 12; i++) {
+        const res = await post(app, '/api/ask', { sessionId: sid, question: CHIP });
+        expect(((await res.json()) as { recorded: boolean }).recorded).toBe(true);
+      }
+      await expectRecordedLimit(
+        await post(app, '/api/ask', { sessionId: sid, question: CHIP }),
+      );
+      expect(client.calls).toHaveLength(1);
+    });
+
+    it('after a model failure, the recording is served only within the limit', async () => {
+      process.env['MAX_MODEL_CALLS_PER_DAY'] = '100';
+      process.env['RATE_LIMIT_MAX'] = '100';
+      vi.resetModules();
+      const fresh: ServerModule = await import('../../src/server.js');
+      const busy = overloaded();
+      const freshApp = fresh.createApp({ anthropicClient: busy });
+      try {
+        const sid = await summon(freshApp);
+        for (let i = 0; i < 12; i++) {
+          const res = await post(freshApp, '/api/ask', {
+            sessionId: sid,
+            question: CHIP,
+          });
+          expect(res.status).toBe(200);
+          expect(((await res.json()) as { recorded: boolean }).recorded).toBe(true);
+        }
+        await expectRecordedLimit(
+          await post(freshApp, '/api/ask', { sessionId: sid, question: CHIP }),
+        );
+      } finally {
+        process.env['MAX_MODEL_CALLS_PER_DAY'] = '1';
+        process.env['RATE_LIMIT_MAX'] = '2';
+      }
+    });
+
+    it('defaults to 30 recorded responses per client per 600 000 ms', async () => {
+      delete process.env['RECORDED_RATE_LIMIT_MAX'];
+      vi.resetModules();
+      const fresh: ServerModule = await import('../../src/server.js');
+      const freshApp = fresh.createApp({ anthropicClient: new CryptClient() });
+      try {
+        const sid = await summon(freshApp);
+        delete process.env['ANTHROPIC_API_KEY'];
+        for (let i = 0; i < 30; i++)
+          expect(
+            (await post(freshApp, '/api/ask', { sessionId: sid, question: CHIP })).status,
+          ).toBe(200);
+        const res = await post(freshApp, '/api/ask', { sessionId: sid, question: CHIP });
+        await expectRecordedLimit(res);
+        expect(Number(res.headers.get('Retry-After'))).toBeLessThanOrEqual(600);
+      } finally {
+        process.env['RECORDED_RATE_LIMIT_MAX'] = '12';
+      }
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// inquisitor review (2026-11-11), finding 8 — ledgerShas (R14.3)
+// ---------------------------------------------------------------------------
+
+describe('R14.3 — a recording made from another ledger is treated as absent', () => {
+  it('with no key, a chip question on a changed ledger gets CONFIG_ERROR, not the recording', async () => {
+    const sid = await summon(app);
+    const entry = server.sessions.get(sid)!;
+    entry.ledger = {
+      ...entry.ledger,
+      items: entry.ledger.items.map((it, i) =>
+        i === 0 ? { ...it, shortSha: 'fffffff', sha: 'f'.repeat(40) } : it,
+      ),
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    delete process.env['ANTHROPIC_API_KEY'];
+    const res = await post(app, '/api/ask', { sessionId: sid, question: CHIP });
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { code: string }).code).toBe('CONFIG_ERROR');
+    expect(warn).toHaveBeenCalledWith(
+      '[seance] recording was made from another ledger, ignored',
+      expect.anything(),
+    );
+    // the ask above used this file's one daily model slot, as any unrecorded request does
+    server.modelLimiter.reset();
+    const ex = await post(app, '/api/exorcise', { sessionId: sid });
+    expect(ex.status).toBe(503);
+    expect(((await ex.json()) as { code: string }).code).toBe('CONFIG_ERROR');
+  });
+});
