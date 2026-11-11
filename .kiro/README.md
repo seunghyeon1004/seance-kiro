@@ -2,13 +2,23 @@
 
 ## agents/archaeologist.json
 
-A read-only code-archaeology agent. Launch it with:
+A read-only code-archaeology agent that is held to the ward. Launch it with:
 
 ```
 kiro-cli --agent archaeologist
 ```
 
-It answers questions about git history and code provenance using only `git log`, `git blame`, `git show`, `git diff`, and `git rev-list`. Every factual claim carries a bracketed short-SHA citation `[a1b2c3d]`. When the record is silent it says so; it never invents facts. Steering files (`evidence-rules.md`, `product.md`, `tech.md`) are loaded as resources so it understands the ledger schema and citation rules from day one.
+It locates the code, calls Séance's own MCP server (`seance_summon`) to build the evidence ledger, drafts its claims with exact quotes, sends them to `seance_verify`, and states only what the ward verified; struck claims are shown struck with the ward's reason. `seance_haunting_map` tells it which files are haunted by departed authors. If the tools are unavailable it falls back to `git log`, `git blame` and `git show` and marks every claim "not checked by the ward". Steering files (`evidence-rules.md`, `product.md`, `tech.md`) are loaded as resources.
+
+What happened when it ran on 2026-11-11 (`docs/kiro-evidence/seance-mcp-session.txt`): on the default V2 engine the three tools in `allowedTools` were auto-approved and it answered with 5 of 5 verified claims. On V3 without tool trust every call was denied, and it said so and marked its claims unchecked. On V3 with `--trust-all-tools` all three tools ran. That run found a real defect in our server (a silence claim sent without a `citations` field was refused), which was then fixed. The prompt and tool list were applied by hand from the `seance-mcp` design, because Kiro's own `kiro-scope` rule stops the agent from editing files under `.kiro/settings/` (it stopped and said so).
+
+---
+
+## agents/inquisitor.json
+
+A read-only adversarial reviewer, added on 2026-11-11 and set to run on `gpt-5.6-sol`, a different model family from the one that wrote the code. Its one question: after a change, can anything reach the user marked verified without a deterministic check having found its evidence? It has `read` and a shell limited to `git diff/log/show/status`, `npx vitest run` and `npm test`. Two hooks: `agentSpawn` prints the files changed since the security audit, and `stop` logs how many files under `src`, `public`, `test`, `scripts` and `recordings` are modified, which should be 0 for a reviewer.
+
+Its first run (`docs/kiro-evidence/inquisitor-review-session.txt`) confirmed eight findings in that day's work, among them that the "Verified" label overstated what the ward proves and that a file name could forge commits on the haunting map. Both hooks fired, and the stop hook logged `changed-files=0`. Its shell calls were denied in non-interactive V3, so it read files only and ran no test. The fixes are in `docs/kiro-evidence/inquisitor-fixes-session.txt`.
 
 ---
 
@@ -21,6 +31,8 @@ A builder agent (V2 engine) for small fixes: failing test first, then the smalle
 - `agentSpawn`: prints `git log` and `git status`. It did not log anything in non-interactive runs, so it is unproven.
 
 Each hook appends a line to `docs/kiro-evidence/warden-hook-fires.log`. In the run that fixed the inverted line range bug it logged two `postToolUse fs_write` entries (typecheck exit 0) and one `stop` entry (287 tests passed).
+
+On 2026-11-11 the V3 engine upgraded this file to its own agent format by itself (the old file is kept as `warden.json.bak`). Since then all three hooks fire in non-interactive V3 runs, `agentSpawn` included: that day the log shows `agentSpawn` 15 times, `postToolUse` 686 times and `stop` 13 times. Every implementation session of the four new specs ran through this agent, so Kiro saw a typecheck result after each file it wrote.
 
 Gotcha we hit: with `--agent warden`, `--trust-tools` on the command line did not widen the agent's own `allowedTools`. With only `fs_read` allowed, every write was denied, and Kiro's final summary still reported test results that never ran. Both runs are in `docs/kiro-evidence/warden-hooks-session.txt`.
 
@@ -38,10 +50,12 @@ Runs the Hallmark atmospheric linter (`sloplint.mjs --genre atmospheric`) over `
 
 A user-triggered review hook. Type `/review-evidence` in the Kiro chat to invoke it. The agent reads `git diff --cached` and cross-checks every change against the `evidence-rules.md` invariants:
 
-- No claim may reach the user without at least one `{ sha7 }` citation.
-- `src/ghost/verifier.ts` may not be weakened unless the commit message references a spec task ID.
+- Every memory and speculation claim needs a `{ sha7, quote }` citation; the quote is mandatory and must be found in one field of the cited commit.
+- A silence claim can never land in `verified`.
+- `src/ghost/verifier.ts` may only become stricter.
+- Recorded fixtures and recordings are never edited by hand.
 
-Output is a ✅ / ❌ checklist per invariant.
+Output is a ✅ / ❌ checklist per invariant. In the V3 engine this hook fires at the start of every session, not only on `/review-evidence` (see "What fires where"), so each of the 2026-11-11 sessions ends with that checklist. Kiro pointed out twice that the hook's text still said the quote was optional; the text was corrected by hand.
 
 ---
 
@@ -51,14 +65,15 @@ Output is a ✅ / ❌ checklist per invariant.
 |---|---|---|
 | `git` | `uvx mcp-server-git --repository .` | Read-only git access for agents and tools (log, blame, show, diff) |
 | `filesystem` | `npx -y @modelcontextprotocol/server-filesystem@2.0.1 .` | File access scoped to this repository root |
+| `seance` | `npx -y tsx src/mcp/server.ts` | Séance's own ledger and ward as tools (`seance_summon`, `seance_verify`, `seance_haunting_map`); local repositories only, no model inside. Added with `kiro-cli mcp add` |
 
 The filesystem server root is the repo directory, so agents cannot reach files outside it. It used to point at `uvx mcp-server-filesystem@latest`, a package that does not exist, so it never started. Kiro diagnosed and fixed that on 2026-11-09 (`docs/kiro-evidence/mcp-filesystem-fix-session.txt`).
 
 List them: `kiro-cli mcp list workspace`
 
-## specs/ — six specs
+## specs/ — ten specs
 
-`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (written during the first week), `ward-report` and `model-rate-limit` (both added 2026-11-09). `model-rate-limit` was implemented by the warden agent, with two fixes by hand (pruning, socket-address fallback). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented all three tasks from the spec and ticked the boxes: T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests), then T3 (a `report` field on `/api/ask` and `/api/ward` and a "Copy ward report" button).
+`evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui` (written during the first week), `ward-report` and `model-rate-limit` (both added 2026-11-09), and `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp` (all 2026-11-11, described in "The 4,000-credit round" below). `model-rate-limit` was implemented by the warden agent, with two fixes by hand (pruning, socket-address fallback). `ward-report` asks for a Markdown export of the ward's verdict; Kiro CLI implemented all three tasks from the spec and ticked the boxes: T1 and T2 (`src/ghost/report.ts`, unit tests and four property tests), then T3 (a `report` field on `/api/ask` and `/api/ward` and a "Copy ward report" button).
 
 ### spooky-ui: hand-written first, then audited and finished by Kiro
 
@@ -74,7 +89,7 @@ Every `tasks.md` was re-checked against the code and tests.
 - **evidence-ledger:** two items named files that never existed. They now point at what was built: `scripts/make-crypt.sh` and `test/evidence/crypt.test.ts`.
 - **Steering:** `tech.md` now lists the real routes, files and commands.
 
-All six specs are now fully ticked: 308 of 308 task items, each checked against code and tests. Two pieces were finished by hand after Kiro's credits ran out (48.58 of 50 used):
+As of 2026-11-09 all six specs were fully ticked: 308 of 308 task items, each checked against code and tests. (The count for all ten specs is in "The 4,000-credit round" below.) Two pieces were finished by hand after Kiro's credits ran out (48.58 of 50 used):
 
 - The canonical plan fixture, `test/fixtures/exorcism-plans/5de303db.json`. It was recorded from a real model call on the sample crypt with `scripts/record-plan-fixture.ts`. It replaces the hand-made fixture Kiro had written for a toy ledger, and its test rebuilds the crypt with real git.
 - The four `spooky-ui` property tests.

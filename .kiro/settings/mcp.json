@@ -9,6 +9,15 @@
       ],
       "env": {}
     },
+    "seance": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "tsx",
+        "src/mcp/server.ts"
+      ],
+      "env": {}
+    },
     "git": {
       "command": "uvx",
       "args": [

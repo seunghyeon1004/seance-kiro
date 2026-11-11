@@ -1,0 +1,144 @@
+# Kiro CLI 3.2.0, 2026-11-11: the archaeologist custom agent using Séance's own MCP server (seance_summon, seance_verify, seance_haunting_map) on the sample crypt. Three runs, unedited output; only the home directory prefix is replaced with ~. Run 1 (default V2 engine): the tools in allowedTools were auto-approved, and the agent answered with five ward-verified claims. Run 2 (V3, no tool trust): every seance and git call was denied at the permission prompt, and the agent said so and marked its fallback claims 'not checked by the ward'. Run 3 (V3 with --trust-all-tools): all three tools ran; the run also exposed a real defect, seance_verify refusing a silence claim sent without a citations field, fixed afterwards.
+
+$ kiro-cli chat --no-interactive --agent archaeologist --model claude-opus-5.5 "Why does legacy/tax.js line 7 wait 3 seconds? Use data/crypt as the repo."   (default engine, V2)
+--- output ---
+[tool] Reading tax.js:1
+[tool] status: Completed
+[tool] Running: @seance/seance_summon
+[tool] status: Completed
+[tool] Running: @seance/seance_verify
+[tool] status: Completed
+Line 7 waits 3 seconds to stay under the tax vendor's rate limit. I asked the ward to check the ledger for `legacy/tax.js` lines 3–7 in `data/crypt`. Line 7 reads its delay from `PAUSE_MS` on line 4, so the range includes both lines. No commit in the ledger was flagged as suspicious.
+
+- Dmitri Volkov added the 3 second wait in 2020 because the tax vendor returns 429 when two requests from the same account land within 3 seconds. [e9a5c9c] "The vendor returns 429 if two requests from the same account land within 3 seconds"
+- The vendor's support confirmed there is no burst allowance. Without the delay, the nightly batch loses about 8% of quotes. [e9a5c9c] "their support confirmed there is no burst allowance. Without the delay the nightly batch loses about 8% of quotes."
+- The original author called the delay a hack and named a queue as the proper fix. [e9a5c9c] "hack: wait 3s before calling the tax vendor", [e9a5c9c] "Proper fix is a queue."
+- In 2023, Tom Haskell added a TODO to remove the delay after migrating to the new tax vendor. [c2685ed] "// TODO: remove this delay after migrating to the new tax vendor"
+- In 2024, Tom Haskell moved the 3000 ms value into the `PAUSE_MS` constant as part of a variable rename. `git blame` on line 7 points at this commit, which did not change the behaviour. [6a959a9] "refactor: rename variables in tax.js", [6a959a9] "+const PAUSE_MS = 3000;"
+- The record is silent (not checked) on whether the migration to the new tax vendor has happened, and on whether the new vendor has the same limit.
+
+Removing the delay without the queue Dmitri described would likely bring back the 429 errors.
+
+5 of 5 claims verified
+exit 0
+
+
+===== same prompt, V3 engine, no tool trust: --v3 --trust-workspace =====
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=11
+[tool] Read File
+[tool] status: InProgress
+[tool] Show who last changed each line of tax.js
+[tool] status: Completed
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Show who last changed each line of tax.js
+[tool] Show the staged diff for the hook review
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Show the staged diff for the hook review
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] @seance/seance_summon
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: @seance/seance_summon
+[tool] @git/git_diff_staged
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: @git/git_diff_staged
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+The Séance tools did not run: every call to `seance_summon` and `seance_verify` failed at the permission prompt, and so did `git blame`, `git log` and the staged-diff calls. Nothing below was checked by the ward.
+
+As a fallback I read the file and the reflog at `data/crypt/.git/logs/HEAD`. The reflog holds each commit's subject line only, with no body and no diff. So I can't confirm which commit wrote line 7, and I can't see the reason for the wait in any commit message.
+
+**What the record shows (not checked by the ward)**
+
+- Line 7 waits for `PAUSE_MS`. Line 4 sets it to `3000`, and line 3 has the comment `// TODO: remove this delay after migrating to the new tax vendor`. The pause happens just before `vendor.quote(acct, amt)` is called.
+- Commit e9a5c9c (Dmitri Volkov, 2020-02-11) has the subject "hack: wait 3s before calling the tax vendor". It is probably where the delay came from, but without blame I can't confirm that.
+- Commit c2685ed (Tom Haskell, 2023-01-17) has the subject "chore: add TODO about the tax delay". It probably added the TODO comment.
+- Commit 6a959a9 (Tom Haskell, 2024-08-08) has the subject "refactor: rename variables in tax.js". It may have given the constant its current name, `PAUSE_MS`.
+- The record is silent on why the vendor needed a 3-second wait (not checked). That answer would be in the body of e9a5c9c, which the reflog doesn't include.
+
+I can't give the "N of M claims verified" count line because the ward never ran.
+
+**Evidence-rules review of the staged diff (requested by your hook)**
+
+The review did not run. Both `git diff --cached` and `git_diff_staged` failed at the permission prompt, so I couldn't see any changed lines in `src/ghost/verifier.ts`, `src/ghost/schema.ts`, or the fixture and recording files. Every item on the checklist is unchecked, so I'm marking none of them ✅ or ❌.
+
+To get a ward-verified answer about the delay and the staged-diff review, approve the Séance and git tool permissions and ask again. Run `seance_summon` on `data/crypt`, `legacy/tax.js`, lines 3 to 8.
+exit 0
+
+
+===== V3 engine with --trust-all-tools; prompt: "Which files in data/crypt are haunted by departed authors, and why does legacy/vendor.js cache the token for 55 minutes? Use data/crypt as the repo." =====
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=11
+[tool] Show the staged diff for review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] List crypt repo files and commit history
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Show vendor.js with line numbers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] @seance/seance_haunting_map
+[tool] status: InProgress
+[tool] status: Completed
+[tool] @seance/seance_summon
+[tool] status: InProgress
+[tool] status: Completed
+[tool] @seance/seance_verify
+[tool] status: InProgress
+[tool] status: Failed: @seance/seance_verify
+[tool] @seance/seance_verify
+[tool] status: InProgress
+[tool] status: Failed: @seance/seance_verify
+[tool] @seance/seance_verify
+[tool] status: InProgress
+[tool] status: Completed
+The record names Priya Ramanathan's commit `dcb8969` as the reason for the 55-minute cache. Vendor tokens last 60 minutes, and the cache refreshes 5 minutes early to allow for clock skew. Four of the five files in data/crypt are haunted by departed authors.
+
+## Haunted files
+
+This table comes from `seance_haunting_map`, which reads git history only; the ward does not check it. An author counts as departed after 365 days without a commit, measured against the repo's latest commit date, 2024-10-21.
+
+| File | Haunted by | Departed-author commits / total | Last such commit |
+|---|---|---|---|
+| legacy/vendor.js | Priya Ramanathan | 2 / 2 | `dcb8969` |
+| legacy/schedule.js | Priya Ramanathan | 1 / 1 | `40bc4ef` |
+| legacy/invoice.js | Dmitri Volkov | 2 / 2 | `604eac6` |
+| legacy/tax.js | Dmitri Volkov | 1 / 3 | `e9a5c9c` |
+| tests/invoice.test.js | nobody (Tom Haskell is still active) | 0 / 1 | `21d4a12` |
+
+## Why legacy/vendor.js caches the token for 55 minutes (lines 1–13)
+
+- Priya Ramanathan added the 55-minute token cache in 2022. [dcb8969] "perf: cache the vendor token for 55 minutes"
+- Vendor tokens live 60 minutes; the cache refreshes 5 minutes early to survive clock skew between our hosts and the vendor. [dcb8969] "Tokens live 60 minutes; we refresh 5 minutes early to survive clock skew between our hosts and the vendor."
+- The cache cut auth calls from about 40k per day to about 26. [dcb8969] "Cuts auth calls from ~40k/day to ~26."
+- Dmitri Volkov created the file in 2020 as a thin wrapper around the vendor API, before any token caching existed. [e9a5c9c] "+// Thin wrapper around the TaxJar-like vendor API (fictional)." The ward checked the citation and the quote. "Before any token caching existed" comes from that commit's hunk, which has no token code, and is not a quoted fact.
+- How the 5-minute margin was chosen, and how large the clock skew was: the record is silent (not checked).
+
+No ledger item was flagged as suspicious.
+
+**Tool problem:** `seance_verify` would not take my silence claim. With `citations: []` it failed twice with "Required at claims[4].citations", so the silence line above was never sent to the ward. Also, my first verify call went out before the ledger had come back. It failed on the same error, so it had no effect.
+
+## Evidence-rules review of the staged diff
+
+`git diff --cached` is empty, so nothing is staged and there is nothing to review.
+
+- ➖ Verifier only becomes stricter: `src/ghost/verifier.ts` has no staged changes
+- ➖ Memory and speculation claims still require a `{ sha7, quote }` citation, and silence never lands in `verified`: `src/ghost/schema.ts` has no staged changes
+- ➖ Fixtures and recordings: no `test/fixtures/**/*.json` or `recordings/*.json` changes
+
+4 of 4 claims verified
+exit 0

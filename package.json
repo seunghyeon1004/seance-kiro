@@ -15,7 +15,8 @@
     "start": "npm run crypt && npm run possessed && tsx src/server.ts",
     "crypt": "bash scripts/make-crypt.sh data/crypt",
     "possessed": "bash scripts/make-possessed.sh data/possessed",
-    "contrast": "node scripts/contrast.mjs"
+    "contrast": "node scripts/contrast.mjs",
+    "mcp": "tsx src/mcp/server.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.32.1",

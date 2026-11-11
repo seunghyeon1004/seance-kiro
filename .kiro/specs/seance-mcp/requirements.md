@@ -107,6 +107,8 @@ The decisions behind each group of requirements:
 
 **R5.7** Calling `seance_verify` twice with the same ledger id and claims shall return deep-equal results.
 
+**R5.8** (Addendum, found in the third real run of T5, `docs/kiro-evidence/seance-mcp-session.txt`.) At the MCP boundary a claim's `citations` shall be optional and default to an empty list. A silence claim sent without the field shall therefore reach the ward and, when the ward accepts it as silence, land in `silent`. A memory or speculation claim sent without the field shall still reach the ward and be struck with the ward's own reason ("A memory claim needs at least one citation.", or the same for speculation). A `citations` value that is present but not an array shall still fail the call (R7.4). `src/ghost/verifier.ts` and `src/ghost/schema.ts` do not change: the ward sees `citations: []` exactly as if the agent had sent it.
+
 ### R6 `seance_haunting_map` (decision B)
 
 **R6.1** `seance_haunting_map` shall accept `{ repo?: string }`, default `"."`, and resolve it by R3.
