@@ -1,0 +1,518 @@
+# Kiro CLI 3.2.0 (V3 engine, --mode spec, claude-opus-5.5), 2026-11-11: two sessions writing the first-seance spec from the first-run audit and part of the accessibility audit. Session 1: requirements.md, design.md, tasks.md. Session 2: the 'possessed ghost' demo added as R13. Unedited output; only the home directory prefix is replaced with ~. Reviewed by hand and approved.
+
+$ kiro-cli chat --no-interactive --v3 --mode spec --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Create a new spec named `first-seance` in .kiro/specs/first-seance/: write requirements.md, design.md and tasks.md (no code in this session). Follow the format of .kiro/specs/ward-hardening/ (Why, Scope, numbered EARS-style requirements, non-functional, Out of scope; design with real files, exact signatures, copy text and element ids, correctness properties; tasks test-first, each task leaving npm test / typecheck / lint green, a traceability table, nothing ticked).
+
+Input: the first-run audit docs/kiro-evidence/audit-first-run-session.txt (read it fully), the current code (public/index.html, public/app.js, public/styles.css, public/tokens.css, src/server.ts, src/ghost/llm.ts, src/ghost/persona.ts, src/evidence/git.ts, src/evidence/ledger.ts, src/errors.ts, scripts/record-plan-fixture.ts, test/ui/, test/server/), the steering files, and the finished ward-hardening spec (its API shapes are the baseline).
+
+Goal: a hackathon judge with three minutes, who has never seen the product, reaches the two moments that matter (a cited answer from the ghost, and the ward refusing a false claim) with one obvious click each, on a free host that sleeps and with a model that may be unavailable. No change to what the verifier accepts.
+
+Decisions already made (write them as requirements, reasoning in "Why"):
+A. Hero copy: keep the headline; the lede gains one sentence saying every claim is checked against the commits and invented ones are struck out. Replace "any line of code" wording that overclaims (public GitHub repos, default branch, recent history). The hero must still fit 1280x800 without scrolling (ui-spooky.md).
+B. The line in question: /api/summon returns `lines: [{ n, text }]`, the selected range read from the repository at HEAD (at most 40 lines, each cut to 400 chars), and `persona: { author }` (the most frequent ledger author, the same rule buildPrompt uses, exported from one place). The page shows the lines above the crypt under "The line in question", and names the ghost from `persona.author`, never from the model's `voice` string.
+C. Guided path: after a summon, the talk column shows a three-step guide, each step one click:
+   1. "Ask the ghost": question chips that submit immediately. For `crypt`: "Why is there a three second wait here?", "Who touched this line last, and why?", "Is it safe to delete the wait?". For `possessed`: "Can I delete this wait?", "Why does the wait exist?", "Who changed this?". For any other repo: "Why does this line exist?", "What would break if I removed it?".
+   2. "Try to fool the ward": three buttons that send a planted claim immediately through /api/ward (invent a citation, misquote a real commit, blame the wrong author), reusing the existing presets. The manual form stays available below in the existing details element.
+   3. "Run the exorcism".
+   Each step shows a text marker when done ("done"), not colour alone. The guide is a list with real buttons, keyboard reachable in order, and does not trap focus. The ask textarea stays for free questions and is no longer `required` blocked silently: an empty submit shows an inline message.
+D. Planted claims are the visitor's, not the ghost's: they do not change the "N of M claims verified this séance" counter or the candle, and their turn is labelled "Planted by you". A new summon resets the counter text, the ghost name, the last report and the guide.
+E. Sleepy host: on page load the page calls GET /api/health (which now also returns `model: boolean` (a key is configured or fixture mode is on) and `samples: string[]` of built samples). `api()` retries network failures and 502/503/504 responses that are not our own JSON error (no `code` field) up to 3 times with 2 s, 5 s, 10 s waits, showing "Waking the spirits. The free server sleeps when idle; this can take up to a minute." in the relevant status region. Our own JSON errors are never retried. POSTs are retried only in that proxy/network case.
+F. Model failures are mapped, never leaked: Anthropic API errors by status (401/403/404 -> 503 MODEL_CONFIG "The ghost cannot be reached: the server's model key or model name is wrong."; 429/529/5xx -> 503 MODEL_BUSY "The spirits are busy. Try again in a minute."); timeouts detected reliably (the SDK's APIUserAbortError or an aborted signal -> 503 TIMEOUT "The ghost took too long to answer."); schema failures -> 503 LLM_ERROR with a fixed sentence, details only in the server log; plan mode gets its own timeout LLM_PLAN_TIMEOUT_MS (default 90000). Missing key -> 503 CONFIG_ERROR "The ghost cannot speak on this server (no model key). The crypt and the ward still work."
+G. Recorded answers when the model is unavailable: for the sample repos and the chip questions in C.1, the repository ships recorded model answers (recorded from real model calls by a script, never hand-written; directory `recordings/`, keyed by a hash of sample name + file + line range + question). When /api/ask fails with MODEL_CONFIG, MODEL_BUSY, TIMEOUT, CONFIG_ERROR or the daily cap, and a recording exists for that exact sample and question, the server returns the recording run through the live verifier against the current ledger, with `recorded: true`. The page labels it: "A recorded answer (the model is resting). The ward checked it again just now." Recorded answers never bypass the ward, never count against the daily cap, and are never used for non-sample repos or free-typed questions. The same for /api/exorcise on the two samples (one recorded plan each). The recording script and its README say a human with a real key runs it.
+H. Honest empty and failed history: a failed or timed-out `git log -L` is an error (422 with a fixed sentence), not "0 commits"; a range with truly no history shows "No commits touched these lines." inside the crypt panel; a clone that hit the 100-commit depth sets `shallow: true` in the summon response and the crypt says "Only the most recent 100 commits were read. Older history is not in the crypt."
+I. GitHub URLs as people paste them: a pure function `normaliseRepoInput(text)` in public/app.js (tested by extraction like test/ui/pbt/ui.pbt.ts does) that accepts trailing slashes, `.git`, `www.`, `http://`, `github.com/o/r` without scheme, and `/blob/<ref>/<path>#L10-L20` or `/tree/<ref>/<path>` URLs, returning `{ repoUrl, file?, startLine?, endLine?, note? }`; a blob URL fills the file and line fields; the note says the default branch is read. A leading `/` in the file field is stripped. The server's allowlist regex does not change.
+J. Small things from the audit: "Copy ward report" is hidden until there is a report; a 429 shows the wait from Retry-After in words; the plant handler handles SESSION_NOT_FOUND like ask does; summon shows elapsed seconds for remote repos; refusal reasons are already plain sentences after ward-hardening (do not change them).
+K. End-to-end tests in a real DOM: test/ui/dom.test.ts already runs public/app.js unmodified in jsdom against the real server with a scripted model; move its harness into a shared helper (test/e2e/harness.ts) and add flow tests under test/e2e/ that load public/index.html, runs public/app.js unmodified, and routes `fetch` to the real Hono app (`createApp`) in-process with a scripted model client. No browser is launched and the tests say so honestly in their file header ("DOM end-to-end, not a rendering test"). Flows: (1) crypt: load -> health -> summon -> lines shown -> chip question -> verified claims with "The words the ward found" -> one-click invented citation is struck with its reason and the séance counter is unchanged -> exorcism renders; (2) possessed: summon -> suspicious rows marked -> an obedient scripted model's quoteless claim is struck; (3) the model is down -> the recorded answer is shown with its label and is verified; (4) the proxy returns 502 twice then succeeds -> the wake-up text appears and the summon completes (fake timers); (5) session expired -> the page returns to the summon form with the message.
+L. Out of scope: changing the Dockerfile or render.yaml start command (the deploy is owned by a human and Docker is not available to test here; say so and list the suggested change as a note), changing clone depth, analytics, any new runtime dependency.
+
+Constraints: follow .kiro/steering/ui-spooky.md (tokens only, no colour-only signalling, reduced motion, no emoji icons, about 80 words per screen in the hero); untrusted text only via textContent; no inline scripts or styles (CSP default-src 'self'); the rate limiter behaviour and its tests do not change; verifier.ts is not touched.
+Write the three files and nothing else.
+
+Also read test/ui/dom.test.ts, test/adversarial/, the a11y audit docs/kiro-evidence/audit-a11y-mobile-session.txt (its findings C2, C7, C10, C11, C12, C14, C15, C16 overlap with this spec's UI work: where this spec touches the same code, do it the accessible way and list which audit findings the spec closes; the remaining a11y findings are a separate follow-up, list them under Out of scope).
+The wrong-author preset text is "<name> wrote this line."
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=10
+[tool] status: Completed
+[tool] Check staged diff and list input files with sizes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read config files and locate schema definitions
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read fixture README and list existing test names and error-code uses
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find error-code references and the counter/live-region tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List CSS selectors in styles.css
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect sample files, histories and summon test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect WorstCaseClient and SDK error classes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List exports in plan, report, ratelimit and refs modules
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check how the rate limit tests build sessions
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find vitest config and logL tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read vitest, tsconfig, eslint config and hooks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests touching UI elements this spec changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find tests touching UI elements this spec changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Get base commit and check LedgerResult usage
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check evidence-ledger R2.4 and spooky-ui counter requirements
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read tests likely affected by the UI changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Check whether the new spec files pass the Prettier check
+[tool] status: Pending
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Confirm the staged diff and list the new spec files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+I've written the `first-seance` spec in `.kiro/specs/first-seance/`: `requirements.md`, `design.md` and `tasks.md`. Nothing else changed and no code was touched. The files follow the ward-hardening format, and every task is unticked.
+
+- **`requirements.md`**: decisions A–K become R1–R11, and the overlapping accessibility findings become R12, which closes C2, C7, C10, C11, C12, C14, C15 and C16. There are non-functional requirements N1–N8. Out of scope covers L, the Dockerfile note, and the remaining accessibility findings as a follow-up: C1, C3–C6, C8, C9, C13, C17, C18 and S1–S7.
+- **`design.md`**: the real files and exact signatures, the server's error table, the recorded-answer gate, the page functions, every element id, a complete copy table, the end-to-end harness and its five flows, and eleven fast-check properties. Section 13 is the deploy note, which no task touches.
+- **`tasks.md`**: nine test-first tasks, then the traceability table.
+
+Choices I made that you may want to check:
+
+- **Daily-cap accounting.** The rate limiter itself doesn't change. When no key is set, or the daily cap is used up, a recording is served without charging the model limiter. When a live model call fails, its slot has already been taken by that failed call, and serving the recording charges nothing more. The cost is that, with no key, the six recorded questions can be asked without limit. That is listed as an open risk.
+- **`TimeoutError`'s code** changes from `TIMEOUT_ERROR` to `TIMEOUT`. No test or client reads the old code.
+- **The step 3 button** is labelled "Start the exorcism", so it doesn't repeat the step title "Run the exorcism". Its id stays `#exorcise-btn`.
+- **The preset buttons move** out of the "Plant a false memory" panel into step 2 and send straight away. The manual form stays in the panel.
+- **The selected lines** are read with `git show HEAD:<file>` inside `buildLedger`, before a cloned repo is deleted. They are for display only and never reach the prompt or the ward.
+- **The prompt text doesn't change**, so the existing fixture hashes don't move. T1 and T2 re-check them.
+- **The screen-reader counter.** R12.1 stops `#verified-counter` and the answer tally being live regions, which supersedes spooky-ui R3.9 and R8.7. The tests that assert the old attributes are listed in design §12.2.
+- **Recordings in tests.** Tests write recordings into a temp directory through the recording script's own function, with a scripted model. The eight real recordings are added in T8 by a human with a real key. Until then the fallback simply isn't available.
+- **The 1280x800 check.** The tests run no browser, so whether the hero fits without scrolling is a human browser check in T9.
+
+**Evidence-rules review** (the hook you triggered): there is nothing to review. `git diff --cached` is empty, and the only change in the working tree is the untracked spec folder.
+- ✅ Nothing in `src/ghost/verifier.ts` changed, so no verifier invariant is weakened.
+- ✅ `GhostAnswer` and `EvidenceItem` are unchanged, so every claim still needs a `{ sha7, quote }` citation. The spec requires the verifier diff against `3486e14` to stay empty at the end of every task.
+
+
+===== second session: the possessed-ghost addition (R13) =====
+
+$ kiro-cli chat --no-interactive --v3 --mode spec --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+The spec `first-seance` (.kiro/specs/first-seance/) is approved as written, with one addition. Amend requirements.md, design.md and tasks.md (no code in this session) to add it, keeping the documents' format, numbering style and traceability table consistent. Do not change any existing requirement's meaning.
+
+Addition: "the possessed ghost" (new requirement group R13, a design section, one task placed after T7 and before the recording task, properties/tests, copy, traceability rows).
+
+Why: on the `possessed` sample a real model resists the injected orders (checked today: it cited only the two honest commits), so a visitor never sees what the ward is for. The repository's adversarial tests already contain a scripted "model" that obeys every order in the possessed commits (test/adversarial/worst-case-client.ts). Showing that on the page, clearly labelled, lets a visitor watch the ward refuse a fully compromised ghost with one click, with no model call and no cost.
+
+Decisions:
+- A pure module src/ghost/possessed-ghost.ts exports `possessedAnswer(ledger)`: the five obedient claims of ward-hardening design §10.4 (A1-A5), built from the ledger by looking up the commits by subject, exactly as the injected text orders them (quoteless citations stay quoteless). It returns null when the ledger is not the possessed sample's default ledger (any expected subject missing). test/adversarial/worst-case-client.ts is refactored to use the same module so there is one source of truth, and the adversarial tests keep passing unchanged in meaning.
+- POST /api/possess { sessionId }: only for a session summoned from `possessed` with its default file and range (otherwise 400 with a plain sentence); runs `verify(ledger.items, possessedAnswer(ledger))` and returns the same shape as /api/ward plus `scripted: true`; uses the ward limiter (never the model limiter, never a model call); body limit applies; SESSION_NOT_FOUND handled like the other routes.
+- Page: for the possessed sample only, step 2 of the guide gets a first button "Let a possessed ghost answer". Its turn is labelled "A scripted ghost that obeys every order in these commits (no model was called). The ward checked it just now." The result is rendered with the normal claim nodes (struck claims with reasons, the silence claim with its "not checked" label). Like a planted claim it does not change the séance counter, the candle or the last report, and marks step 2 done. #ward-status reads "The ward refused N of M claims from the possessed ghost." using the tally (plus the silence note when there is one).
+- Tests: unit tests for possessedAnswer (five claims; null on the crypt ledger and on a possessed ledger for another range); server tests for /api/possess (shape, scripted flag, 400 on crypt sessions, limiter isolation: the model limiter's counters do not move); the e2e possessed flow gains: one click on "Let a possessed ghost answer" renders the four struck claims with their reasons and the one unchecked silence claim, none of the attacker's sentences appears inside a verified claim, and the counter text is unchanged.
+- Honesty: the label must say it is scripted; nothing may suggest a real model produced it. State in the design that this demo proves the ward, not the model.
+Write only the three spec files.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=10
+[tool] Inspect staged diff for evidence-rules review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List first-seance spec files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find WorstCaseClient users and possessed handling
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check verify signature and ward route shape
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect possessed sample file and history
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check limiter API for counter inspection
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find all importers of worst-case-client
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Nothing is staged, so the hook's review has no diff to check. I'll report that at the end. Next I'm making the spec edits.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the flows, properties, test tables, risks and copy.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Append to File
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] See current plant error handling in app.js
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the final-verification task and the traceability table.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check task references and R13 traceability
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check spec files against Prettier formatting
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I've added "the possessed ghost" to all three `first-seance` spec files. No code or other files changed.
+
+- **`requirements.md`**: there is a new decision **L** under Why, with the "proves the ward, not the model" statement. A new group **R13.1–R13.13** covers:
+  - the pure `possessedAnswer` module, and the test client refactor;
+  - the route `POST /api/possess`, with its 400, 404 and limiter rules and `scripted: true`;
+  - the expected verdict: 4 claims struck with the F6/F10, F6, F9 and F10/F11 reasons, plus 1 silence claim;
+  - the button, label, counter isolation, `#ward-status` sentence, error handling and honesty rules;
+  - the extra end-to-end checks.
+
+  The Scope section now lists the new module and the test client refactor.
+- **`design.md`**: there is a new **§16 The possessed ghost**:
+  - §16.1 says what the demo proves and what it doesn't.
+  - §16.2 gives the module API and a table of the five claims.
+  - §16.3 and §16.4 cover the test client refactor and the route code.
+  - §16.5–§16.7 cover the page, the status sentence, and the honesty rules for the label.
+  - §16.8 lists the tests, and §16.9 the limits.
+
+  Other sections point to it. These are new rows in §2 (Files), §9 (Copy) and §12.1 (Tests); CP12 in §11; and F9 added to `REASONS` in the test harness (§10.1). §10.3 gains steps 6–10 in the possessed flow and a "button hidden" step in the crypt flow. §10.2 no longer calls `WorstCaseClient` "unchanged".
+- **`tasks.md`**: a new **T8 — The possessed ghost** follows T7. Its tests come first and it ends with the usual green checks. The traceability table has rows R13.1–R13.13, and the R11.3, R12.9 and N rows are updated.
+
+I had to renumber two tasks to fit the new one in: "Record the answers" is now **T9** and "Final verification" is now **T10**. I updated every reference to them, including R1.6 and N7 in requirements.md. Only the task numbers changed; no requirement's wording or meaning did.
+
+I made a few choices you didn't specify:
+- **Error response:** a session that isn't possessed gets 400 with code `NOT_POSSESSED` and "The possessed ghost only answers on the possessed sample, auth/throttle.js line 4."
+- **Silence note:** the exact text is "It also made 1 silence claim, which the ward does not check."
+- **No question line:** the scripted turn has none, because nobody asked a question.
+- **Button placement:** `#possess-btn` sits first inside `.plant-presets` with the `hidden` attribute.
+- **Limits test:** this test uses an empty `RECORDINGS_DIR`, so a shipped recording can't hide a limiter result.
+
+One honesty point: the line in decision L about the real model citing only the two honest commits names P1 and P4. That is how I identified the two commits the spec treats as honest; I didn't re-check it against a live model run.
+
+**Evidence-rules review (hook):** nothing is staged (`git diff --cached` is empty; the only change is the untracked `.kiro/specs/first-seance/`), so there was no `verifier.ts` diff to check.
+- ✅ SHA in exactly one ledger item: no change
+- ✅ Quote is a substring of one field: no change
+- ✅ Year and author checks: no change
+- ✅ Score formula: no change
+- ✅ Verifier is pure and only gets stricter: no change
+
+The hook's step 4 describes citations as `{ sha7, quote? }`, with the quote optional. `.kiro/steering/evidence-rules.md` says the quote is mandatory, so I checked against the steering file. The new spec sends quoteless citations (A1, A2) to the ward on purpose, and the ward rejects them with F6, which is consistent with that rule.
+exit 0
