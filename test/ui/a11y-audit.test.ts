@@ -114,7 +114,11 @@ describe('C3 — grid columns can shrink (320 px)', () => {
     for (const r of rules) {
       const m = /grid-template-columns:\s*([^;]+)/.exec(r.body);
       if (!m) continue;
-      let tracks = m[1]!.replace(/minmax\([^)]*\)|repeat\(\d+,\s*minmax\([^)]*\)\)/g, '');
+      // a minmax() may hold one level of nested parentheses, as in minmax(min(100%, 16rem), 1fr)
+      let tracks = m[1]!.replace(
+        /minmax\((?:[^()]|\([^()]*\))*\)|repeat\(\d+,\s*minmax\([^)]*\)\)/g,
+        '',
+      );
       // .ex-top's auto track holds only the computed score ("100 of 100 haunted"), and the
       // 60rem query turns it into one minmax(0, 1fr) column
       if (r.selectors.includes('.ex-top')) tracks = tracks.replace(/^\s*auto\b/, '');

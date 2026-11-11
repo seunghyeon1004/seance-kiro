@@ -10,6 +10,9 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   timeZone: 'UTC',
 });
+const countFmt = new Intl.NumberFormat('en-US');
+/** The persona wording for a name that tries to give orders (first-seance R2.5, haunting-map R8.2). */
+const ORDERS_GHOST = 'A ghost whose name tries to give orders';
 
 // ward-hardening: the same limits as src/ghost/schema.ts (HUNK_UI_CHARS, QUOTE_MIN_CHARS, QUOTE_MAX_CHARS)
 const HUNK_UI_CHARS = 4000;
@@ -32,6 +35,8 @@ const SAMPLE_DEFAULTS = {
 const state = {
   sessionId: null,
   sample: null,
+  repoUrl: null,
+  file: null,
   items: new Map(),
   lastCited: null,
   busy: false,
@@ -346,12 +351,15 @@ function openSeance(data, input) {
   state.sessionId = data.sessionId;
   state.items = new Map(data.items.map((i) => [i.shortSha, i]));
   state.sample = sampleFor(input);
+  state.repoUrl = input.repoUrl;
+  state.file = input.file;
   state.totalVerified = 0;
   state.totalClaims = 0;
   state.totalSilent = 0;
   state.lastReport = null;
   renderSource(data, input);
   renderLedger(data);
+  renderMap(data, input.file);
   renderGuide(state.sample);
   // R2.4, R2.5: a name that tries to give orders is never printed as the ghost's name
   $('ghost-name').textContent = !data.items.length
@@ -549,6 +557,207 @@ function focusCommit(sha) {
   state.lastCited = sha;
   requestAnimationFrame(() => pointPlanchette(sha));
   setTimeout(() => pointPlanchette(sha), reduceMotion.matches ? 0 : 450);
+}
+
+// ---- The haunting map (haunting-map design.md §7.2, §7.3) --------------------------------
+
+const plural = (n, word) => `${countFmt.format(n)} ${word}${n === 1 ? '' : 's'}`;
+
+/** "N of M commits by ghosts", singular when M is 1 (R2.6, R5.11). */
+function commitsText(n, m) {
+  return `${countFmt.format(n)} of ${countFmt.format(m)} commit${m === 1 ? '' : 's'} by ghosts`;
+}
+
+/** The ghost's name, or the warning wording for a suspicious name (R8.2). */
+function ghostLabel(g) {
+  return g.suspicious ? ORDERS_GHOST : g.name;
+}
+
+/** "Haunted by <name>", or the warning in its own label for a suspicious name (R8.2). */
+function hauntedBy(g, withGlyph) {
+  if (!g.suspicious) return [document.createTextNode(`Haunted by ${g.name}`)];
+  const out = [
+    document.createTextNode('Haunted by '),
+    el('span', { class: 'lab warn', text: ORDERS_GHOST.replace(/^A /, 'a ') }),
+  ];
+  if (withGlyph) out.push(document.createTextNode(` (${g.glyph})`));
+  return out;
+}
+
+/** Legend item: glyph, name or warning, "Last seen <date>", "Haunts N file(s)" (R5.3). */
+function legendItem(g) {
+  return el('li', {}, [
+    el('span', { class: 'glyph', text: g.glyph }),
+    g.suspicious
+      ? el('span', { class: 'lab warn', text: ghostLabel(g) })
+      : el('span', { class: 'map-name', text: ghostLabel(g) }),
+    el('span', {
+      class: 'meta',
+      text: `Last seen ${dateFmt.format(new Date(g.lastSeen))}`,
+    }),
+    el('span', { class: 'meta', text: `Haunts ${plural(g.files, 'file')}` }),
+  ]);
+}
+
+/** One tile (R5.6–R5.8, R5.10). `ghost` is null for a tended file. Tiles take no focus. */
+function mapTile(f, ghost, here) {
+  const li = el('li', { class: 'map-tile' });
+  li.setAttribute('data-path', f.path);
+  li.style.setProperty('--share', String(f.departedTouches / f.totalTouches));
+  const button = el('button', {
+    class: 'btn small ghost',
+    type: 'button',
+    text: 'Summon here',
+    'aria-label': `Summon here: ${f.path}`,
+  });
+  button.addEventListener('click', () => summonHere(f.path, button));
+  li.append(
+    ...[
+      el('p', { class: 'map-path' }, [el('code', { text: f.path })]),
+      f.path === here ? el('p', { class: 'lab here', text: 'You are here' }) : null,
+      ghost
+        ? el('p', { class: 'map-who' }, [
+            el('span', { class: 'glyph', 'aria-hidden': 'true', text: ghost.glyph }),
+            document.createTextNode(' '),
+            ...hauntedBy(ghost, false),
+          ])
+        : el('p', { class: 'map-who', text: 'Tended by the living' }),
+      el('p', { class: 'meta', text: commitsText(f.departedTouches, f.totalTouches) }),
+      el('p', {
+        class: 'meta',
+        text: `${ghost ? 'Last seen' : 'Last changed'} ${dateFmt.format(new Date(f.lastSeen))}`,
+      }),
+      el('p', { class: 'meta' }, [
+        document.createTextNode('Commit '),
+        el('span', { class: 'sha', text: f.lastSha7 }),
+      ]),
+      button,
+    ].filter(Boolean),
+  );
+  return li;
+}
+
+/** #map-meta text (R5.2). */
+function mapMetaText(map) {
+  const n = map.commitsRead;
+  return `Read from ${countFmt.format(n)} commit${n === 1 ? '' : 's'}, the newest on ${dateFmt.format(new Date(map.repoNow))}. A ghost is an author whose last commit came more than ${map.departedAfterDays} days before that one.`;
+}
+
+/** #map-cut text: the cuts that apply, in the order history, shallow, files; '' when none (R5.2). */
+function mapCutText(map, shallow) {
+  const out = [];
+  if (map.historyCut)
+    out.push(
+      'Only the newest 2,000 commits were read, so earlier authors may be missing.',
+    );
+  if (shallow) out.push('This clone holds only the newest 100 commits.');
+  if (map.truncated)
+    out.push(
+      `Showing ${countFmt.format(map.files.length)} of ${countFmt.format(map.filesConsidered)} files, the most haunted first.`,
+    );
+  return out.join(' ');
+}
+
+/** Show `text` in the paragraph `id`, or hide it when empty. */
+function setLine(id, text) {
+  $(id).textContent = text;
+  $(id).hidden = !text;
+}
+
+/** Fills or hides the section from a summon response; a new summon replaces it all (R5.1). */
+function renderMap(data, here) {
+  const map = data.map || null;
+  $('map-legend').replaceChildren();
+  $('map-groups').replaceChildren();
+  $('map-living-tiles').replaceChildren();
+  $('map-living').open = false;
+  $('map-status').textContent = '';
+  setLine('map-err', '');
+  if (!map && !data.mapNote) {
+    $('map-wrap').hidden = true;
+    return;
+  }
+  $('map-wrap').hidden = false;
+  const drawn = Boolean(map);
+  for (const id of ['map-limit', 'map-legend', 'map-groups']) $(id).hidden = !drawn;
+  if (!map) {
+    setLine('map-meta', '');
+    setLine('map-cut', '');
+    setLine('map-note', data.mapNote);
+    $('map-living').hidden = true;
+    return;
+  }
+  setLine('map-meta', mapMetaText(map));
+  setLine('map-cut', mapCutText(map, data.shallow === true));
+  setLine(
+    'map-note',
+    map.files.length
+      ? ''
+      : 'No file in the latest commit was changed by the commits read.',
+  );
+  const byId = new Map(map.ghosts.map((g) => [g.id, g]));
+  $('map-legend').replaceChildren(...map.ghosts.map(legendItem));
+  $('map-legend').hidden = map.ghosts.length === 0;
+  $('map-groups').replaceChildren(
+    ...map.ghosts.map((g) => {
+      const hid = `map-group-${g.id}`; // ids are /^G[1-9][0-9]*$/, checked by the server
+      return el('section', { class: 'map-group', 'aria-labelledby': hid }, [
+        el('h3', { id: hid }, hauntedBy(g, true)),
+        el(
+          'ul',
+          { class: 'map-tiles' },
+          map.files.filter((f) => f.ghostId === g.id).map((f) => mapTile(f, g, here)),
+        ),
+      ]);
+    }),
+  );
+  $('map-groups').hidden = map.ghosts.length === 0;
+  const tended = map.files.filter((f) => f.ghostId === null || !byId.has(f.ghostId));
+  $('map-living-tiles').replaceChildren(...tended.map((f) => mapTile(f, null, here)));
+  $('map-living-sum').textContent =
+    `Tended by the living (${plural(tended.length, 'file')})`;
+  $('map-living').hidden = tended.length === 0;
+}
+
+/** "Summon here": a whole-file summon of `path` in the open séance's repository (R6.1, R6.7, R6.8). */
+async function summonHere(path, button) {
+  if (state.busy || !state.repoUrl) return;
+  state.busy = true;
+  const buttons = [...document.querySelectorAll('#map .map-tile button')];
+  for (const b of buttons) {
+    b.setAttribute('aria-disabled', 'true');
+    b.removeAttribute('aria-describedby');
+  }
+  $('summon-btn').setAttribute('aria-disabled', 'true');
+  $('map').setAttribute('aria-busy', 'true');
+  $('map-status').textContent = 'Summoning the ghost of this file…';
+  setLine('map-err', '');
+  const repoUrl = state.repoUrl;
+  const body = { repoUrl, file: path, wholeFile: true };
+  const token = $('token').value.trim();
+  if (token) body.githubToken = token;
+  try {
+    const data = await api('/api/summon', body, { status: 'map-status' });
+    $('file').value = path;
+    $('start').value = String(data.range.startLine);
+    $('end').value = String(data.range.endLine);
+    openSeance(data, {
+      repoUrl,
+      file: path,
+      startLine: data.range.startLine,
+      endLine: data.range.endLine,
+    });
+  } catch (err) {
+    setLine('map-err', err.message);
+    $('map-status').textContent = '';
+    // the error is tied to the button that failed, which keeps focus (aria-disabled)
+    if (button && button.isConnected) button.setAttribute('aria-describedby', 'map-err');
+  } finally {
+    state.busy = false;
+    for (const b of buttons) b.removeAttribute('aria-disabled');
+    $('summon-btn').removeAttribute('aria-disabled');
+    $('map').removeAttribute('aria-busy');
+  }
 }
 
 // ---- Claims -------------------------------------------------------------------------------

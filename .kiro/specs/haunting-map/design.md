@@ -379,8 +379,7 @@ A new block inside `#seance`, after the `.seance-in` container and before `#exor
     <h2 id="h-map">The haunting map</h2>
     <p class="meta" id="map-meta"></p>
     <p class="meta" id="map-limit">
-      Each number counts the commits that changed a file. Renames are not followed, and
-      lines are not read one by one.
+      Each number counts the commits that changed a file. Merge commits are skipped, renames are not followed, every path counts alike, .mailmap is not applied, and lines are not read one by one.
     </p>
     <p class="meta" id="map-cut" hidden></p>
     <p class="notice" id="map-note" hidden></p>
@@ -457,7 +456,7 @@ A remote repository is cloned again by "Summon here", so the request takes as lo
 | --- | --- |
 | `#h-map` | `The haunting map` |
 | `#map-meta` | `Read from ${n} commit(s), the newest on ${date(repoNow)}. A ghost is an author whose last commit came more than 365 days before that one.` (`n` with `Intl.NumberFormat('en-US')`) |
-| `#map-limit` | `Each number counts the commits that changed a file. Renames are not followed, and lines are not read one by one.` |
+| `#map-limit` | `Each number counts the commits that changed a file. Merge commits are skipped, renames are not followed, every path counts alike, .mailmap is not applied, and lines are not read one by one.` |
 | `#map-cut`, history cut | `Only the newest 2,000 commits were read, so earlier authors may be missing.` |
 | `#map-cut`, shallow | `This clone holds only the newest 100 commits.` (when `data.shallow`) |
 | `#map-cut`, file cap | `Showing ${files.length} of ${filesConsidered} files, the most haunted first.` |

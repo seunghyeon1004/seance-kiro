@@ -1227,3 +1227,138 @@ html.still .flame {
     outline: 2px solid var(--color-sys-highlight);
   }
 }
+
+/* haunting-map (design.md §7.4). Tokens only; the fog repeats the text, never replaces it.
+   Every grid is one shrinkable column or auto-fill tracks no wider than the screen (R5.9). */
+.haunting-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  padding-block: var(--space-xl);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  min-width: 0;
+}
+.haunting-map h2 {
+  font-size: var(--text-2xl);
+}
+.map-legend,
+.map-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+}
+.map-legend li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-xs);
+  min-width: 0;
+}
+.glyph {
+  font-family: var(--font-outlier);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  background: var(--color-paper-3);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  padding-inline: var(--space-2xs);
+}
+.map-groups,
+.map-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.map-groups {
+  gap: var(--space-lg);
+}
+.map-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-sm);
+}
+.map-living .map-tiles {
+  margin-top: var(--space-sm);
+}
+.map-tile {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-2xs);
+  padding: var(--space-sm);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.map-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-haunt);
+  opacity: var(--share, 0);
+  transition: opacity var(--dur-long) var(--ease-out);
+}
+.map-tile .btn {
+  justify-self: start;
+  margin-top: var(--space-2xs);
+}
+.map-path code {
+  font-family: var(--font-outlier);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+.map-who {
+  color: var(--color-ink-2);
+}
+.map-who .lab.warn,
+.map-group h3 .lab.warn {
+  display: inline;
+}
+.lab.here {
+  justify-self: start;
+  padding-inline: var(--space-2xs);
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-card);
+}
+.map-group h3,
+.map-living summary {
+  font-size: var(--text-title);
+}
+.map-group h3 {
+  margin-top: 0;
+}
+.map-living summary {
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+.haunting-map .meta,
+.haunting-map .notice,
+.map-legend,
+.map-group h3,
+.map-living summary {
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-tile::before {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .map-tile::before {
+    display: none;
+  }
+}

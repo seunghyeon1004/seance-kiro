@@ -302,6 +302,28 @@
           </section>
         </div>
 
+        <div class="container" id="map-wrap" hidden>
+          <section class="haunting-map" id="map" aria-labelledby="h-map">
+            <h2 id="h-map">The haunting map</h2>
+            <p class="meta" id="map-meta"></p>
+            <p class="meta" id="map-limit">
+              Each number counts the commits that changed a file. Merge commits are
+              skipped, renames are not followed, every path counts alike, .mailmap is not
+              applied, and lines are not read one by one.
+            </p>
+            <p class="meta" id="map-cut" hidden></p>
+            <p class="notice" id="map-note" hidden></p>
+            <ul class="map-legend" id="map-legend" aria-label="Ghosts on this map"></ul>
+            <div class="map-groups" id="map-groups"></div>
+            <details class="map-living" id="map-living" hidden>
+              <summary id="map-living-sum">Tended by the living</summary>
+              <ul class="map-tiles" id="map-living-tiles"></ul>
+            </details>
+            <span class="status" id="map-status" role="status" aria-live="polite"></span>
+            <p class="err" id="map-err" role="alert" hidden></p>
+          </section>
+        </div>
+
         <div class="container" id="exorcism-wrap" hidden>
           <section class="exorcism" id="exorcism" aria-labelledby="h-ex" tabindex="-1">
             <h2 id="h-ex">The exorcism</h2>

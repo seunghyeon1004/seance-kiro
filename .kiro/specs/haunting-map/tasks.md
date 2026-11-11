@@ -43,6 +43,7 @@ Covers: R1.9, R2.1–R2.10, R3.1–R3.6, R4.2 (schema), R5.4, R8.2 (flag), R8.3 
   - a non-repository directory and a repository with no commit (no `HEAD`) give `MAP_NOTE_FAILED`; with `logNameOnly` stubbed to return `''` and `lsTreeNames` real, the result is `MAP_NOTE_EMPTY`; `readHauntingMap` never rejects (R1.6, R1.7);
   - with `git config log.showRoot false` set in the test repository, the root commit's files are still counted (design.md §4.1);
   - a spy on `runGit` sees exactly two calls, with the argument arrays of design.md §4.1, and none of `blame`, `show`, `cat-file`, `--numstat` or `--follow` (R1.2, R1.3).
+    - R1.3, human check (2026-11-11): on `git clone --filter=blob:none --depth 100` of the crypt, `git rev-list --objects --missing=print HEAD` reported 4 missing blobs before and after the two map reads, and 2 after `git log -L`. Automated in T6 by `test/evidence/haunting.blobless.test.ts`.
 - [x] Add `logNameOnly`, `lsTreeNames`, `MAP_LOG_MAX_BYTES` and `MAP_TREE_MAX_BYTES` to `src/evidence/git.ts`, using the existing `runGit` (design.md §4.1). Existing functions do not change.
 - [x] Write `src/evidence/haunting.read.ts`: `HAUNTING_TIMEOUT_MS`, `MAP_NOTE_FAILED`, `MAP_NOTE_EMPTY` and `readHauntingMap`, following design.md §4.3. The two git calls run with `Promise.all`, and every error path resolves to the failed note after `console.error` (R1.2–R1.4, R1.6, R1.7).
 - [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
@@ -99,18 +100,19 @@ Covers: R1.6 (route), R4.1–R4.4, R6.2, R6.3, R6.6, R7.2 (route), R8.1 (prompt)
 
 Start from the committed a11y changes (see the note at the top).
 
-- [ ] Write the failing static tests in `test/ui/spooky-ui.test.ts` from design.md §11.4: the position, ids, heading and `#map-limit` copy of `#map-wrap`; `#map-living` closed; `--color-haunt` and the five contrast rows; the CSS rules for the fog, reduced motion, wrapping and the tile grid; no `transition: all`; no literal colour below the token block; no `innerHTML` in the map functions (R5.1, R5.2, R5.5, R5.8, R5.9, R8.1, N4).
-- [ ] Write the failing property tests in `test/ui/pbt/haunting-ui.pbt.ts`, extracting `commitsText`, `ghostLabel`, `mapMetaText` and `mapCutText` from `public/app.js` as the existing UI property tests do:
+- [x] Write the failing static tests in `test/ui/spooky-ui.test.ts` from design.md §11.4: the position, ids, heading and `#map-limit` copy of `#map-wrap`; `#map-living` closed; `--color-haunt` and the five contrast rows; the CSS rules for the fog, reduced motion, wrapping and the tile grid; no `transition: all`; no literal colour below the token block; no `innerHTML` in the map functions (R5.1, R5.2, R5.5, R5.8, R5.9, R8.1, N4).
+- [x] Write the failing property tests in `test/ui/pbt/haunting-ui.pbt.ts`, extracting `commitsText`, `ghostLabel`, `mapMetaText` and `mapCutText` from `public/app.js` as the existing UI property tests do:
   - `commitsText(n, m)` uses "commit" only for `m === 1` (R5.11);
   - `ghostLabel` returns the warning wording, never the name, for a suspicious ghost (R8.2);
   - `mapCutText` contains the history, shallow and file-cap sentences exactly when they apply, in that order (R5.2).
-- [ ] Write the failing end-to-end test `test/e2e/haunting.test.ts`, with the five steps of design.md §11.3, using `buildSamples` and `openPage` from `test/e2e/harness.ts` and a `VendorClient` defined in the test file. The test makes no network call (R5.1, R5.3–R5.7, R5.10, R6.1, R6.7, R6.8, R8.2, R9.4, R9.5).
-- [ ] In `public/index.html`, add the `#map-wrap` block of design.md §7.1 inside `#seance`, after `.seance-in` and before `#exorcism-wrap` (R5.1).
-- [ ] In `public/app.js`, add `commitsText`, `ghostLabel`, `legendItem`, `mapTile`, `mapMetaText`, `mapCutText`, `renderMap` and `summonHere` (design.md §7.2), set `state.repoUrl` and `state.file` in `openSeance`, and call `renderMap(data, input.file)` there after the crypt is rendered. All text goes in with `textContent` or `el(…, { text })`. `--share` is set with `element.style.setProperty` (R5.1–R5.8, R5.10, R5.11, R6.1, R6.7, R6.8, R8.1, R8.2).
-- [ ] In `public/styles.css`, add the rules of design.md §7.4. In `public/tokens.css`, add `--color-haunt` and the five contrast rows of design.md §7.5, then run `npm run contrast` (R5.8, R5.9, N4).
-- [ ] Read every new UI string and confirm it is in sentence case, uses no emoji, joins no meta strings with middle dots, and claims nothing beyond design.md §5.3: no line-level ownership, no followed renames, no meaning (R2.11, N4).
+- [x] Write the failing end-to-end test `test/e2e/haunting.test.ts`, with the five steps of design.md §11.3, using `buildSamples` and `openPage` from `test/e2e/harness.ts` and a `VendorClient` defined in the test file. The test makes no network call (R5.1, R5.3–R5.7, R5.10, R6.1, R6.7, R6.8, R8.2, R9.4, R9.5).
+- [x] In `public/index.html`, add the `#map-wrap` block of design.md §7.1 inside `#seance`, after `.seance-in` and before `#exorcism-wrap` (R5.1).
+- [x] In `public/app.js`, add `commitsText`, `ghostLabel`, `legendItem`, `mapTile`, `mapMetaText`, `mapCutText`, `renderMap` and `summonHere` (design.md §7.2), set `state.repoUrl` and `state.file` in `openSeance`, and call `renderMap(data, input.file)` there after the crypt is rendered. All text goes in with `textContent` or `el(…, { text })`. `--share` is set with `element.style.setProperty` (R5.1–R5.8, R5.10, R5.11, R6.1, R6.7, R6.8, R8.1, R8.2).
+- [x] In `public/styles.css`, add the rules of design.md §7.4. In `public/tokens.css`, add `--color-haunt` and the five contrast rows of design.md §7.5, then run `npm run contrast` (R5.8, R5.9, N4).
+- [x] Read every new UI string and confirm it is in sentence case, uses no emoji, joins no meta strings with middle dots, and claims nothing beyond design.md §5.3: no line-level ownership, no followed renames, no meaning (R2.11, N4).
+  - Review note (by hand, 2026-11-11): Kiro reported that the page stated only three of R2.11's six limits. `#map-limit` now also says that merge commits are skipped, every path counts alike and `.mailmap` is not applied; design.md §7 and the static test were updated to the same sentence.
 - [ ] Open the page in a browser at 320 px wide on the crypt and on a repository with long paths, and check that there is no horizontal scroll, that "Summon here" and "Tended by the living" are reachable by Tab with a visible focus ring, and that reduced motion removes the transition. If no browser is available, say so in the commit message, as `ward-hardening` T7 did (R5.9, R5.10).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R2.11 (copy), R5.1–R5.11, R6.1, R6.7, R6.8, R8.1, R8.2 (UI), R9.4, R9.5, N4, N7.
 
@@ -118,14 +120,15 @@ Covers: R2.11 (copy), R5.1–R5.11, R6.1, R6.7, R6.8, R8.1, R8.2 (UI), R9.4, R9.
 
 ## T6 — Final verification
 
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
-- [ ] Check that `git diff a6d0761 -- src/ghost/verifier.ts src/ratelimit.ts src/ghost/persona.ts src/ghost/llm.ts src/ghost/recordings.ts scripts/make-crypt.sh scripts/make-possessed.sh recordings/ test/fixtures/` is empty (N2, R7.1).
-- [ ] Check that `npx tsx scripts/record-plan-fixture.ts --hash-only` prints `464f2680`, that `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` prints `b0b2564e`, and that `npx tsx scripts/record-answers.ts --keys-only` prints the eight keys listed in `recordings/README.md` (R7.3).
-- [ ] Compare `dependencies` and `devDependencies` in `package.json` with `a6d0761`; nothing added (N1).
-- [ ] Search `test/` for `it.skip`, `describe.skip` and `.only`; none added by this spec.
-- [ ] Confirm `npm run lint` reports no `@typescript-eslint/no-explicit-any` in the changed files under `src/` (N3).
-- [ ] Confirm that neither `src/ghost/persona.ts` nor `src/exorcism/plan.ts` imports `src/evidence/haunting.ts` or `src/evidence/haunting.read.ts` (R8.1).
-- [ ] Check that every requirement id R1.1–R1.9, R2.1–R2.11, R3.1–R3.6, R4.1–R4.4, R5.1–R5.11, R6.1–R6.8, R7.1–R7.3, R8.1–R8.3, R9.1–R9.5 and N1–N7 appears in at least one ticked task above, using the traceability table below.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Check that `git diff a6d0761 -- src/ghost/verifier.ts src/ratelimit.ts src/ghost/persona.ts src/ghost/llm.ts src/ghost/recordings.ts scripts/make-crypt.sh scripts/make-possessed.sh recordings/ test/fixtures/` is empty (N2, R7.1).
+- [x] Check that `npx tsx scripts/record-plan-fixture.ts --hash-only` prints `464f2680`, that `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` prints `b0b2564e`, and that `npx tsx scripts/record-answers.ts --keys-only` prints the eight keys listed in `recordings/README.md` (R7.3).
+- [x] Compare `dependencies` and `devDependencies` in `package.json` with `a6d0761`; nothing added (N1).
+- [x] Search `test/` for `it.skip`, `describe.skip` and `.only`; none added by this spec.
+- [x] Confirm `npm run lint` reports no `@typescript-eslint/no-explicit-any` in the changed files under `src/` (N3).
+- [x] Confirm that neither `src/ghost/persona.ts` nor `src/exorcism/plan.ts` imports `src/evidence/haunting.ts` or `src/evidence/haunting.read.ts` (R8.1).
+- [x] Check that every requirement id R1.1–R1.9, R2.1–R2.11, R3.1–R3.6, R4.1–R4.4, R5.1–R5.11, R6.1–R6.8, R7.1–R7.3, R8.1–R8.3, R9.1–R9.5 and N1–N7 appears in at least one ticked task above, using the traceability table below.
+- [x] R1.3 with real git: `test/evidence/haunting.blobless.test.ts` clones the crypt over file:// with `--filter=blob:none --depth 100` (`uploadpack.allowFilter` on the source, no network) and checks that `git rev-list --objects --missing=print HEAD` reports the same missing blobs before and after `readHauntingMap`, and fewer after `git log -L` as a control.
 
 Covers: N1, N2, N3, R7.1, R7.3, R8.1 (re-check), and the traceability check.
 

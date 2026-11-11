@@ -1,0 +1,681 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent warden, claude-opus-5.5), 2026-11-11: two sessions implementing the haunting-map spec, test first. Session 1: T1-T4 (pure function, git reader, whole-file summons, the route). Session 2: T5 (the page), T6, and an automated blob-less clone test for R1.3. Unedited output; only the home directory prefix is replaced with ~. By hand: the blob-less check was first done manually, the app was run locally and the map and whole-file summons called on both samples, and the page's limit sentence was completed (Kiro reported it stated three of six limits). Not done: nobody has looked at the map in a browser.
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Implement tasks T1, T2, T3 and T4 of the spec haunting-map (.kiro/specs/haunting-map/), in that order, and nothing beyond T4 (T5 is the page and comes in the next session). The accessibility session's changes are committed (HEAD 4ab6bf1 or later), so the precondition in tasks.md is met. Finish each task (its checks green, its items ticked) before starting the next; if you run out of room, stop cleanly after a finished task and say which.
+
+Notes:
+- The files listed in N2 must stay byte-for-byte unchanged (verifier, ratelimit, persona, llm, recordings.ts, both sample scripts, recordings/, test/fixtures/).
+- The expected maps in design.md §9 were computed by hand from the scripts; the real-git tests must compare against a fresh build. If real git disagrees with §9, stop and report the difference instead of editing the expectation to match.
+- The map reader must never make the summon fail or slower than its 10 s cap; prove the failure path with a reader that throws and one that times out.
+- Each task ends with `npm run contrast` as well as the other three checks.
+
+Ground rules for this session:
+- Read .kiro/specs/haunting-map/requirements.md, design.md and tasks.md fully before writing anything, and the source and test files the task names.
+- Test first: write the failing tests, run them and see them fail for the right reason, then implement. Do not mock the thing a test is meant to prove. Never use it.skip/describe.skip/.only except where tasks.md explicitly says so.
+- The verifier may only become stricter. Do not loosen any schema or check to make a test pass; if a test and the design disagree, stop and report it instead.
+- Never edit files under test/fixtures/*.json by hand (the synthetic fixtures that llm.test.ts writes itself are the only exception named in tasks.md).
+- Do not touch package.json dependencies. jsdom in devDependencies is an intentional, separate addition; leave it.
+- Do not run git add, git commit, git push, git stash, git checkout or git reset. Do not start servers or open browsers. Do not call any network API.
+- When the task is done, run `npm test`, `npm run typecheck` and `npm run lint` yourself and paste the real summary lines. If something is still red, say exactly what; do not claim green without running it.
+- Then tick ONLY the task items you actually completed and verified in .kiro/specs/haunting-map/tasks.md (change `- [ ]` to `- [x]`); leave anything unverified unticked and say why.
+- Finish with a short report: files changed, tests added (count), anything you deviated from in design.md and why, anything left open.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=7
+I'll start with the hook's review of the staged diff, then read the spec in full.
+[tool] Inspect staged diff and working tree state
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+The staged diff is empty and the working tree is clean, so the evidence-rules review has nothing to flag (I'll include the checklist in the final report). Reading the spec now.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now the source files the tasks name.
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Survey test layout, configs and isSuspicious
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Baseline check before writing anything, plus the patterns the existing tests use.
+[tool] Run baseline checks before any change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+Baseline is green: 61 files, 1035 tests. Before T1, I'll build both samples in a temp dir. That gives me the raw log format to copy into the parser test, and an early look at real git against §9.
+[tool] Capture raw map git output from fresh sample builds
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read refs.ts needles, imports and lint config
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Real git agrees with §9 for both samples (I'll pin that formally in T2). Starting T1 with the failing unit tests.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now the property tests HM1–HM10 and HM12, with the naive reference in the test file.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Fixing one wrong ordering assertion in HM7 before running.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run new T1 tests to see them fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Both fail because the module is missing, which is the right reason. Next, the schemas (design §3).
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `src/evidence/haunting.ts` (design §4.2, §5).
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run T1 tests and typecheck after implementing
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 44 pass. A fast pass can mean weak generators, so I'll check that the properties actually bite. I'll flip the equal-date sha tie-break, then revert it.
+[tool] Mutation-check the property tests, then restore
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The sha mutation is caught by HM8. The second mutation didn't apply because the regex missed the line break, so I'll retry it.
+[tool] Retry ghost-order mutation check, then restore
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+HM7 catches that one too, and the source is restored. Now the purity read-through (R3.1) and the four checks for T1.
+[tool] Confirm module purity and run all four T1 checks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show the lint error
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+The control-character replace is dead code, since `fc.char()` and the constant pool never produce NUL, RS or US. I'll remove it rather than disable the rule.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Re-run all four T1 checks and the N2 diff
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+T1 is green and the N2 diff is empty. Ticking T1.
+[tool] Tick the five T1 items in tasks.md
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+T2 next. First, how existing tests intercept `runGit`, since a spy on an ESM export won't see calls made inside the same module.
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+I wrote the two git helpers slightly ahead of their tests. The reader module still doesn't exist, so the T2 tests will still fail first. Checking the `GitError` code before writing them:
+[tool] Read error codes and crypt script header
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run T2 tests to see them fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The tests fail on the missing reader, which is the right reason. Several tests reuse the crypt that the first test builds. I'll move that build into `beforeAll` so the tests don't depend on order.
+[tool] Build the crypt once in beforeAll
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The last replace also hit the `beforeAll` line. Fixing it:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run T2 real-git tests after implementing the reader
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 14 pass. Both fresh sample builds deep-equal design §9.1 and §9.2, so real git and the hand-computed maps agree. Running the four checks for T2:
+[tool] Run all four T2 checks and the N2 diff
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Tick T2 and inspect ledger test mocking for T3
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check ledger test assertions and crypt vendor.js facts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Two problems in that draft. The `it.each` repo placeholder is clumsy, and the HistoryError is imported before the module reset, so `instanceof` would compare different module instances. Fixing both:
+[tool] Fix test draft, then run T3 tests to see them fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List which T3 tests fail and why
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+20 of 21 fail for missing features. The one that passes ("no map calls without options") describes behaviour that is already true and has to stay true. Now HM11:
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run HM11 to see it fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Extract FileSchema/checkRemoteUrl and add whole-file schema
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the git helpers for the whole-file count (design §6.2):
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `buildLedger` (design §6.2, steps 1–5):
+[tool] Apply the buildLedger changes of design §6.2
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Typecheck and run the T3 tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+T3 tests pass. I'll check that the R1.8 test can fail by removing the `await` from `finally`, then restore it.
+[tool] Mutation-check the cleanup-order test, then restore
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The test catches it, and the code is restored. Now the fixture hashes (R7.3) and the four checks:
+[tool] Check fixture hashes and run the four T3 checks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Hashes are unchanged (`464f2680`, `b0b2564e`) and everything is green. Ticking T3, then reading the summon route for T4.
+[tool] Tick T3 and locate the summon route code
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find server exports and existing summon test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find CRYPT_DIR users, whole-body asserts, client injection
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read first-seance server test setup and summon body asserts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect existing whole-body summon assertions
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check buildLedger call assertions and client interface
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Understand model gate and scripted client for ask test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check how tests route ask to an injected client
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Failed: Check how tests route ask to an injected client
+Before the T4 tests, I need the limiter API, so I can assert that `modelLimiter` is unchanged.
+[tool] Read ModelLimiter interface
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Assert the 10 s timeout reaches both git calls
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the T4 route tests. They cover a sync-throwing reader, a rejecting reader and a real reader that times out, as you asked.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run T4 route tests to see them fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+17 fail for the missing route support. Of the 4 that pass, 3 are path refusals that currently pass for the wrong reason (missing lines). I'll tighten them to assert the path message:
+[tool] Tighten path-refusal assertions; check schema usage
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the route (design §6.3), plus a guard in `buildLedger` for a reader that throws synchronously. Without it, that throw would escape `.catch` and fail the summon.
+[tool] Implement the two-form summon route and run T4 tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 21 route tests pass. Next, the full suite, to find the existing tests named in design §11.2 that this change breaks:
+[tool] Run the full suite after the route change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read the failing schema tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Add required range to the schema test fixture
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Mutation-check the sync-throw guard, then restore
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Final T4 checks: tests, types, lint, contrast, diffs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Final summaries, hash check, tick T4
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I finished T1 through T4 in order and stopped before T5. Each task ended with its checks green, and its items are ticked in `tasks.md`: 22 ticked; the 17 still open all belong to T5 and T6.
+
+## Final checks (run after T4)
+- `npm test`: `Test Files  67 passed (67)` / `Tests  1137 passed (1137)` (it was 1035 before I started)
+- `npm run typecheck`: `tsc --noEmit` exited 0 with no errors
+- `npm run lint`: `All matched files use Prettier code style!` and no ESLint problems
+- `npm run contrast`: `All 15 table pairs and 28 usage pairs pass; the table agrees with :root. ✓`
+- The fixture hashes are unchanged: `464f2680` and `b0b2564e`.
+- `git diff a6d0761` on the N2 files, on `test/server/ratelimit.test.ts` and on `package.json` is empty.
+
+**Real git agrees with design §9.** Fresh builds of the crypt and the possessed sample give exactly the maps in §9.1 and §9.2, so I edited no expected values.
+
+**The map can't fail the summon.** The route tests cover four failing readers, and each still returns 200 with `mapNote`, no `map`, and the same `items` as a normal summon:
+- one that returns the failure note;
+- one that throws synchronously;
+- one that rejects;
+- the real reader with a 1 ms git timeout.
+
+Another test checks that both git calls are started together and each carries the 10 s timeout, which execa enforces by killing git.
+
+## Files
+- **New source:** `src/evidence/haunting.ts`, `src/evidence/haunting.read.ts`
+- **Changed source:** `src/evidence/git.ts`, `src/evidence/ledger.ts`, `src/evidence/ledger.input.ts`, `src/ghost/schema.ts`, `src/server.ts`
+- **New tests (102):**
+  - `test/evidence/haunting.test.ts` and `pbt/haunting.pbt.ts`: 44
+  - `haunting.git.test.ts`: 14
+  - `whole-file.test.ts` and `pbt/whole-file.pbt.ts`: 23
+  - `test/server/haunting.test.ts`: 21
+  - plus a helper file, `test/evidence/haunting.expected.ts`, holding the §9 maps
+- **Existing test changed:** `test/ghost/schema.test.ts` now includes the newly required `range` field. Design §11.2 doesn't list this file, so the commit message should name it. The server tests that §11.2 does list needed no change.
+
+## Where I departed from design.md
+- **Synchronous throw guard.** `buildLedger` wraps the reader start in `try`/`catch` as well as `.catch`. Without it, a reader that throws synchronously failed the summon. A test confirmed that, and the test fails again if the guard is removed.
+- **`wholeFileRange(n)`** is exported from `ledger.ts` so the HM11 property test can check the range rule directly.
+- **Schema layout.** I exported `LineRangeSchema`. `LedgerResultSchema` reaches the map schemas through `z.lazy`, because they are declared later in the file.
+- **Imports.** Design §5.1 says `haunting.ts` imports only `isSuspicious`. It also imports zod (for the parser's record schema) and some types from `schema.ts`. It is still pure: no clock, environment, filesystem, randomness or `localeCompare`.
+- **Call spy.** The "exactly two git calls" spy wraps the real execa instead of `runGit`, because calls inside the same ESM module can't be intercepted. Real git still runs.
+- **Order of work.** In T2 and T3 I wrote the git helpers just before their tests. The tests still failed first, because the reader and `buildLedger` support didn't exist yet.
+- **Session ledger.** Following design §6.3, the stored ledger has no `haunting` key, but it now carries `range`. The items and prompts are identical to a ledger built without the map.
+
+I also checked that the new tests can fail. I broke four rules in the code one at a time (the sha tie-break, ghost order, cleanup order and the throw guard), saw a test fail each time, and restored the code.
+
+## Left open
+- T5 (the page) and T6 (final verification) are unticked.
+- I didn't test that no blob is downloaded on a `--filter=blob:none` clone (R1.3). That rests only on the exact argument lists.
+- `.kiro/agents/inquisitor.json` appeared as untracked during this session. I didn't create it and haven't touched it.
+
+**Evidence-rules review (session-start hook):** nothing was staged, so there was no diff to review. Nothing is staged now either.
+- ✅ `src/ghost/verifier.ts` is unchanged.
+- ✅ The changes to `src/ghost/schema.ts` only add things. Citation, Claim, GhostAnswer and EvidenceItem are untouched, so memory and speculation claims still need 1 to 10 quoted citations, and silence claims still can't be verified.
+- ✅ No file under `test/fixtures/` or `recordings/` changed.
+exit 0
+
+
+===== next session =====
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Finish the spec haunting-map (.kiro/specs/haunting-map/): T1-T4 are done and committed. Implement T5 ("The page"), then T6 ("Final verification"). 
+
+Notes:
+- R1.3 (no blob download on a blob-less clone) was checked by the human on 2026-11-11: on `git clone --filter=blob:none --depth 100` of the crypt, `git rev-list --objects --missing=print HEAD` reported 4 missing blobs before and after the two map reads, and 2 after `git log -L`. Record that next to the item in tasks.md as a human check; if you can turn it into an automated real-git test with a local file:// clone (uploadpack.allowFilter on the source repo, no network), do so in T6.
+- The files listed in N2 stay byte-for-byte unchanged.
+- public/app.js stays one file with no build step; CSP default-src 'self' (no inline scripts or style attributes in HTML; element.style from JS only where the design says).
+- You cannot open a browser. Prove every behaviour in jsdom through test/e2e/harness.ts against the real server. Layout cannot be tested, so be conservative: a simple responsive grid of tiles with `repeat(auto-fill, minmax(min(100%, 16rem), 1fr))`, every text wrapping with overflow-wrap: anywhere, no fixed widths, tokens only. The accessibility rules of the last session apply: grids use minmax(0, 1fr) tracks, busy buttons use aria-disabled, errors are tied to their controls, no colour-only signalling, no emoji.
+- A .kiro/agents/inquisitor.json file is untracked in the tree on purpose; leave it alone.
+- In your report list the layout points a human should look at in a browser.
+
+Ground rules for this session:
+- Read .kiro/specs/haunting-map/requirements.md, design.md and tasks.md fully before writing anything, and the source and test files the task names.
+- Test first: write the failing tests, run them and see them fail for the right reason, then implement. Do not mock the thing a test is meant to prove. Never use it.skip/describe.skip/.only except where tasks.md explicitly says so.
+- The verifier may only become stricter. Do not loosen any schema or check to make a test pass; if a test and the design disagree, stop and report it instead.
+- Never edit files under test/fixtures/*.json by hand (the synthetic fixtures that llm.test.ts writes itself are the only exception named in tasks.md).
+- Do not touch package.json dependencies. jsdom in devDependencies is an intentional, separate addition; leave it.
+- Do not run git add, git commit, git push, git stash, git checkout or git reset. Do not start servers or open browsers. Do not call any network API.
+- When the task is done, run `npm test`, `npm run typecheck` and `npm run lint` yourself and paste the real summary lines. If something is still red, say exactly what; do not claim green without running it.
+- Then tick ONLY the task items you actually completed and verified in .kiro/specs/haunting-map/tasks.md (change `- [ ]` to `- [x]`); leave anything unverified unticked and say why.
+- Finish with a short report: files changed, tests added (count), anything you deviated from in design.md and why, anything left open.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=10
+[tool] Show staged diff for evidence-rules review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Survey UI, test files and package scripts
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] List CSS selectors in styles.css
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check vitest config and possessed e2e test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run new tests to see them fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Format files and run UI and e2e map tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check diff scope and run contrast check
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Look at existing real-git map test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Run the blob-less clone real-git test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Run full test suite, typecheck, lint and contrast
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the T6 checks.
+[tool] Run the T6 verification checks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Failed: Run the T6 verification checks
+[tool] Confirm recording keys appear in README; check imports
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now tick the T5 and T6 items I completed and verified.
+[tool] Tick verified T5 and T6 items in tasks.md
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Final run of all checks and status
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I've implemented T5 (the haunting map on the page) and done T6 (final verification). Everything passes except one T5 item: the 320 px browser check, which I couldn't do without a browser, so it stays unticked.
+
+**Checks (run at the end):**
+- `npm test`: `Test Files  70 passed (70)` / `Tests  1168 passed (1168)`
+- `npm run typecheck`: `tsc --noEmit` finished with no errors.
+- `npm run lint`: `All matched files use Prettier code style!` (ESLint reported nothing).
+- `npm run contrast`: `All 20 table pairs and 28 usage pairs pass; the table agrees with :root. ✓`
+- T6:
+  - The N2 diff against `a6d0761` is empty.
+  - The fixture hashes are still `464f2680` and `b0b2564e`, and all eight recording keys appear in `recordings/README.md`.
+  - `package.json` is unchanged and no skip or `.only` was added.
+  - There is no `no-explicit-any` in `src/`.
+  - Neither `persona.ts` nor `plan.ts` imports the map modules.
+
+**Evidence-rules review of the staged diff (hook):** `git diff --cached` is empty, because nothing is staged.
+- ✅ `src/ghost/verifier.ts` and `src/ghost/schema.ts` are unchanged, so the verifier is not weakened.
+- ✅ Every memory and speculation claim still needs a quote, and silence claims still never reach `verified`.
+- ✅ No fixture or recording changed.
+
+**Files changed:** `public/index.html`, `public/app.js`, `public/styles.css`, `public/tokens.css`, `test/ui/spooky-ui.test.ts`, `test/ui/a11y-audit.test.ts` and `.kiro/specs/haunting-map/tasks.md`. New files: `test/e2e/haunting.test.ts`, `test/ui/pbt/haunting-ui.pbt.ts` and `test/evidence/haunting.blobless.test.ts`.
+
+**Tests added (30):**
+- 14 static checks in `spooky-ui.test.ts`.
+- 4 property tests.
+- 9 end-to-end steps.
+- 3 real-git tests for R1.3.
+
+The UI tests failed first for the right reasons (missing ids, tokens, rules and functions) and pass now. The R1.3 test checks behaviour that already existed, so it passed straight away. Its `git log -L` step shows the count does drop when blobs are fetched, so the test can catch a download.
+
+**R1.3:** I recorded the human check of 2026-11-11 next to the item in T2. It is now automated: the crypt is cloned over `file://` with `--filter=blob:none --depth 100` and `uploadpack.allowFilter` on the source. The test checks that the missing-blob count is the same before and after `readHauntingMap`, and that the map equals the crypt map in design.md §9.1.
+
+**Where I deviated from design.md:**
+- **Grid tracks:** the CSS in §7.4 would have failed the earlier accessibility test for implicit grid columns. I added `grid-template-columns: minmax(0, 1fr)` to `.haunting-map`, `.map-tile`, `.map-groups` and `.map-group`.
+- **One test edit you should review:** the accessibility test's track parser could not read nested brackets. It misread `minmax(min(100%, 16rem), 1fr)` as a bare `1fr`. I changed the regex in `a11y-audit.test.ts` to allow one level of nesting. It still rejects any bare `fr` or `auto` track.
+- **Map note mode:** when the server sends a `mapNote`, I also hide `#map-limit`. R5.1 says "heading and the note only", while §7.2 leaves `#map-limit` showing; I followed the requirement.
+- **Lower-case "a":** in the middle of a sentence the warning reads "Haunted by a ghost whose name tries to give orders", on tiles as well as headings. The legend keeps the capitalised wording from `ghostLabel`.
+- **Busy and error states:**
+  - While a "Summon here" runs, every map button gets `aria-disabled`.
+  - A failed button gets `aria-describedby="map-err"`, so the error is tied to its control.
+  - I don't put `aria-invalid` on buttons.
+- **Extra end-to-end steps:**
+  - Step 6 gives the page a map with a suspicious ghost through the harness `proxy`, because neither sample has one.
+  - Steps 7 and 8 cover a `mapNote` response and a response with neither map nor note.
+  - Step 4 sets the file and line fields by hand: after step 2 they hold `vendor.js` 1–13, so `setRepo('possessed')` no longer swaps in the defaults.
+
+**Left open:**
+- The 320 px browser check is unticked. The commit message should say no browser was available.
+- **R2.11 is only partly met on the page.** The copy in §7.3 states 3 of the 6 limits: renames, lines and shallow clones. Merges skipped, every path counting alike and `.mailmap` not applied appear only in design §5.3. I didn't invent copy for them; the spec needs a decision.
+
+**Layout to check in a browser:**
+1. At 320 px, the map section doesn't scroll sideways. Test it with long paths, a long author name, and the warning label inline in a group heading.
+2. Tiles drop to one column below about 16rem and fill the row at desktop width. Tile heights look acceptable when the "You are here" label is present on one tile only.
+3. The fog strength (`--share` from 0 to 1 over `--color-haunt`) is visible, text stays readable at full fog, and the fog disappears under forced colours.
+4. In the legend, the glyph, name, "Last seen" and "Haunts" wrap cleanly; separators are spacing only, with no dots.
+5. The "Tended by the living" summary and every "Summon here" button can be reached with Tab and show the focus ring. Busy buttons look disabled (dashed) and keep focus.
+6. Reduced motion removes the opacity transition.
+7. `#map-err` and `#map-status` appear at the bottom of the section, which may be far from the button that was pressed in a long map.
+
+Nothing was staged or committed, and `.kiro/agents/inquisitor.json` is untouched.
+exit 0

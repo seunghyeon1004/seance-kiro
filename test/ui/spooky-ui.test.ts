@@ -760,3 +760,245 @@ describe('ward-hardening T7 – styles and tokens (design.md §11.3, N4)', () =>
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// haunting-map T5 — static checks of the map's markup, styles and tokens
+// (design.md §7.1, §7.4, §7.5, §11.4; R5.1, R5.2, R5.5, R5.8, R5.9, R8.1, N4)
+// ---------------------------------------------------------------------------
+
+describe('haunting-map T5 – index.html (design.md §7.1)', () => {
+  const doc = new JSDOM(html).window.document;
+  const byId = (id: string) => {
+    const n = doc.getElementById(id);
+    if (!n) throw new Error(`#${id} missing`);
+    return n;
+  };
+  const text = (id: string) => (byId(id).textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  it('#map-wrap sits inside #seance, after .seance-in and before #exorcism-wrap, hidden (R5.1)', () => {
+    const wrap = byId('map-wrap');
+    expect(wrap.parentElement?.id).toBe('seance');
+    expect(wrap.classList.contains('container')).toBe(true);
+    expect(wrap.hasAttribute('hidden')).toBe(true);
+    expect(wrap.previousElementSibling?.classList.contains('seance-in')).toBe(true);
+    expect(wrap.nextElementSibling?.id).toBe('exorcism-wrap');
+  });
+
+  it('has the ids, heading and limit copy of §7.1 (R5.2)', () => {
+    const map = byId('map');
+    expect(map.tagName).toBe('SECTION');
+    expect(map.className).toBe('haunting-map');
+    expect(map.getAttribute('aria-labelledby')).toBe('h-map');
+    expect(byId('h-map').tagName).toBe('H2');
+    expect(text('h-map')).toBe('The haunting map');
+    expect(text('map-limit')).toBe(
+      'Each number counts the commits that changed a file. Merge commits are skipped, renames are not followed, every path counts alike, .mailmap is not applied, and lines are not read one by one.',
+    );
+    for (const id of [
+      'map-meta',
+      'map-limit',
+      'map-cut',
+      'map-note',
+      'map-legend',
+      'map-groups',
+      'map-living',
+      'map-living-sum',
+      'map-living-tiles',
+      'map-status',
+      'map-err',
+    ])
+      expect(map.contains(byId(id)), id).toBe(true);
+    expect(byId('map-cut').hasAttribute('hidden')).toBe(true);
+    expect(byId('map-note').hasAttribute('hidden')).toBe(true);
+    expect(byId('map-legend').tagName).toBe('UL');
+    expect(byId('map-legend').getAttribute('aria-label')).toBe('Ghosts on this map');
+    expect(byId('map-status').getAttribute('role')).toBe('status');
+    expect(byId('map-err').getAttribute('role')).toBe('alert');
+    expect(byId('map-err').hasAttribute('hidden')).toBe(true);
+  });
+
+  it('#map-living is a closed <details> with its summary (R5.5)', () => {
+    const d = byId('map-living');
+    expect(d.tagName).toBe('DETAILS');
+    expect(d.hasAttribute('open')).toBe(false);
+    expect(d.hasAttribute('hidden')).toBe(true);
+    expect(byId('map-living-sum').tagName).toBe('SUMMARY');
+    expect(byId('map-living-sum').parentElement).toBe(d);
+    expect(text('map-living-sum')).toBe('Tended by the living');
+    expect(byId('map-living-tiles').tagName).toBe('UL');
+  });
+});
+
+describe('haunting-map T5 – tokens and contrast rows (design.md §7.5)', () => {
+  const tokensCss = readFileSync(resolve(root, 'tokens.css'), 'utf8');
+  it('declares --color-haunt in :root', () => {
+    expect(tokensCss).toMatch(/:root\s*\{[^}]*--color-haunt:\s*oklch\(28% 0\.03 250\);/);
+  });
+  it('lists the five contrast rows', () => {
+    const haunt = '--color-haunt \\(oklch\\(28% 0\\.03 250\\)\\)';
+    const rows = [
+      `text: --color-ink \\(oklch\\(93% 0\\.02 85\\)\\) \\| bg: ${haunt}`,
+      `text: --color-ink-2 \\(oklch\\(82% 0\\.02 85\\)\\) \\| bg: ${haunt}`,
+      `text: --color-muted \\(oklch\\(70% 0\\.02 80\\)\\) \\| bg: ${haunt}`,
+      `text: --color-accent \\(oklch\\(76% 0\\.15 65\\)\\) \\| bg: ${haunt}`,
+      'text: --color-ink \\(oklch\\(93% 0\\.02 85\\)\\) \\| bg: --color-paper-3 \\(oklch\\(23% 0\\.016 60\\)\\)',
+    ];
+    for (const r of rows) expect(tokensCss).toMatch(new RegExp(r));
+  });
+});
+
+describe('haunting-map T5 – styles (design.md §7.4, R5.8, R5.9, N4)', () => {
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  /** Plain rules with the at-rule they sit in ('' at top level). */
+  const rules: Array<{ selectors: string[]; body: string; media: string }> = [];
+  {
+    const media: string[] = [];
+    let buf = '';
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i]!;
+      if (ch === '{') {
+        const prelude = buf.trim();
+        buf = '';
+        if (prelude.startsWith('@')) media.push(prelude);
+        else {
+          const end = src.indexOf('}', i);
+          rules.push({
+            selectors: prelude.split(',').map((s) => s.trim().replace(/\s+/g, ' ')),
+            body: src.slice(i + 1, end),
+            media: media.at(-1) ?? '',
+          });
+          i = end;
+        }
+      } else if (ch === '}') {
+        media.pop();
+        buf = '';
+      } else if (ch === ';' && buf.trim().startsWith('@')) buf = '';
+      else buf += ch;
+    }
+  }
+  const has = (sel: string, decl: RegExp, media?: RegExp) =>
+    rules.some(
+      (r) =>
+        r.selectors.includes(sel) && decl.test(r.body) && (!media || media.test(r.media)),
+    );
+
+  it('the tile grid fits any width: auto-fill tracks no wider than the screen', () => {
+    expect(
+      has(
+        '.map-tiles',
+        /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(min\(100%,\s*16rem\),\s*1fr\)\)/,
+      ),
+    ).toBe(true);
+  });
+
+  it('the section and each tile are one shrinkable column, and every text wraps anywhere', () => {
+    for (const sel of ['.haunting-map', '.map-tile'])
+      expect(has(sel, /grid-template-columns:\s*minmax\(0,\s*1fr\)/), sel).toBe(true);
+    for (const sel of ['.haunting-map', '.map-tile', '.map-legend li'])
+      expect(has(sel, /min-width:\s*0/), sel).toBe(true);
+    for (const sel of [
+      '.map-tile',
+      '.map-path code',
+      '.haunting-map .meta',
+      '.map-legend',
+      '.map-group h3',
+    ])
+      expect(has(sel, /overflow-wrap:\s*anywhere/), sel).toBe(true);
+  });
+
+  it('the fog follows --share, and opacity is its only transition (R5.8)', () => {
+    const fog = rules.filter(
+      (r) => r.selectors.includes('.map-tile::before') && r.media === '',
+    );
+    expect(fog.some((r) => /opacity:\s*var\(--share,\s*0\)/.test(r.body))).toBe(true);
+    expect(fog.some((r) => /background:\s*var\(--color-haunt\)/.test(r.body))).toBe(true);
+    const transitions = fog.flatMap((r) =>
+      [...r.body.matchAll(/transition:\s*([^;]+)/g)].map((m) => m[1]!.trim()),
+    );
+    expect(transitions).toEqual(['opacity var(--dur-long) var(--ease-out)']);
+    for (const r of rules.filter((x) =>
+      x.selectors.some((s) => /map|haunt|glyph/.test(s)),
+    ))
+      expect(r.body).not.toMatch(/animation\s*:/);
+  });
+
+  it('reduced motion removes the transition, forced colours remove the fog', () => {
+    expect(
+      has('.map-tile::before', /transition:\s*none/, /prefers-reduced-motion:\s*reduce/),
+    ).toBe(true);
+    expect(has('.map-tile::before', /display:\s*none/, /forced-colors:\s*active/)).toBe(
+      true,
+    );
+  });
+
+  it('the map rules use tokens only and no fixed width', () => {
+    const mapRules = rules.filter((r) =>
+      r.selectors.some((s) => /map|haunt|glyph|\.lab\.here/.test(s)),
+    );
+    expect(mapRules.length).toBeGreaterThan(5);
+    for (const r of mapRules) {
+      expect(r.body).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(/);
+      expect(r.body).not.toMatch(/transition:\s*all\b/);
+      expect(r.body).not.toMatch(/(^|[;\s])(width|max-width):\s*\d/);
+      for (const m of r.body.matchAll(
+        /(?:^|[;\s])(?:color|background|border[a-z-]*):\s*([^;]+)/g,
+      ))
+        expect(m[1]!, r.selectors.join(', ')).not.toMatch(/\b(?:white|black|red)\b/);
+    }
+  });
+});
+
+describe('haunting-map T5 – app.js map functions insert text only (R8.1, N4)', () => {
+  const fnSrc = (name: string) => {
+    const start = js.indexOf(`function ${name}(`);
+    expect(start, name).toBeGreaterThanOrEqual(0);
+    let depth = 0;
+    for (let i = js.indexOf(') {', start) + 2; i < js.length; i++) {
+      if (js[i] === '{') depth++;
+      else if (js[i] === '}' && --depth === 0) return js.slice(start, i + 1);
+    }
+    throw new Error(`unbalanced ${name}`);
+  };
+  const names = [
+    'commitsText',
+    'ghostLabel',
+    'legendItem',
+    'mapTile',
+    'mapMetaText',
+    'mapCutText',
+    'renderMap',
+    'summonHere',
+  ];
+
+  it('defines every map function, with no HTML sink in any of them', () => {
+    for (const n of names)
+      expect(fnSrc(n)).not.toMatch(
+        /innerHTML|outerHTML|insertAdjacentHTML|document\.write/,
+      );
+  });
+
+  it('sets --share with style.setProperty and no other inline style', () => {
+    expect(fnSrc('mapTile')).toMatch(/\.style\.setProperty\(\s*'--share'/);
+    for (const n of names)
+      expect(fnSrc(n).replace(/\.style\.setProperty\(\s*'--share'/, '')).not.toMatch(
+        /\.style\b|setAttribute\(\s*'style'/,
+      );
+  });
+
+  it('openSeance draws the map after the crypt, and remembers the repository and file', () => {
+    const open = fnSrc('openSeance');
+    expect(open).toMatch(/state\.repoUrl\s*=\s*input\.repoUrl/);
+    expect(open).toMatch(/state\.file\s*=\s*input\.file/);
+    const ledger = open.indexOf('renderLedger(data)');
+    const map = open.indexOf('renderMap(data, input.file)');
+    expect(ledger).toBeGreaterThanOrEqual(0);
+    expect(map).toBeGreaterThan(ledger);
+  });
+
+  it('summonHere marks the summon button busy with aria-disabled, never disabled', () => {
+    const s = fnSrc('summonHere');
+    expect(s).toMatch(/\$\('summon-btn'\)\.setAttribute\('aria-disabled', 'true'\)/);
+    expect(s).toMatch(/\$\('summon-btn'\)\.removeAttribute\('aria-disabled'\)/);
+    expect(s).not.toMatch(/\.disabled\s*=/);
+  });
+});

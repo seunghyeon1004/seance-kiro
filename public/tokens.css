@@ -20,6 +20,11 @@
  * text: --color-speculation (oklch(76% 0.1 305)) | bg: --color-paper (oklch(14% 0.012 60)) — 8.97:1
  * non-text: --color-rule-strong (oklch(52% 0.02 60)) | bg: --color-paper (oklch(14% 0.012 60))     — 3.60:1
  * non-text: --color-rule-strong (oklch(52% 0.02 60)) | bg: --color-paper-2 (oklch(18.5% 0.014 60)) — 3.37:1
+ * text: --color-ink (oklch(93% 0.02 85)) | bg: --color-haunt (oklch(28% 0.03 250))      — 11.85:1
+ * text: --color-ink-2 (oklch(82% 0.02 85)) | bg: --color-haunt (oklch(28% 0.03 250))    — 8.34:1
+ * text: --color-muted (oklch(70% 0.02 80)) | bg: --color-haunt (oklch(28% 0.03 250))    — 5.45:1
+ * text: --color-accent (oklch(76% 0.15 65)) | bg: --color-haunt (oklch(28% 0.03 250))   — 6.57:1
+ * text: --color-ink (oklch(93% 0.02 85)) | bg: --color-paper-3 (oklch(23% 0.016 60))    — 13.78:1
  */
 
 :root {
@@ -84,6 +89,7 @@
   --color-rejected: oklch(66% 0.012 80);
   --color-speculation: oklch(76% 0.1 305);
   --color-fog: oklch(34% 0.03 250);
+  --color-haunt: oklch(28% 0.03 250);
   /* system colours, used only inside @media (forced-colors: active) */
   --color-sys-text: CanvasText;
   --color-sys-highlight: Highlight;
