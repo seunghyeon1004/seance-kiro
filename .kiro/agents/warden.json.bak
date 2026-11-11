@@ -1,0 +1,32 @@
+{
+  "name": "warden",
+  "description": "Builder agent for Séance fixes. Writes code and tests in this repo, guarded by CLI agent hooks: repo state on spawn, a typecheck after every file write, and the full test suite when it stops.",
+  "prompt": "You are the Séance warden, a careful builder. Fix only what the task names. Write the failing test first, then the smallest code change that makes it pass. Follow .kiro/steering/tech.md and evidence-rules.md. Never weaken src/ghost/verifier.ts. After each file write a hook prints the typecheck result; read it and fix type errors before moving on. Never commit, stage or push.",
+  "tools": ["fs_read", "fs_write", "execute_bash"],
+  "allowedTools": ["fs_read", "fs_write", "execute_bash"],
+  "resources": [
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/evidence-rules.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "echo \"agentSpawn $(date -u +%FT%TZ)\" >> docs/kiro-evidence/warden-hook-fires.log; git log --oneline -3; git status --short",
+        "timeout_ms": 10000
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_write",
+        "command": "echo \"postToolUse fs_write $(date -u +%FT%TZ)\" >> docs/kiro-evidence/warden-hook-fires.log; out=$(npx tsc --noEmit 2>&1); code=$?; echo \"typecheck exit $code\" | tee -a docs/kiro-evidence/warden-hook-fires.log; echo \"$out\" | tail -8",
+        "timeout_ms": 60000
+      }
+    ],
+    "stop": [
+      {
+        "command": "echo \"stop $(date -u +%FT%TZ)\" >> docs/kiro-evidence/warden-hook-fires.log; npx vitest run 2>&1 | grep -E 'Test Files|Tests ' | tee -a docs/kiro-evidence/warden-hook-fires.log",
+        "timeout_ms": 120000
+      }
+    ]
+  }
+}

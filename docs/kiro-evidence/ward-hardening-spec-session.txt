@@ -1,0 +1,280 @@
+# Kiro CLI 3.2.0 (V3 engine, --mode spec, claude-opus-5.5), 2026-11-11: two sessions writing the ward-hardening spec from the security audit. Session 1: requirements.md and design.md. Session 2: tasks.md and the 'Blame the wrong author' preset added to design.md. Unedited output; only the home directory prefix is replaced with ~. The V3 engine prints tool calls as 'Read File' without file names. Reviewed by hand and approved as written; Kiro's question about the preset was answered yes (pick a commit whose text does not name the author).
+
+$ kiro-cli chat --no-interactive --v3 --mode spec --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Create a new spec named `ward-hardening` in .kiro/specs/ward-hardening/. In this session write ONLY requirements.md and design.md (no tasks.md yet, no code). Follow the format of the existing specs (.kiro/specs/ward-report/requirements.md and design.md: "Why", "Scope", numbered EARS-style requirements R<n>.<m>, non-functional N<n>, "Out of scope"; design.md names real files, exact types and function signatures, and lists correctness properties for fast-check).
+
+Input: the security review in docs/kiro-evidence/audit-security-session.txt (read it fully), .kiro/steering/evidence-rules.md, .kiro/steering/product.md, and the code it refers to (src/ghost/verifier.ts, schema.ts, persona.ts, llm.ts, report.ts, src/exorcism/plan.ts, src/evidence/ledger.ts, refs.ts, ledger.input.ts, git.ts, src/server.ts, src/ratelimit.ts, public/app.js, scripts/make-crypt.sh, test/fixtures/).
+
+Goal: make the page's promise true: nothing reaches the user marked verified unless a deterministic check found its evidence, even when the repository is hostile and even when the model fully obeys an injected instruction. The verifier may only become stricter. Never loosen an existing check.
+
+Decisions already made (write them as requirements, with the reasoning in "Why"):
+A. Quotes are mandatory. A memory or speculation citation without a quote is rejected. Quote minimum length 8 characters after trimming; maximum 500. The schema, the tool JSON schema sent to the model and the prompt all say so. Each quote is checked against one field at a time (subject, body, or the hunk as sent to the browser), not against a joined string. The API returns the verified quotes and the UI shows them under each claim as "the words the ward found", so the reader can compare the ghost's sentence with the evidence. The limit is stated honestly: the ward proves the citation and the quote, it cannot prove a paraphrase.
+B. Author and date invariant from evidence-rules.md is enforced: a claim whose text contains a four-digit year 1970-2099 that is neither the year of a cited item's date nor present in a cited item's text is rejected; a claim whose text names a ledger author (full name, case-sensitive, whole word) who is neither the author of a cited item nor named in a cited item's text is rejected. Reasons are plain sentences. Names not in the ledger cannot be caught: say so.
+C. Silence claims are not "verified". They need no citation, but they are reported in their own bucket/flag so the UI labels them "The record is silent (the ghost's words, not checked)" and they are not counted in "N of M claims verified". Their text is capped at 300 characters. Keep VerifierResult.score semantics defined precisely.
+D. Ambiguous short SHAs: if two ledger items share a shortSha, a citation of it is rejected as ambiguous.
+E. Prompt construction: the rules go in the Anthropic `system` parameter; ledger text goes in the user turn with `&`, `<`, `>` and `"` escaped in every interpolated field (author, date, subject, body, hunk); the author name never appears in the system text; an evidence item flagged suspiciousMessage carries a visible marker attribute. buildPrompt stays pure and deterministic. Recorded fixtures are keyed by prompt hash, so they must be re-recorded from a real model call (scripts/record-plan-fixture.ts), never hand-edited.
+F. isSuspicious gets a broader, still fixed-string needle list, and the flag is finally used: the summon response already carries it; the UI marks such ledger rows ("This commit tries to give the ghost orders") and marks any claim that cites one.
+G. Exorcism plan: a step or do-not-touch entry with zero verified claims is not shown as part of the plan (it is returned in a separate `dropped` list with the reason); free-text fields (summary, description, rationale, characterization tests) are labelled in the UI as the model's words, not checked.
+H. A hostile sample repository, `possessed`, built by scripts/make-possessed.sh next to the crypt (deterministic dates and authors, fictional people): commits whose messages order the ghost to say a line is safe to delete and to cite without quotes; an author name that reads like a system rule; a body that closes the evidence block and forges a new one attributed to another commit's sha7; an instruction to answer with a silence claim carrying a false statement. It is selectable in the UI as a second sample ("possessed") exactly like "crypt".
+I. Adversarial tests with a scripted worst-case model (a fake AnthropicClient that does exactly what each injected instruction says): for every attack in H, the pipeline (buildLedger on the real possessed repo -> buildPrompt -> askGhost with the fake client -> verify -> the /api/ask response) never returns the attacker's sentence in `verified`. Plus property tests: for arbitrary claim text and any ledger, a claim without a quote that is a substring of a cited field is never verified.
+J. Input and abuse hardening: /api/summon applies validateLedgerInput (path traversal, absolute path, 500-line cap) and returns a generic message for git failures (no command lines, temp paths or stderr to the client; details logged server-side); a request body limit of 64 KB on all POST routes; caps in the schema (at most 50 claims, 10 citations per claim); /api/summon gets its own per-client limit (separate limiter instance, default 20 per 10 minutes, env SUMMON_RATE_LIMIT_MAX) and at most 3 concurrent remote clones (503 when full); the session map is capped (default 500, oldest evicted); /api/ward gets a per-client limit too (default 60 per 10 minutes) but must never consume the model's daily cap. The existing model limiter's behaviour and tests must not change. The X-Forwarded-For question (leftmost entry is spoofable) is recorded as an open risk in design.md, not changed, because the hosting proxy chain is not verified.
+K. Out of scope: binding paraphrase to quote with a second model; sandboxing git; changing the clone depth.
+
+Requirements must be testable one by one. In design.md include: the exact new/changed Zod schemas and TypeScript types; the new verifier algorithm in numbered steps; the reason strings; the prompt layout; the API response changes (field by field, backward compatible where possible); the UI changes with element ids and the copy text, following .kiro/steering/ui-spooky.md (no colour-only signalling; tokens only); the possessed repo's commit list; a table mapping each audit finding (C1-C7, P1, R1-R3) to requirement ids; and 8 to 12 correctness properties. Do not write tasks.md. Do not modify any file outside .kiro/specs/ward-hardening/.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=8
+[tool] Check staged diff and list specs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect fixtures, tests, package and errors
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check UI ids, tokens and score definition
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read score definition, repo input and tokens
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check reason strings, plan fixture quotes, tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read Dockerfile, form defaults, UI tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Get current commit for reference
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now I'll write requirements.md.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now the design document.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check formatting and confirm only spec files changed
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect unexpected package.json changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+I've written `requirements.md` and `design.md` in `.kiro/specs/ward-hardening/`. There is no `tasks.md` and no code, and I didn't touch any other file. The two documents haven't been reviewed or tested against the code yet, beyond a Prettier check.
+
+**requirements.md** has "Why", "Scope", groups R1–R10 with one numbered requirement per testable statement, N1–N7 and "Out of scope". Each of your decisions A–K is a requirement group, with its reasoning in "Why".
+
+**design.md** covers everything you listed:
+- the exact Zod schemas and TypeScript types;
+- the verifier algorithm in 10 numbered steps, plus a table of 16 fixed reason strings;
+- the `system` and user-turn prompt text;
+- a field-by-field table of API changes, with breaking changes marked;
+- UI element ids and copy;
+- the `possessed` commit list (P1–P7) and the worst-case model's attacks;
+- 12 fast-check properties;
+- the list of existing tests that will have to change;
+- the open risks, including `X-Forwarded-For`;
+- the table mapping C1–C7, P1 and R1–R3 to requirement ids.
+
+These choices go beyond what you specified, or settle something you left open:
+
+- **Malformed claims are struck, not fatal.** If the schema alone made quotes mandatory, a model that obeyed "cite without quotes" would make the whole answer fail with a 503. Instead the model's answer is checked only at the outer level, and the verifier checks each claim and strikes a bad one with a reason.
+- **Plan transport.** The plan currently travels inside a fake answer citing `0000000` with no quote, which mandatory quotes would break. `askPlan` now returns the raw plan instead.
+- **Score.** `score = verified / (verified + rejected + silent)`. This matches the steering file ("total includes silence"), while "N of M" counts only checked claims. It replaces ghost-verifier R3.5.
+- **Hunk.** The prompt sends the same first 4,000 characters of the hunk that the browser and the verifier use, so a valid quote is always one the reader can see.
+- **Extra attack A5.** I added a fifth attack (wrong person and year, with a real quote) so the author and year checks have an end-to-end test.
+- **Self-quoting limit.** If an obedient model quotes the injected sentence from its own commit, that claim is verified, because the commit really says it. The design records this as a known limit with its own test, and shows the suspicious-commit label on such claims. Rejecting every claim that cites only flagged commits would be stricter; I left that as a product decision for you.
+- **"Only stricter" test.** A property test checks every new verdict against a frozen copy of the current verifier (commit `d738258`).
+- **Steering update needed.** `evidence-rules.md` still says `{ sha7, quote? }`, and I couldn't change it in this session. It's listed as a follow-up (N7).
+
+Before you commit anything: `package.json` and `package-lock.json` were modified at 10:03 while I was working (they add `jsdom 25.0.1`). I didn't make that change and left it alone. `.kiro/agents/warden.json` was already modified when I started.
+
+On the evidence-rules review hook: `git diff --cached` is empty, so there were no changes to check.
+- ✅ No staged change to `src/ghost/verifier.ts`, so no invariant is weakened.
+- ✅ No staged change to `GhostAnswer` or `EvidenceItem`.
+exit 0
+
+
+===== second session: tasks.md =====
+
+$ kiro-cli chat --no-interactive --v3 --mode spec --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+The requirements.md and design.md of the spec `ward-hardening` (.kiro/specs/ward-hardening/) have been reviewed and approved as written, with one addition to design §11.2 that you should append to design.md under "Plant a false memory": a third preset button `data-preset="wrongauthor"` labelled "Blame the wrong author". It fills the claim with "<other ledger author> wrote this wait." citing a commit by a different author with a real quote from that commit's subject (so only the author check F11 can refuse it); when the ledger has a single author it falls back to the misquote preset.
+
+Now write .kiro/specs/ward-hardening/tasks.md and nothing else (no code). Follow the format of .kiro/specs/model-rate-limit/tasks.md and .kiro/specs/exorcism-plan/tasks.md: a first line "Commit messages: `ward-hardening T<N>: <description>`.", then tasks T1..Tn, each a heading plus unticked `- [ ]` items that name real files, the requirement ids covered, and the test file that proves it.
+
+Rules for the task breakdown:
+- Test first: in each task the first item writes the failing tests, later items make them pass.
+- Each task must leave `npm test`, `npm run typecheck` and `npm run lint` green when finished, so order the work to keep the repo compiling: T1 schema constants + verifier + its unit and property tests (including the frozen legacy verifier copy for CP4) with the minimum call-site adaptation in server.ts/plan.ts/report.ts so everything still type-checks and existing behaviour tests are updated in the same task; then prompt + model wrapper + plan transport; then report; then isSuspicious; then the possessed script and adversarial tests; then server limits; then UI; then fixtures re-recorded and steering. Keep tasks between 4 and 10 items each.
+- The task that re-records fixtures (R5.7) must say it needs a real ANTHROPIC_API_KEY and is run by the human; do not plan to hand-edit fixtures.
+- Include a final verification task: run the full suite, typecheck, lint, `npm run contrast`, build both samples, and check every requirement id R1.1..R10.9 and N1..N7 appears in at least one ticked task.
+- End with a traceability table: requirement id -> task.
+Do not tick anything. Do not modify any other file except the design.md addition named above.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=9
+[tool] Check staged diff and spec folders
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Confirm staged diff and list tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List test dirs and preset code
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check fixtures for quoteless citations and schema usages
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect plan fixture inner citations
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check build, test config and deployment files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check gitignore, UI test approach, record script
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Check formatting and unticked items
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Check traceability covers every requirement id
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check ESLint ignore list for data dirs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+I wrote `.kiro/specs/ward-hardening/tasks.md` and added the "Blame the wrong author" preset to design.md §11.2, under "Plant a false memory". No other file changed and no code was written. Prettier passes on both files. A script confirmed every id from R1.1 to R10.9 and N1 to N7 appears in the traceability table. All 66 items are unticked.
+
+The tasks run in the order you gave, T1 to T9. Each starts with its failing tests and has 5 to 9 items. T8 says the human runs the re-recording with a real `ANTHROPIC_API_KEY` and that no fixture is edited by hand. T9 is the final verification and the requirement-id check.
+
+I made three changes to your plan that you should know about:
+
+- **Fixture tests are skipped from T2 to T8.** T2 changes the prompt, which changes the fixture hashes. Further prompt changes follow in T4, when new commits get flagged as suspicious. To keep T2–T7 green without editing fixtures, T2 marks the two fixture-loading tests `it.skip` with a `ward-hardening T8` comment. T8 removes the skips, and T9 checks that none are left. In between, `ANTHROPIC_FIXTURE=1` demo runs have no matching fixture.
+- **T1 also changes `src/ghost/llm.ts`.** The current plan fixture `5de303db` is wrapped in an answer envelope whose citation of `0000000` has no quote. With quotes now required, that envelope would fail to parse. T1 therefore switches `llm.ts` to the lenient answer schema (`GhostAnswerWireSchema`), which lets quoteless claims reach the ward instead of failing the whole answer.
+- **T5 adds `data/possessed` to the lint ignore lists.** Without this, building the possessed sample would make `npm run lint` fail, because Prettier and ESLint only ignore `data/crypt` today.
+
+One question about the new preset: if the commit it cites happens to name the other author, the ward accepts the claim and the demo shows nothing refused. I kept your wording. Do you want the design to require picking a commit whose text doesn't name that author?
+
+On the evidence-rules review hook: `git diff --cached` is empty, so nothing is staged and there was nothing to check against the ward's rules.
+exit 0
