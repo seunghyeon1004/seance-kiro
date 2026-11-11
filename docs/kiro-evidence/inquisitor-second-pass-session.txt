@@ -1,0 +1,591 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent inquisitor, gpt-5.6-sol, --trust-all-tools so its shell works), 2026-11-11: the inquisitor's second pass on the fixed code. Unedited output; only the home directory prefix is replaced with ~. It marks each earlier finding closed, partly closed or open, ran the adversarial, hardening, Unicode and MCP suites (146 tests passed), and confirmed six new findings, the most serious that the MCP server could reach the network through a local partial clone. Its stop hook logged changed-files=0. The follow-up session fixes them.
+
+$ kiro-cli chat --no-interactive --v3 --agent inquisitor --trust-workspace --trust-all-tools --model gpt-5.6-sol "$(cat prompt)"
+--- prompt ---
+Second pass. Your first review is docs/kiro-evidence/inquisitor-review-session.txt; the fixes are in docs/kiro-evidence/inquisitor-fixes-session.txt, and after them came the seance-mcp server (src/mcp/), a polish pass on the page (docs/kiro-evidence/polish-session.txt) and documentation. This time your shell works: use `git diff --stat a9870ac HEAD -- src public scripts` and `git diff a9870ac HEAD -- <file>` to read exactly what changed, and run `npx vitest run <file>` where a test settles a question. You still must not modify anything.
+
+1. For each of your eight confirmed findings and two suspected ones, say closed / partly / open, with the file and line that shows it, and try once more to break the fix (not the old attack: the nearest variant the fix might have missed). For the Unicode detection fix, try characters outside the removed ranges that are still invisible or confusable (for example U+2061-U+2064 are inside the range; what about U+180E, U+00A0 inside a name, combining marks, Cyrillic homoglyphs, RTL marks inside digits) and say honestly which remain open and whether they matter. For the map parser, try author names and emails containing the separators, empty paths, and a commit with no paths.
+2. Review what is new since your first pass with the same question (can anything reach the user marked verified, or looking verified, without its evidence?): src/mcp/*.ts (the tools, the ledger store, repo resolution, what an agent could do with a hostile repository path or crafted claims; stdout discipline), the changed page code (the "passed the ward" tallies, the once-only limit sentence, scripted silence rendering, the "Back to sample" path, removed token field, error placement), the recorded limiter and the summon deadline in src/server.ts and src/evidence/ledger.ts.
+3. The wording: read every user-visible string in public/index.html and public/app.js and the Markdown report (src/ghost/report.ts) and list any that still claims more than the ward proves, or that a reader would take to mean the sentence was checked.
+4. Run the adversarial and hardening suites (`npx vitest run test/adversarial test/server/hardening.test.ts test/ghost/verifier.unicode.test.ts test/mcp`) and report the real result lines.
+
+Report: a table of the ten earlier findings with status; then new CONFIRMED findings ranked by severity (file:line, concrete input, smallest fix, the failing test that would prove it); then SUSPECTED; then what you judge sound. If nothing serious remains, say so plainly. Do not pad.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=10
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Summarize code changes since first review
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Inspect current staged changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect verifier changes since first review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Inspect schema changes since first review
+[tool] Inspect map parser changes since first review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect evidence bounds changes since review
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect recording and report changes
+[tool] Inspect all new MCP server code
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect server limiter and route changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Inspect page behavior and wording changes
+[tool] Inspect page markup and visible copy changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check recordings and fixtures for changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check repository working state
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Focus page diff on evidence-related behavior
+[tool] status: Completed
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Probe Unicode variants against current ward
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check canonically equivalent author detection
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Probe map parser separator edge cases
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Run adversarial hardening Unicode and MCP suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Run focused fix regression suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] File Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Run verifier monotonicity property suites
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Probe omitted invisible Unicode controls
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+## Earlier findings
+
+| Earlier finding | Status | Evidence and nearest missed variant |
+|---|---|---|
+| **1. Unrelated quote can accompany an unsupported sentence** | **Partly closed** | The page now labels memory claims **“Citations verified”** and explains the limit at `public/app.js:908,936-937`; the report heading is correct at `src/ghost/report.ts:129`. The verifier intentionally still accepts an unrelated literal quote. New MCP wording calls the resulting sentence a “verified claim” at `src/mcp/tools.ts:153-158`, and returns its text under `verified` at `src/mcp/tools.ts:124,295-318`. Page and plan copy also still overstate this, listed below. |
+| **2. Spoofed `X-Forwarded-For` bypasses limits** | **Open** | `src/server.ts:624-632` still prefers the client-controlled header. Nearest variant: `X-Forwarded-For: random-value, real-proxy-address` changes the leftmost key and bypasses summon, ward, possess, model, and recorded-response limits. |
+| **3. Clone time and size caps end too early** | **Partly closed** | The final size check exists at `src/evidence/ledger.ts:347-354`, and the deadline guard prevents starting later git calls. It is not a hard deadline: the test at `test/evidence/summon-bounds.test.ts:117-132` explicitly allows a 60-second deadline to reach 118 seconds. More importantly, GitHub enrichment at `src/evidence/ledger.ts:299-308` is outside the guard and calls an unbounded `fetch()` at `src/evidence/github.ts:108-113`. |
+| **4. Unicode bypasses author/year detection** | **Partly closed** | NFKC and the listed ignorables are applied at `src/ghost/verifier.ts:93-127,340-369`. U+180E, U+2061–U+2064, full-width digits, canonical decomposition, and RTL marks inside digits are caught. U+1BCA0 and U+1D173 are invisible default-ignorable controls outside the list and still bypass both checks. Cyrillic homoglyphs and casing also remain open. |
+| **5. Map path can forge a commit header** | **Partly closed** | Path forgery is closed by the NUL-token parser at `src/evidence/haunting.ts:73-116`. RS and a complete fake header inside a path remain ordinary path data. A US inside an author or email makes `fields.length !== 4`, so the real commit is silently skipped at `src/evidence/haunting.ts:101-104`; `readHauntingMap` logs and returns the incomplete map at `src/evidence/haunting.read.ts:39-42`. |
+| **6. Browser retries replay model POSTs** | **Partly closed** | A rejected fetch no longer retries `/api/ask` or `/api/exorcise`. A non-JSON 502/503/504 still retries those POSTs at `public/app.js:107-109,158-163`. A proxy can emit that response after forwarding and losing the upstream response, causing a second model call. |
+| **7. Recorded responses are unlimited** | **Closed, subject to finding 2** | `recordedLimiter` is configured at `src/server.ts:163-167` and checked immediately before every recorded response at `src/server.ts:653-655`. The focused suite proves all three fallback paths. Spoofed forwarding headers still bypass it through the separate open limiter issue. |
+| **8. Recording ledger identity is unchecked** | **Closed** | Ordered short-hash equality is enforced at `src/ghost/recordings.ts:198-203`. Missing, reordered, added, or changed hashes refuse the recording. A chosen collision against every recorded 28-bit short hash remains theoretically possible, but it is not a practical path for the shipped multi-commit samples. |
+| **9. Runtime author and prompt bounds** | **Closed** | Author and email are cut to 256 characters at `src/evidence/ledger.ts:324-325`. Together with the existing item, body, subject, hunk, claim, and HTTP body caps, prompt construction is bounded. |
+| **10. Bidi controls visually reorder untrusted text** | **Partly closed** | Page containers use `unicode-bidi: plaintext` at `public/styles.css:1068-1081`, and the report exposes U+202A–U+202E and U+2066–U+2069 at `src/ghost/report.ts:50-52`. The Markdown escape still leaves U+061C, U+200E, and U+200F invisible; their exact visual effect depends on the Markdown renderer. |
+
+The path-parser probes produced these results:
+
+- RS in author or email: retained as data.
+- US in author or email: the commit was skipped.
+- Empty path and no paths: one commit with `paths: []`.
+- RS/US plus a complete fake header inside a path: one real commit, no forged commit.
+
+The Unicode probes produced:
+
+- **Rejected:** U+180E or U+2061 inside `Alice`; U+200F inside `2024`; canonically decomposed `Álice` when the ledger contains composed `Álice`.
+- **Accepted:** U+1BCA0 and U+1D173 inside `Alice` or `2024`; Cyrillic `А` in `Аlice`; lowercase `alice`.
+- **Accepted but visibly altered:** NBSP inside a name or year, arbitrary combining marks, and U+2800 BRAILLE PATTERN BLANK. These matter less than U+1BCA0/U+1D173 because most add spacing or alter the glyph.
+
+## New CONFIRMED findings
+
+### HIGH — MCP can make network requests through a local partial clone
+
+**Files:** `src/mcp/repo.ts:49-50`, `src/mcp/tools.ts:185-189`, `src/evidence/git.ts:88-95`
+
+`resolveLocalRepo` refuses a remote argument, but it accepts a local promisor/partial clone. `seance_summon` then runs `blame`, `log`, and `show` without `GIT_NO_LAZY_FETCH=1`. Missing objects cause Git to contact the remote stored in `.git/config`. The same applies to `seance_haunting_map`.
+
+**Concrete input:** Pass the path of a local `--filter=blob:none` clone whose historical blob is absent and whose promisor remote points to an attacker-controlled HTTP or SSH endpoint. Summoning that historical line causes Git to fetch the object. Git may also invoke configured transport or credential helpers.
+
+This contradicts the MCP server’s no-network boundary. `test/mcp/imports.test.ts` cannot detect subprocess-initiated network access.
+
+**Smallest fix:** Set `GIT_NO_LAZY_FETCH=1` in `src/mcp/server.ts` before the dynamic import, so every Git subprocess in the dedicated MCP process inherits it. Also cover programmatic server construction or document that only the entry point enforces the boundary.
+
+**Failing test:** Start the stdio MCP server against a partial clone with an absent object and a controlled HTTP remote. Call `seance_summon`; assert the HTTP server receives zero requests and the tool returns a fixed Git error.
+
+---
+
+### MEDIUM — Invisible controls outside `IGNORABLE_RANGES` still hide authors and years
+
+**File:** `src/ghost/verifier.ts:93-127`
+
+U+1BCA0–U+1BCA3 and U+1D173–U+1D17A are default-ignorable format controls but are absent from `IGNORABLE_RANGES`.
+
+**Concrete input:** The ledger contains authors `Alice` and `Bob`; cite Bob’s 2020 commit with the valid quote `supported phrase`:
+
+```json
+{
+  "kind": "memory",
+  "text": "A𛲠lice wrote this in 20𝅳24.",
+  "citations": [{ "sha7": "bbbbbbb", "quote": "supported phrase" }]
+}
+```
+
+Here the displayed controls are U+1BCA0 and U+1D173. The current verifier accepts the claim. A conforming renderer normally hides both controls, leaving “Alice … 2024.”
+
+Cyrillic `Аlice` and lowercase `alice` also remain accepted. Cyrillic homoglyphs matter because they can be visually indistinguishable. Lowercase matching is an explicit documented limit but still permits a believable unsupported attribution.
+
+**Smallest fix:** Extend the fixed ranges to the complete Unicode `Default_Ignorable_Code_Point` set supported by Node 20, while retaining raw quote comparison. Do not case-fold unless common-word author false positives are separately addressed.
+
+**Failing test:** Add the claim above to `test/ghost/verifier.unicode.test.ts`; expect rejection for unsupported author `Alice` and year `2024`. Add a property that inserts every code point in the complete default-ignorable set into a detected author/year.
+
+---
+
+### MEDIUM — MCP presents citation matching as sentence verification
+
+**Files:** `src/mcp/app.ts:73`, `src/mcp/tools.ts:124,153-158,295-318`
+
+The tool is titled “Verify claims with the ward.” Its description says a claim “is verified” and that it returns “verified claims.” The unsupported sentence itself is then returned inside a field named `verified`.
+
+**Concrete input:** A ledger commit contains `wait for downstream to stabilise`. Submit:
+
+```json
+{
+  "kind": "memory",
+  "text": "The maintainers approved removing authentication.",
+  "citations": [{
+    "sha7": "abc1234",
+    "quote": "wait for downstream to stabilise"
+  }]
+}
+```
+
+The deterministic check finds the quote, not evidence for the sentence. The MCP response nevertheless places the sentence in `verified`, matching the tool’s claim-level wording.
+
+**Smallest fix:** Keep the stable `verified` field, but rename the title to “Check claim citations with the ward” and state that entries mean only that their citations and named author/year constraints passed. Add an optional explicit status such as `citationStatus: "verified"` rather than changing the existing output field.
+
+**Failing test:** Assert that the registered title and `VERIFY_DESCRIPTION` contain “citations” and the sentence-limit warning, and never contain “claim is verified” or “verified claims.”
+
+Other wording that still overstates what the ward proves:
+
+- `public/index.html:39-40`: “invented ones are struck out.” A semantically invented sentence with an unrelated valid quote is not struck out.
+- `public/index.html:229-230`: “Steps the ward cannot back are struck out.” The ward checks accompanying claims, not the step description or rationale.
+- `public/index.html:381-382`: “It remembers only commits.” Model text can exceed what commits support before the ward classifies its citations.
+- `public/index.html:385-386`: “Every claim cites a commit.” Silence claims explicitly do not.
+- `public/app.js:1367`: “The ward verified … claims from the possessed ghost.”
+- `src/exorcism/plan.ts:34-35`: “The ward verified none of the claims…”
+- `src/ghost/report.ts:118`: “N of M claims verified.” The immediately following limitation at lines 92-93 reduces the risk, but the count itself still reads as sentence verification.
+
+The page’s normal claim label, tallies, quote display, recorded label, and one-time limit sentence use the correct vocabulary.
+
+---
+
+### MEDIUM — A forwarded proxy error can still replay an accepted model request
+
+**File:** `public/app.js:107-109,158-163`
+
+The browser assumes every non-JSON 502/503/504 came from a proxy before the request reached the server. A proxy can generate the same response after the server accepted the request but lost or rejected its response.
+
+**Concrete input:** The proxy forwards `/api/ask`; the model call completes; the upstream connection then fails; the proxy returns an HTML 502. The page waits two seconds and submits the same ask again. Both requests consume model calls.
+
+**Smallest fix:** Never retry `/api/ask` or `/api/exorcise` automatically after any response that does not prove the request was rejected before forwarding. The alternative is a client idempotency key with server-side response caching.
+
+**Failing test:** Change the existing 502 test so its proxy calls `await req.forward()` before returning HTML 502. Assert one browser attempt and one model invocation. It currently produces two.
+
+---
+
+### MEDIUM — The summon deadline excludes GitHub enrichment
+
+**Files:** `src/evidence/ledger.ts:299-308`, `src/evidence/github.ts:108-113`
+
+The post-clone deadline only runs before Git calls. `fetchGitHubRef` has no abort signal or timeout.
+
+**Concrete input:** Submit a remote `/api/summon` request with `githubToken` for a line whose commit says `Fix #1`. If `api.github.com` accepts the connection but never completes the response, `fetchGitHubRef` never settles. The request retains the clone and clone-pool slot beyond `SUMMON_DEADLINE_MS`.
+
+The page no longer sends tokens, so this affects API clients rather than the standard page.
+
+**Smallest fix:** Give the whole post-clone summon an abort deadline and pass its remaining signal to `fetchGitHubRef`, as well as the Git/map operations.
+
+**Failing test:** Stub the GitHub API request with a promise that does not settle, set `SUMMON_DEADLINE_MS=50`, and assert `/api/summon` returns `HISTORY_ERROR`, deletes the clone, and releases the slot within a bounded margin.
+
+---
+
+### LOW — Unit separators in map identity fields silently remove real commits
+
+**Files:** `src/evidence/haunting.ts:101-104`, `src/evidence/haunting.read.ts:39-42`
+
+The path boundary is now unambiguous, but author and email remain separated by US. A US in either field creates five header fields. The parser increments `skipped`, and the reader still draws a map from the remaining commits.
+
+**Concrete input:** A commit with author `Mallory\u001fMaintainer` touching `auth.ts` is omitted. The displayed map may attribute `auth.ts` to another author or call it “Tended by the living.”
+
+**Smallest fix:** Until metadata has an unambiguous encoding, return the fixed map-failure note whenever `skipped > 0`; do not display a partial map as complete.
+
+**Failing test:** Generate a real repository containing a raw commit with US in its author and a normal changed path. Expect `readHauntingMap` to return a note, not a map that omits the commit.
+
+## SUSPECTED
+
+### LOW — Copied Markdown still permits some bidi influence
+
+**File:** `src/ghost/report.ts:50-52`
+
+U+061C, U+200E, and U+200F are not exposed as visible escapes. Their ability to reorder a fixed label, hash, or punctuation depends on the target Markdown renderer.
+
+**Test needed:** Render a report containing each control in the supported Markdown renderers and assert the fixed status, hash, quote boundaries, and reading order remain unambiguous.
+
+### LOW — MCP has no total local archaeology deadline or concurrency cap
+
+**Files:** `src/mcp/tools.ts:185-189`, `src/evidence/ledger.ts:79-80`
+
+`buildLedger` disables the aggregate deadline for local repositories. One pathological ledger can perform up to 50 `showHunk` calls and 50 `changedFiles` calls, each with its own ten-second timeout. Multiple concurrent MCP requests may multiply that cost. This is local self-denial-of-service unless an agent can be induced to open an attacker-prepared repository.
+
+**Test needed:** Use a controlled slow Git implementation through a real subprocess, issue concurrent MCP summons, and assert a process-wide deadline and concurrency limit.
+
+### LOW — Recording identity uses short hashes only
+
+**File:** `src/ghost/recordings.ts:200-201`
+
+A different commit with the same seven-hex prefix is considered the same ledger entry. Exploiting every hash in the shipped multi-entry recordings is impractical, but the format does not provide cryptographic ledger identity.
+
+**Test needed:** Construct two in-memory ledgers with different full hashes but equal short hashes and assert a recording made for one does not apply to the other. This would require recording full SHAs or a digest of the complete evidence fields.
+
+## Sound
+
+- **Citation verifier:** Memory and speculation still require 1–10 citations; every citation requires an 8–500-character quote; matching is raw, case-sensitive, and confined to one field at `src/ghost/schema.ts:95,107,115` and `src/ghost/verifier.ts:292-304`.
+- **Monotonicity:** Both frozen-verifier property suites passed. The new verifier only adds author/year rejection reasons.
+- **Silence:** `src/ghost/schema.ts:120-124` requires zero citations, and `src/ghost/verifier.ts:250-252` can place it only in `silent`.
+- **Recordings:** Target, exact ordered ledger hashes, live ward, recorded label, and recorded limiter are all present. No recording or fixture JSON changed.
+- **Possessed route:** Claims are generated server-side and pass through the live verifier. Scripted turns do not count as ghost turns. Scripted silence has the dashed unverified rendering and explicit no-citation explanation.
+- **Page tallying:** Normal, recorded, planted, scripted, rejected, and silent buckets are counted correctly. The one-time ward-limit sentence is reset per séance and appears only under the first ghost answer.
+- **Back to sample:** `lastSample` can only select `crypt` or `possessed`; the button restores the fixed file and range without carrying a token.
+- **Removed token field:** Neither ordinary summons nor “Summon here” sends `githubToken`.
+- **Error placement:** Ward/preset, exorcise, and map failures are placed beside their controls and tied with ARIA attributes.
+- **Map path parser:** Paths containing RS, US, newlines, or complete fake headers cannot create commits. Empty paths are discarded; a commit with no paths produces no file attribution.
+- **MCP claim path:** Claims go directly through the same `verify()` and `renderWardReport()` as the web route. Lenient input schemas add no acceptance.
+- **MCP repository resolution:** Direct remote arguments are refused before filesystem access; local paths are realpathed and must resolve inside a non-bare work tree. Error responses are fixed and do not expose paths or stderr.
+- **MCP store:** It holds at most 50 ledgers under UUIDs, does not refresh eviction order, and exposes no repository root.
+- **MCP stdout:** The entry installs stderr routing before its dynamic import. The stdio integration test passed with protocol-only stdout.
+- **Prompt paths:** Ledger, author, score, and question data remain in escaped user content. Fixed rules remain in `system`.
+
+## Test results
+
+Requested command:
+
+```text
+Test Files  15 passed (15)
+Tests  146 passed (146)
+Duration  2.04s
+```
+
+The relevant result lines included:
+
+```text
+✓ test/ghost/verifier.unicode.test.ts (13 tests)
+✓ test/server/hardening.test.ts (19 tests)
+✓ test/mcp/stdout.test.ts (1 test)
+✓ test/adversarial/possessed.test.ts (14 tests)
+✓ test/mcp/tools.test.ts (26 tests)
+```
+
+Focused fix suites:
+
+```text
+Test Files  5 passed (5)
+Tests  99 passed (99)
+Duration  2.77s
+```
+
+Verifier monotonicity properties:
+
+```text
+Test Files  2 passed (2)
+Tests  19 passed (19)
+Duration  3.60s
+```
+
+## Evidence-rule checklist
+
+- ✅ `git diff --cached` was empty; there are no staged verifier or schema changes.
+- ✅ `src/ghost/schema.ts` has no diff from `a9870ac`.
+- ✅ Memory and speculation require 1–10 `{ sha7, quote }` citations: `src/ghost/schema.ts:95,107,115`.
+- ✅ Quote length and raw one-field matching remain enforced: `src/ghost/verifier.ts:292-304`.
+- ✅ Missing and ambiguous hashes are rejected: `src/ghost/verifier.ts:271-283`.
+- ✅ Silence cannot enter `verified`: `src/ghost/verifier.ts:222-257`.
+- ✅ Score remains `verified / (verified + rejected + silent)`: `src/ghost/verifier.ts:70-71`.
+- ✅ The verifier diff only adds checks, and both frozen-copy property suites pass.
+- ❌ The broader hostile-Unicode goal is incomplete: invisible U+1BCA0 and U+1D173 bypass author/year detection at `src/ghost/verifier.ts:93-108`.
+- ✅ No `recordings/*.json` or `test/fixtures/**/*.json` changed since `a9870ac` or in the staged diff.
+exit 0
