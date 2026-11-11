@@ -34,6 +34,17 @@ export const EvidenceItemSchema = z.object({
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 
 // ---------------------------------------------------------------------------
+// SourceLine — one selected line at HEAD, display-only (first-seance R2.1)
+// ---------------------------------------------------------------------------
+
+export const SourceLineSchema = z.object({
+  n: z.number().int().positive(),
+  text: z.string().max(400),
+});
+
+export type SourceLine = z.infer<typeof SourceLineSchema>;
+
+// ---------------------------------------------------------------------------
 // LedgerResult — the immutable output of buildLedger
 // ---------------------------------------------------------------------------
 
@@ -41,6 +52,9 @@ export const LedgerResultSchema = z.object({
   items: z.array(EvidenceItemSchema).readonly(),
   truncated: z.boolean(),
   buildDurationMs: z.number().nonnegative(),
+  // first-seance §7: optional, so existing ledger mocks still type-check
+  lines: z.array(SourceLineSchema).max(40).readonly().optional(),
+  shallow: z.boolean().optional(),
 });
 
 export type LedgerResult = z.infer<typeof LedgerResultSchema>;
@@ -204,14 +218,29 @@ export interface VerifierResult {
 // API response shapes
 // ---------------------------------------------------------------------------
 
+/** POST /api/summon, success (first-seance §7: lines R2.1, persona R2.2, shallow R8.3). */
 export const SummonResponseSchema = z.object({
   sessionId: z.string().uuid(),
   ledgerSize: z.number().int().nonnegative(),
   truncated: z.boolean(),
   buildDurationMs: z.number().nonnegative(),
+  items: z.array(z.unknown()), // the existing item shape, unchanged
+  lines: z.array(SourceLineSchema).max(40),
+  persona: z.object({ author: z.string().min(1) }),
+  shallow: z.boolean(),
 });
 
 export type SummonResponse = z.infer<typeof SummonResponseSchema>;
+
+/** GET /api/health (first-seance R5.1). */
+export const HealthResponseSchema = z.object({
+  status: z.literal('ok'),
+  uptime: z.number().nonnegative(),
+  model: z.boolean(),
+  samples: z.array(z.enum(['crypt', 'possessed'])),
+});
+
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 export const ClaimResponseSchema = z.object({
   text: z.string(),

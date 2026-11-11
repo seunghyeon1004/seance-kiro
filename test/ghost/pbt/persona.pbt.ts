@@ -8,7 +8,11 @@
 import { describe, expect } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
-import { buildPrompt, escapeLedgerText } from '../../../src/ghost/persona.js';
+import {
+  buildPrompt,
+  escapeLedgerText,
+  mostFrequentAuthor,
+} from '../../../src/ghost/persona.js';
 import { buildPlanPrompt } from '../../../src/exorcism/plan.js';
 import type {
   EvidenceItem,
@@ -195,4 +199,60 @@ describe('CP9 — prompt builders are pure (R5.5, N6)', () => {
     expect(a).toEqual(b);
     expect({ ledger, scored }).toEqual(before);
   });
+});
+
+// ---------------------------------------------------------------------------
+// first-seance T2 — CP7, one persona rule (R2.2, N6)
+// ---------------------------------------------------------------------------
+
+const cp7Params: fc.Parameters<unknown> = {
+  numRuns: 1000,
+  ...(SEED !== undefined ? { seed: SEED } : {}),
+};
+
+/** Ledgers whose authors repeat, so counts and ties matter. */
+const repeatLedgerArb = fc
+  .array(fc.tuple(itemArb, fc.constantFrom('Ada', 'Grace', 'Linus', '§<"&>', '')), {
+    maxLength: 12,
+  })
+  .map((xs) =>
+    xs.map(([it, a], i) => ({
+      ...it,
+      id: `E${i + 1}`,
+      author: a === '' ? it.author : a,
+    })),
+  );
+
+/** Reference rule of R2.2: the highest count wins, ties go to the first seen. */
+function oracle(items: ReadonlyArray<EvidenceItem>): string {
+  const order: string[] = [];
+  const counts = new Map<string, number>();
+  for (const i of items) {
+    if (!counts.has(i.author)) order.push(i.author);
+    counts.set(i.author, (counts.get(i.author) ?? 0) + 1);
+  }
+  let best: string | undefined;
+  for (const a of order) {
+    if (best === undefined || (counts.get(a) ?? 0) > (counts.get(best) ?? 0)) best = a;
+  }
+  return best ?? 'Unknown Author';
+}
+
+describe('CP7 — one persona rule (R2.2)', () => {
+  test.prop([fc.oneof(ledgerArb, repeatLedgerArb), marked], cp7Params)(
+    'buildPrompt names the persona with mostFrequentAuthor',
+    (items, question) => {
+      const { user } = buildPrompt(items, question, 'sid-1');
+      expect(user).toContain(
+        `<persona author="${escapeLedgerText(mostFrequentAuthor(items))}"/>`,
+      );
+    },
+  );
+
+  test.prop([fc.oneof(ledgerArb, repeatLedgerArb)], cp7Params)(
+    'highest count wins, ties go to the first seen, empty gives Unknown Author',
+    (items) => {
+      expect(mostFrequentAuthor(items)).toBe(oracle(items));
+    },
+  );
 });

@@ -163,6 +163,7 @@ vi.mock('../../src/evidence/git.js', async (importOriginal) => {
     showHunk: vi.fn(),
     changedFiles: vi.fn(),
     cloneRepo: vi.fn(),
+    readLines: vi.fn(async () => []),
   };
 });
 

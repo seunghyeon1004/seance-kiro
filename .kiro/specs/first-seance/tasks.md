@@ -8,25 +8,25 @@ Each task starts by writing the tests that fail without it. Each task ends with 
 
 ## T1 — Model failures and the health check
 
-- [ ] Write the failing tests in `test/ghost/llm-errors.test.ts`:
+- [x] Write the failing tests in `test/ghost/llm-errors.test.ts`:
   - with an injected client that rejects with `new Anthropic.APIError(s, …)`, `askGhost` throws `ModelConfigError` for 401, 403 and 404 and `ModelBusyError` for 429, 529, 500 and 503; with `Anthropic.APIConnectionError` it throws `ModelBusyError` (R6.1);
   - a client that waits for the abort signal and then throws `Anthropic.APIUserAbortError` gives `TimeoutError` with `code === 'TIMEOUT'`, and so does one that throws a plain `Error` after the abort (R6.1, audit §4);
   - `askPlan` passes a signal that aborts after `LLM_PLAN_TIMEOUT_MS` (default 90,000 ms), and `askGhost` after `LLM_TIMEOUT_MS` (default 30,000 ms), checked with fake timers (R6.4);
   - none of these errors is retried, and a `ParseError` still is, once (R6.5);
   - `modelConfigured()` is true with a non-blank key or `ANTHROPIC_FIXTURE=1`, and false otherwise (R5.1).
-- [ ] Write the failing property test CP11 in `test/ghost/pbt/llm-errors.pbt.ts` (R6.1, R6.3, N6).
-- [ ] Write the failing tests in `test/server/first-seance.test.ts` (with `askGhost` and `buildPlan` mocked to throw):
+- [x] Write the failing property test CP11 in `test/ghost/pbt/llm-errors.pbt.ts` (R6.1, R6.3, N6).
+- [x] Write the failing tests in `test/server/first-seance.test.ts` (with `askGhost` and `buildPlan` mocked to throw):
   - every row of design.md §3.3 gives the exact status, code and message on `/api/ask` and `/api/exorcise` (R6.1);
   - `MODEL_BUSY` carries `Retry-After: 60` (R6.2);
   - no body contains `ANTHROPIC`, `sk-`, `/`, `ZodError` or `"path"`, and `console.error` received the full error (R6.3);
   - `GET /api/health` returns `model` and `samples` per R5.1, including `samples: []` when neither sample dir has `.git`.
-- [ ] Update `test/server/health.test.ts` to assert the two new fields, and the timeout test in `test/ghost/llm.test.ts` to assert `code === 'TIMEOUT'` (design.md §12.2).
-- [ ] In `src/errors.ts`, add `HistoryError`, `ModelConfigError` and `ModelBusyError`, and set `TimeoutError`'s code to `TIMEOUT` (design.md §4.1).
-- [ ] In `src/ghost/llm.ts`, export `MODEL_ID`, `modelConfigured` and `classifyModelError`, give `callTool` a `timeoutMs` parameter, and pass `LLM_TIMEOUT_MS` from `askGhost` and `LLM_PLAN_TIMEOUT_MS` from `askPlan` (design.md §4.2). The prompt and tool schemas do not change, so `--hash-only` must still print `464f2680` and `--ghost --hash-only` must still print `b0b2564e`.
-- [ ] In `src/server.ts`, rewrite `toHttpError` to design.md §3.3 (log first, fixed messages, optional headers), and extend `/api/health` per design.md §3.1 with `sampleDir` and `builtSamples` (R5.1, R6.1–R6.3).
-- [ ] Add `HealthResponseSchema` to `src/ghost/schema.ts` and parse the health response with it in the test (N3).
-- [ ] Document `LLM_PLAN_TIMEOUT_MS` in `.env.example`.
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Update `test/server/health.test.ts` to assert the two new fields, and the timeout test in `test/ghost/llm.test.ts` to assert `code === 'TIMEOUT'` (design.md §12.2).
+- [x] In `src/errors.ts`, add `HistoryError`, `ModelConfigError` and `ModelBusyError`, and set `TimeoutError`'s code to `TIMEOUT` (design.md §4.1).
+- [x] In `src/ghost/llm.ts`, export `MODEL_ID`, `modelConfigured` and `classifyModelError`, give `callTool` a `timeoutMs` parameter, and pass `LLM_TIMEOUT_MS` from `askGhost` and `LLM_PLAN_TIMEOUT_MS` from `askPlan` (design.md §4.2). The prompt and tool schemas do not change, so `--hash-only` must still print `464f2680` and `--ghost --hash-only` must still print `b0b2564e`.
+- [x] In `src/server.ts`, rewrite `toHttpError` to design.md §3.3 (log first, fixed messages, optional headers), and extend `/api/health` per design.md §3.1 with `sampleDir` and `builtSamples` (R5.1, R6.1–R6.3).
+- [x] Add `HealthResponseSchema` to `src/ghost/schema.ts` and parse the health response with it in the test (N3).
+- [x] Document `LLM_PLAN_TIMEOUT_MS` in `.env.example`.
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R5.1, R6.1–R6.5, N3, N6.
 
@@ -34,22 +34,22 @@ Covers: R5.1, R6.1–R6.5, N3, N6.
 
 ## T2 — The line in question, the ghost's name and honest history (server)
 
-- [ ] Write the failing property test CP6 in `test/evidence/pbt/source.pbt.ts` for `sliceSourceLines` (R2.1, N6).
-- [ ] Write the failing tests in `test/evidence/history.test.ts`:
+- [x] Write the failing property test CP6 in `test/evidence/pbt/source.pbt.ts` for `sliceSourceLines` (R2.1, N6).
+- [x] Write the failing tests in `test/evidence/history.test.ts`:
   - `logL` on a repository where `git log -L` fails (a mocked `runGit` rejection, and a real repo with `GIT_CALL_TIMEOUT_MS=1`) throws `HistoryError`, and empty output still returns `[]` (R8.1);
   - `isShallowRepo` is true for `git clone --depth 1 file://<3-commit repo>` and false for a full clone (R8.3);
   - `readLines` on a real repo returns line 7 of `legacy/tax.js` from a built crypt, cuts a 1,000-character line to 400, returns `[]` for a missing file, and returns at most 40 lines for a 60-line range (R2.1);
   - `buildLedger` with a mocked `cloneRepo` returning `shallow: true` passes `shallow: true` on, and returns `lines` frozen (R8.3).
-- [ ] Add CP7 to `test/ghost/pbt/persona.pbt.ts` (R2.2, N6).
-- [ ] Add tests to `test/server/first-seance.test.ts`:
+- [x] Add CP7 to `test/ghost/pbt/persona.pbt.ts` (R2.2, N6).
+- [x] Add tests to `test/server/first-seance.test.ts`:
   - the summon response has `lines`, `persona.author` equal to `mostFrequentAuthor(items)` and `shallow`, and parses with `SummonResponseSchema` (R2.1, R2.2, R8.3);
   - a `HistoryError` from `buildLedger` gives 422 `HISTORY_ERROR` with the fixed message (R8.1).
-- [ ] Add `readLines: vi.fn(async () => [])` to the `git.js` mocks in `test/evidence/ledger.test.ts` and `test/evidence/pbt/ledger.pbt.ts` (design.md §12.2).
-- [ ] In `src/evidence/git.ts`, implement `SOURCE_MAX_LINES`, `SOURCE_MAX_CHARS`, `sliceSourceLines`, `readLines`, `isShallowRepo`, `shallow` on `ResolvedRepo`, the `maxBuffer` option on `runGit`, and `logL` throwing `HistoryError` (design.md §5.1–§5.3).
-- [ ] In `src/evidence/ledger.ts`, read the lines before cleanup and return `lines` and `shallow` (design.md §5.4).
-- [ ] In `src/ghost/persona.ts`, rename `deriveMostFrequentAuthor` to `mostFrequentAuthor` and export it. `buildPrompt` calls it. The prompt text is unchanged, so check the two `--hash-only` hashes again (R2.2).
-- [ ] In `src/ghost/schema.ts`, add `SourceLineSchema`, the optional `lines` and `shallow` on `LedgerResultSchema`, and the new `SummonResponseSchema` (design.md §7). In `src/server.ts`, add `sample` to `SessionEntry` and the three summon fields (design.md §3.2).
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Add `readLines: vi.fn(async () => [])` to the `git.js` mocks in `test/evidence/ledger.test.ts` and `test/evidence/pbt/ledger.pbt.ts` (design.md §12.2).
+- [x] In `src/evidence/git.ts`, implement `SOURCE_MAX_LINES`, `SOURCE_MAX_CHARS`, `sliceSourceLines`, `readLines`, `isShallowRepo`, `shallow` on `ResolvedRepo`, the `maxBuffer` option on `runGit`, and `logL` throwing `HistoryError` (design.md §5.1–§5.3).
+- [x] In `src/evidence/ledger.ts`, read the lines before cleanup and return `lines` and `shallow` (design.md §5.4).
+- [x] In `src/ghost/persona.ts`, rename `deriveMostFrequentAuthor` to `mostFrequentAuthor` and export it. `buildPrompt` calls it. The prompt text is unchanged, so check the two `--hash-only` hashes again (R2.2).
+- [x] In `src/ghost/schema.ts`, add `SourceLineSchema`, the optional `lines` and `shallow` on `LedgerResultSchema`, and the new `SummonResponseSchema` (design.md §7). In `src/server.ts`, add `sample` to `SessionEntry` and the three summon fields (design.md §3.2).
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R2.1, R2.2, R8.1, R8.3, N3, N6.
 

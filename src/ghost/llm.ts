@@ -26,7 +26,13 @@ import {
 } from './schema.js';
 import type { GhostAnswerWire, RefactorPlan } from './schema.js';
 import type { ModelPrompt } from './persona.js';
-import { ConfigError, TimeoutError, ParseError } from '../errors.js';
+import {
+  ConfigError,
+  TimeoutError,
+  ParseError,
+  ModelBusyError,
+  ModelConfigError,
+} from '../errors.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,8 +96,9 @@ function makeDefaultClient(apiKey: string): AnthropicClient {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MODEL_ID = 'claude-sonnet-5-5';
+export const MODEL_ID = 'claude-sonnet-5-5';
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_PLAN_TIMEOUT_MS = 90_000;
 
 // src/ghost/llm.ts → ../../.. = project root
 const FIXTURES_ROOT = join(fileURLToPath(import.meta.url), '../../../test/fixtures');
@@ -101,6 +108,62 @@ const PLAN_FIXTURE_DIR = join(FIXTURES_ROOT, 'exorcism-plans');
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/** A key is set and not blank, or fixture mode is on (R5.1). Read at call time. */
+export function modelConfigured(): boolean {
+  if (process.env['ANTHROPIC_FIXTURE'] === '1') return true;
+  const key = process.env['ANTHROPIC_API_KEY'];
+  return key !== undefined && key.trim() !== '';
+}
+
+/** A positive integer from the environment, else the default. Read at call time. */
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || !/^\d+$/.test(raw.trim())) return fallback;
+  const n = parseInt(raw, 10);
+  return Number.isSafeInteger(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * Map a failed messages.create() to our error taxonomy (R6.1). Pure: no I/O.
+ * `aborted` is our controller's signal.aborted. Every message has `apiKey` replaced by [REDACTED].
+ *
+ * The abort checks come first: APIUserAbortError is an APIError with no status, and
+ * APIConnectionTimeoutError is an APIConnectionError (@anthropic-ai/sdk 0.32.1, error.d.ts).
+ */
+export function classifyModelError(
+  err: unknown,
+  aborted: boolean,
+  timeoutMs: number,
+  apiKey: string,
+): Error {
+  const redact = (s: string): string =>
+    apiKey === '' ? s : s.replaceAll(apiKey, '[REDACTED]');
+  const code =
+    err instanceof Error ? (err as Error & { code?: unknown }).code : undefined;
+  if (
+    aborted ||
+    err instanceof Anthropic.APIUserAbortError ||
+    err instanceof Anthropic.APIConnectionTimeoutError ||
+    (err instanceof Error && (err.name === 'AbortError' || code === 'ABORT_ERR'))
+  ) {
+    return new TimeoutError(`LLM call exceeded timeout of ${timeoutMs}ms`);
+  }
+  const message = redact(err instanceof Error ? err.message : String(err));
+  if (err instanceof Anthropic.APIError && err.status !== undefined) {
+    const s = err.status;
+    if (s === 401 || s === 403 || s === 404) {
+      return new ModelConfigError(`Anthropic API ${s}: ${message}`);
+    }
+    if (s === 429 || s === 529 || (s >= 500 && s <= 599)) {
+      return new ModelBusyError(`Anthropic API ${s}: ${message}`);
+    }
+  }
+  if (err instanceof Anthropic.APIConnectionError) {
+    return new ModelBusyError(`Anthropic API connection error: ${message}`);
+  }
+  return new Error(message);
+}
 
 /** sha256(system + "\n\u0000\n" + user), first 8 hex characters. Fixture key (R5.7). */
 export function promptHash(p: ModelPrompt): string {
@@ -133,7 +196,12 @@ export async function askGhost(
         'GhostAnswerWireSchema',
       );
     }
-    const input = await callTool(prompt, GHOST_TOOL, client);
+    const input = await callTool(
+      prompt,
+      GHOST_TOOL,
+      envMs('LLM_TIMEOUT_MS', DEFAULT_TIMEOUT_MS),
+      client,
+    );
     return parseOrThrow(
       input,
       GhostAnswerWireSchema,
@@ -163,7 +231,12 @@ export async function askPlan(
         'RefactorPlanSchema',
       );
     }
-    const input = await callTool(prompt, PLAN_TOOL, client);
+    const input = await callTool(
+      prompt,
+      PLAN_TOOL,
+      envMs('LLM_PLAN_TIMEOUT_MS', DEFAULT_PLAN_TIMEOUT_MS),
+      client,
+    );
     return parseOrThrow(input, RefactorPlanSchema, 'LLM response', 'RefactorPlanSchema');
   });
 }
@@ -191,6 +264,7 @@ async function withOneRetry<T>(once: () => Promise<T>): Promise<T> {
 async function callTool(
   prompt: ModelPrompt,
   tool: AnthropicTool,
+  timeoutMs: number,
   client?: AnthropicClient,
 ): Promise<unknown> {
   // Read API key at call time; required even with an injected client
@@ -202,10 +276,6 @@ async function callTool(
   }
 
   const resolvedClient = client ?? makeDefaultClient(apiKey);
-
-  const timeoutMs = process.env['LLM_TIMEOUT_MS']
-    ? parseInt(process.env['LLM_TIMEOUT_MS'], 10)
-    : DEFAULT_TIMEOUT_MS;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -231,17 +301,7 @@ async function callTool(
     );
   } catch (err: unknown) {
     clearTimeout(timer);
-    if (
-      err instanceof Error &&
-      (err.name === 'AbortError' ||
-        (typeof (err as unknown as Record<string, unknown>)['code'] === 'string' &&
-          (err as unknown as Record<string, unknown>)['code'] === 'ABORT_ERR'))
-    ) {
-      throw new TimeoutError(`LLM call exceeded timeout of ${timeoutMs}ms`);
-    }
-    // Redact API key from error messages
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(message.replaceAll(apiKey, '[REDACTED]'));
+    throw classifyModelError(err, controller.signal.aborted, timeoutMs, apiKey);
   }
 
   clearTimeout(timer);

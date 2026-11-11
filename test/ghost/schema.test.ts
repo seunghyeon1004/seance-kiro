@@ -502,22 +502,48 @@ describe('GhostAnswerWireSchema (R1.8)', () => {
 // ---------------------------------------------------------------------------
 
 describe('SummonResponseSchema', () => {
+  // first-seance T2 (design.md §7): items, lines, persona and shallow are required
+  const valid = {
+    sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    ledgerSize: 12,
+    truncated: false,
+    buildDurationMs: 847,
+    items: [],
+    lines: [{ n: 7, text: '  await sleep(3000);' }],
+    persona: { author: 'Ada Lovelace' },
+    shallow: false,
+  };
+
   it('accepts a valid SummonResponse', () => {
-    const result = SummonResponseSchema.safeParse({
-      sessionId: '550e8400-e29b-41d4-a716-446655440000',
-      ledgerSize: 12,
-      truncated: false,
-      buildDurationMs: 847,
-    });
+    const result = SummonResponseSchema.safeParse(valid);
     expect(result.success).toBe(true);
+  });
+
+  it('rejects a response without the first-seance fields', () => {
+    for (const key of ['items', 'lines', 'persona', 'shallow'] as const) {
+      const { [key]: _drop, ...rest } = valid;
+      expect(SummonResponseSchema.safeParse(rest).success).toBe(false);
+    }
+  });
+
+  it('rejects more than 40 lines, a line over 400 characters, and an empty author', () => {
+    const many = Array.from({ length: 41 }, (_, i) => ({ n: i + 1, text: '' }));
+    expect(SummonResponseSchema.safeParse({ ...valid, lines: many }).success).toBe(false);
+    expect(
+      SummonResponseSchema.safeParse({
+        ...valid,
+        lines: [{ n: 1, text: 'x'.repeat(401) }],
+      }).success,
+    ).toBe(false);
+    expect(
+      SummonResponseSchema.safeParse({ ...valid, persona: { author: '' } }).success,
+    ).toBe(false);
   });
 
   it('rejects non-UUID sessionId', () => {
     const result = SummonResponseSchema.safeParse({
+      ...valid,
       sessionId: 'not-a-uuid',
-      ledgerSize: 0,
-      truncated: false,
-      buildDurationMs: 0,
     });
     expect(result.success).toBe(false);
   });

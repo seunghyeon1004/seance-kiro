@@ -6,7 +6,7 @@
  */
 
 import { execaSync, execa } from 'execa';
-import { GitError, CloneError } from '../errors.js';
+import { GitError, CloneError, HistoryError } from '../errors.js';
 import { z } from 'zod';
 import * as os from 'os';
 import * as fs from 'fs/promises';
@@ -75,12 +75,13 @@ export type RawCommit = {
 
 /**
  * Run a git command in `cwd`, returning stdout as a string.
- * Throws GitError on non-zero exit or timeout.
+ * Throws GitError on non-zero exit, timeout, or output over `opts.maxBuffer` bytes.
  */
 export async function runGit(
   args: string[],
   cwd: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  opts: { maxBuffer?: number } = {},
 ): Promise<string> {
   try {
     const result = await execa(GIT_BIN, args, {
@@ -91,6 +92,7 @@ export async function runGit(
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: timeoutMs,
       reject: true,
+      ...(opts.maxBuffer !== undefined ? { maxBuffer: opts.maxBuffer } : {}),
     });
     return result.stdout;
   } catch (err: unknown) {
@@ -273,7 +275,8 @@ function parseFullerHeader(
 
 /**
  * Run `git log -L start,end:file --follow --format=fuller` and parse commits.
- * Returns an empty array on any error (R2.4).
+ * Empty output with exit code 0 gives [] (evidence-ledger R2.4). A non-zero exit or a
+ * timeout throws HistoryError, so a failure never reads as an empty history (first-seance R8.1).
  */
 export async function logL(
   repo: string,
@@ -288,8 +291,8 @@ export async function logL(
       ['log', `-L${start},${end}:${file}`, '--date=iso-strict', '--format=fuller'],
       repo,
     );
-  } catch {
-    return [];
+  } catch (err) {
+    throw new HistoryError(err instanceof Error ? err.message : 'git log -L failed');
   }
 
   if (!raw.trim()) return [];
@@ -389,6 +392,68 @@ function parseLogLOutput(raw: string, _file: string): RawCommit[] {
 }
 
 // ---------------------------------------------------------------------------
+// The selected lines at HEAD (first-seance R2.1, design.md §5.1)
+// ---------------------------------------------------------------------------
+
+export const SOURCE_MAX_LINES = 40;
+export const SOURCE_MAX_CHARS = 400;
+const SOURCE_MAX_BYTES = 5 * 1024 * 1024;
+
+export interface SourceLine {
+  readonly n: number;
+  readonly text: string;
+}
+
+/**
+ * Pure. Lines start..min(end, start + 39, lineCount) of `fileText`, 1-based, each cut to 400
+ * characters, with a trailing "\r" removed. A final newline does not create an extra line.
+ */
+export function sliceSourceLines(
+  fileText: string,
+  start: number,
+  end: number,
+): SourceLine[] {
+  if (fileText === '') return [];
+  const lines = fileText.split('\n');
+  if (fileText.endsWith('\n')) lines.pop();
+  const last = Math.min(end, start + SOURCE_MAX_LINES - 1, lines.length);
+  const out: SourceLine[] = [];
+  for (let n = start; n <= last; n++) {
+    const raw = lines[n - 1] ?? '';
+    const text = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    out.push({ n, text: text.slice(0, SOURCE_MAX_CHARS) });
+  }
+  return out;
+}
+
+/**
+ * `git show HEAD:<file>`, then sliceSourceLines. Any failure (missing file, a blob over 5 MB,
+ * a timeout) logs a warning and returns []. The lines are display-only: they never enter the
+ * ledger, the prompt or the verifier.
+ *
+ * `file` has passed validateLedgerInput (no `..`, no leading `/`), and the argument is the
+ * single array element `HEAD:<file>`, so git cannot read it as an option.
+ */
+export async function readLines(
+  repo: string,
+  file: string,
+  start: number,
+  end: number,
+): Promise<SourceLine[]> {
+  try {
+    const text = await runGit(['show', `HEAD:${file}`], repo, DEFAULT_TIMEOUT_MS, {
+      maxBuffer: SOURCE_MAX_BYTES,
+    });
+    return sliceSourceLines(text, start, end);
+  } catch (err) {
+    console.warn(
+      `[seance:readLines] Could not read ${file} at HEAD — ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // showHunk (R4.3)
 // ---------------------------------------------------------------------------
 
@@ -443,7 +508,19 @@ export type ResolvedRepo = {
   root: string;
   /** Delete the temporary directory (idempotent). */
   cleanup: () => Promise<void>;
+  /** True when `--depth 100` cut the history (first-seance R8.3). */
+  shallow: boolean;
 };
+
+/** `git rev-parse --is-shallow-repository` prints "true". False on any error (R8.3). */
+export async function isShallowRepo(dir: string): Promise<boolean> {
+  try {
+    const out = await runGit(['rev-parse', '--is-shallow-repository'], dir);
+    return out.trim() === 'true';
+  } catch {
+    return false;
+  }
+}
 
 /** Configurable caps (env overrides) */
 const CLONE_TIMEOUT_MS = Number(process.env['CLONE_TIMEOUT_MS'] ?? 30_000);
@@ -579,7 +656,9 @@ async function _doClone(url: string): Promise<ResolvedRepo> {
       // du failure is non-fatal
     }
 
-    return { root: cloneDir, cleanup };
+    // Git writes a shallow boundary only when --depth 100 actually cut history (design.md §5.2)
+    const shallow = await isShallowRepo(cloneDir);
+    return { root: cloneDir, cleanup, shallow };
   } catch (err) {
     clearTimeout(timeoutHandle);
     if (sizePoller !== undefined) clearInterval(sizePoller);

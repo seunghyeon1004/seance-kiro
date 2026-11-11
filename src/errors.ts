@@ -58,10 +58,31 @@ export class ConfigError extends SeanceError {
   }
 }
 
-/** LLM call exceeded LLM_TIMEOUT_MS. */
+/** LLM call exceeded LLM_TIMEOUT_MS or LLM_PLAN_TIMEOUT_MS (first-seance design.md §4.1). */
 export class TimeoutError extends SeanceError {
   constructor(message: string) {
-    super('TIMEOUT_ERROR', message);
+    super('TIMEOUT', message);
+  }
+}
+
+/** `git log -L` failed or timed out (R8.1). Not a GitError, so the server maps it first. */
+export class HistoryError extends SeanceError {
+  constructor(message: string) {
+    super('HISTORY_ERROR', message);
+  }
+}
+
+/** Anthropic 401, 403 or 404: wrong key or model name. */
+export class ModelConfigError extends SeanceError {
+  constructor(message: string) {
+    super('MODEL_CONFIG', message);
+  }
+}
+
+/** Anthropic 429, 529, 5xx, or a connection error. */
+export class ModelBusyError extends SeanceError {
+  constructor(message: string) {
+    super('MODEL_BUSY', message);
   }
 }
 

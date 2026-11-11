@@ -65,7 +65,7 @@ export function buildPrompt(
   question: string,
   sessionId: string,
 ): ModelPrompt {
-  const persona = escapeLedgerText(deriveMostFrequentAuthor(ledger));
+  const persona = escapeLedgerText(mostFrequentAuthor(ledger));
   const user = [
     `<persona author="${persona}"/>`,
     renderEvidenceBlock(ledger),
@@ -80,9 +80,10 @@ export function buildPrompt(
 
 /**
  * Most frequent author: the highest count wins, ties go to the first seen,
- * and an empty ledger gives "Unknown Author".
+ * and an empty ledger gives "Unknown Author". The prompt and /api/summon's
+ * `persona.author` both use this one rule (first-seance R2.2).
  */
-function deriveMostFrequentAuthor(ledger: ReadonlyArray<EvidenceItem>): string {
+export function mostFrequentAuthor(ledger: ReadonlyArray<EvidenceItem>): string {
   const counts = new Map<string, number>();
   for (const item of ledger) {
     counts.set(item.author, (counts.get(item.author) ?? 0) + 1);

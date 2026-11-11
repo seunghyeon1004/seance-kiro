@@ -15,7 +15,7 @@
  */
 
 import { Hono } from 'hono';
-import type { MiddlewareHandler } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { serve } from '@hono/node-server';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { secureHeaders } from 'hono/secure-headers';
@@ -25,8 +25,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { buildLedger, validateLedgerInput } from './evidence/ledger.js';
-import { buildPrompt } from './ghost/persona.js';
-import { askGhost } from './ghost/llm.js';
+import { buildPrompt, mostFrequentAuthor } from './ghost/persona.js';
+import { askGhost, modelConfigured } from './ghost/llm.js';
 import type { AnthropicClient } from './ghost/llm.js';
 import { verify } from './ghost/verifier.js';
 import { GhostAnswerWireSchema, HUNK_UI_CHARS } from './ghost/schema.js';
@@ -48,6 +48,10 @@ import {
   TimeoutError,
   ConfigError,
   ParseError,
+  HistoryError,
+  ModelConfigError,
+  ModelBusyError,
+  SeanceError,
 } from './errors.js';
 import { createModelLimiter, createSlotPool, clientKey } from './ratelimit.js';
 import type { ModelLimiter } from './ratelimit.js';
@@ -66,6 +70,8 @@ type SessionEntry = {
   file?: string;
   startLine?: number;
   endLine?: number;
+  /** Set when the repoUrl was 'crypt' or 'possessed' (design.md §3.2); the range is checked by recordingTargetFor. */
+  sample?: SampleName;
 };
 
 const sessions = new Map<string, SessionEntry>();
@@ -177,50 +183,85 @@ const AskRequestSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Error → HTTP mapping
+// Error → HTTP mapping (first-seance design.md §3.3)
 // ---------------------------------------------------------------------------
 
-function toHttpError(err: unknown): { status: number; code: string; message: string } {
+/** The fixed sentences a visitor sees; details go only to the server log (R6.1, R6.3, R8.1). */
+const ERROR_MESSAGES = {
+  HISTORY_ERROR:
+    'Git could not read the history of these lines in time. Try a smaller range, or try again.',
+  GIT_ERROR:
+    'Git could not read that file and line range. Check the file path and the line numbers.',
+  CLONE_ERROR:
+    'The repository could not be cloned. It may be private, missing, too large or too slow to download.',
+  MODEL_CONFIG:
+    "The ghost cannot be reached: the server's model key or model name is wrong.",
+  MODEL_BUSY: 'The spirits are busy. Try again in a minute.',
+  TIMEOUT: 'The ghost took too long to answer.',
+  LLM_ERROR: "The ghost's answer was not in a form the ward can read. Try asking again.",
+  CONFIG_ERROR:
+    'The ghost cannot speak on this server (no model key). The crypt and the ward still work.',
+} as const;
+
+type HttpError = {
+  status: 400 | 404 | 422 | 500 | 503;
+  code: string;
+  message: string;
+  headers?: Record<string, string>;
+};
+
+function toHttpError(err: unknown): HttpError {
   if (err instanceof ValidationError) {
     return { status: 400, code: err.code, message: err.message };
   }
   if (err instanceof SessionNotFoundError) {
     return { status: 404, code: err.code, message: err.message };
   }
+  // Every row below logs the full error first, so the details exist only in the server log
+  if (err instanceof HistoryError) {
+    console.error('[seance] HISTORY_ERROR', { code: err.code, message: err.message });
+    return { status: 422, code: err.code, message: ERROR_MESSAGES.HISTORY_ERROR };
+  }
   if (err instanceof GitError || err instanceof CloneError) {
     // The raw message can hold command lines, temp paths and git stderr: log it, never send it (R10.2)
     console.error('[seance] git failure', { code: err.code, message: err.message });
     return err instanceof GitError
-      ? {
-          status: 422,
-          code: err.code,
-          message:
-            'Git could not read that file and line range. Check the file path and the line numbers.',
-        }
-      : {
-          status: 422,
-          code: err.code,
-          message:
-            'The repository could not be cloned. It may be private, missing, too large or too slow to download.',
-        };
+      ? { status: 422, code: err.code, message: ERROR_MESSAGES.GIT_ERROR }
+      : { status: 422, code: err.code, message: ERROR_MESSAGES.CLONE_ERROR };
   }
-  if (err instanceof TimeoutError) {
-    return { status: 503, code: err.code, message: err.message };
+  const model = (
+    code: keyof typeof ERROR_MESSAGES,
+    e: SeanceError,
+    headers?: Record<string, string>,
+  ): HttpError => {
+    // The API key is already redacted inside classifyModelError
+    console.error(`[seance] ${code}`, { code: e.code, message: e.message });
+    return {
+      status: 503,
+      code,
+      message: ERROR_MESSAGES[code],
+      ...(headers ? { headers } : {}),
+    };
+  };
+  if (err instanceof ModelConfigError) return model('MODEL_CONFIG', err);
+  if (err instanceof ModelBusyError) {
+    return model('MODEL_BUSY', err, { 'Retry-After': '60' });
   }
-  if (
-    err instanceof ParseError &&
-    (err.message.includes('LLM') || err.message.includes('Fixture'))
-  ) {
-    return { status: 503, code: 'LLM_ERROR', message: err.message };
-  }
-  if (err instanceof ConfigError) {
-    return { status: 503, code: err.code, message: err.message };
-  }
+  if (err instanceof TimeoutError) return model('TIMEOUT', err);
+  // Every ParseError that reaches a route comes from askGhost or askPlan (design.md §3.3 row 8)
+  if (err instanceof ParseError) return model('LLM_ERROR', err);
+  if (err instanceof ConfigError) return model('CONFIG_ERROR', err);
   console.error(
     '[seance] unexpected error:',
     err instanceof Error ? (err.stack ?? err.message) : String(err),
   );
   return { status: 500, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' };
+}
+
+/** The JSON error response for toHttpError's result, with its headers (R6.2). */
+function errorResponse(c: Context, err: unknown): Response {
+  const { status, code, message, headers } = toHttpError(err);
+  return c.json({ code, message }, status, headers);
 }
 
 // ---------------------------------------------------------------------------
@@ -234,19 +275,37 @@ const ALLOW_LOCAL = process.env['ALLOW_LOCAL'] === '1';
 const REDACT = process.env['REDACT_REJECTED'] === '1';
 const REDACTED_TEXT = '[claim redacted - failed verification]';
 
+type SampleName = 'crypt' | 'possessed';
+const SAMPLE_ORDER: readonly SampleName[] = ['crypt', 'possessed'];
+
+function isSampleName(s: string): s is SampleName {
+  return (SAMPLE_ORDER as readonly string[]).includes(s);
+}
+
+/** Where a bundled sample lives. POSSESSED_DIR is read per call, so a test can point it at a fresh build (R8.2). */
+function sampleDir(name: SampleName): string {
+  return name === 'crypt'
+    ? CRYPT_DIR
+    : (process.env['POSSESSED_DIR'] ?? path.join(ROOT, 'data', 'possessed'));
+}
+
+/** The samples whose repository has been built, in the order crypt, possessed (R5.1). */
+function builtSamples(): SampleName[] {
+  return SAMPLE_ORDER.filter((s) => fs.existsSync(path.join(sampleDir(s), '.git')));
+}
+
 /** "crypt" and "possessed" are the bundled sample repos. Local paths are refused unless ALLOW_LOCAL=1 (hosted demos must not read the server disk). */
 function resolveRepo(repoUrl: string): string {
   if (repoUrl === 'crypt') {
-    if (!fs.existsSync(path.join(CRYPT_DIR, '.git'))) {
+    if (!fs.existsSync(path.join(sampleDir('crypt'), '.git'))) {
       throw new ValidationError(
         'The sample crypt has not been built; run scripts/make-crypt.sh',
       );
     }
-    return CRYPT_DIR;
+    return sampleDir('crypt');
   }
   if (repoUrl === 'possessed') {
-    // Read per request, so a test can point it at a freshly built sample (R8.2)
-    const dir = process.env['POSSESSED_DIR'] ?? path.join(ROOT, 'data', 'possessed');
+    const dir = sampleDir('possessed');
     if (!fs.existsSync(path.join(dir, '.git'))) {
       throw new ValidationError(
         'The possessed sample has not been built; run scripts/make-possessed.sh',
@@ -410,9 +469,14 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
   // GET /api/health
   // ---------------------------------------------------------------------------
 
-  app.get('/api/health', (c) => {
-    return c.json({ status: 'ok', uptime: process.uptime() });
-  });
+  app.get('/api/health', (c) =>
+    c.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      model: modelConfigured(), // read per request
+      samples: builtSamples(),
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // POST /api/summon
@@ -479,6 +543,7 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
         file: valid.file,
         startLine: valid.startLine,
         endLine: valid.endLine,
+        ...(isSampleName(valid.repoUrl) ? { sample: valid.repoUrl } : {}),
       });
 
       return c.json({
@@ -500,10 +565,12 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
           pr: i.pr,
           suspiciousMessage: i.suspiciousMessage,
         })),
+        lines: ledger.lines ?? [], // R2.1
+        persona: { author: mostFrequentAuthor(ledger.items) }, // R2.2
+        shallow: ledger.shallow ?? false, // R8.3
       });
     } catch (err: unknown) {
-      const { status, code, message } = toHttpError(err);
-      return c.json({ code, message }, status as 400 | 422 | 500);
+      return errorResponse(c, err);
     }
   });
 
@@ -562,8 +629,7 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
         toAnswerResponse(ledger, verifierResult, ghostAnswer.voice, report, sessionId),
       );
     } catch (err: unknown) {
-      const { status, code, message } = toHttpError(err);
-      return c.json({ code, message }, status as 400 | 404 | 503 | 500);
+      return errorResponse(c, err);
     }
   });
 
@@ -647,8 +713,7 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
         }),
       );
     } catch (err: unknown) {
-      const { status, code, message } = toHttpError(err);
-      return c.json({ code, message }, status as 400 | 404 | 503 | 500);
+      return errorResponse(c, err);
     }
   });
 

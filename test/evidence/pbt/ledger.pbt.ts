@@ -27,6 +27,7 @@ vi.mock('../../../src/evidence/git.js', async (importOriginal) => {
     logL: vi.fn(async () => []),
     showHunk: vi.fn(async () => ''),
     changedFiles: vi.fn(async () => []),
+    readLines: vi.fn(async () => []),
     cloneRepo: vi.fn(async () => ({
       root: '/tmp/fake',
       cleanup: async () => undefined,

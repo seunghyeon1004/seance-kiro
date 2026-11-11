@@ -19,7 +19,7 @@ export { LedgerInputSchema, validateLedgerInput } from './ledger.input.js';
 // Imports
 // ---------------------------------------------------------------------------
 
-import { blame, logL, showHunk, changedFiles, cloneRepo } from './git.js';
+import { blame, logL, showHunk, changedFiles, cloneRepo, readLines } from './git.js';
 import { parseRefs, isSuspicious } from './refs.js';
 import { parseGitHubRemote, fetchGitHubRef } from './github.js';
 import type { LedgerInput } from './ledger.input.js';
@@ -59,6 +59,7 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
 
   let repoRoot = input.repoUrl;
   let cleanup: (() => Promise<void>) | undefined;
+  let shallow = false;
 
   try {
     // Step 1 — clone remote repo
@@ -66,6 +67,8 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
       const resolved = await cloneRepo(input.repoUrl);
       repoRoot = resolved.root;
       cleanup = resolved.cleanup;
+      // A mocked cloneRepo that returns no `shallow` is not shallow (design.md §5.4)
+      shallow = resolved.shallow === true;
     }
 
     // Step 2 — blame to collect commit SHAs in the range
@@ -78,6 +81,9 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
 
     // Step 3 — log -L for ordered history + rename events
     const logCommits = await logL(repoRoot, input.file, input.startLine, input.endLine);
+
+    // The selected lines at HEAD, read before the clone is deleted (first-seance R2.1)
+    const lines = await readLines(repoRoot, input.file, input.startLine, input.endLine);
 
     // Step 4 — deduplicate SHAs (blame + log combined)
     const blameShas = new Set(blameEntries.map((e) => e.sha));
@@ -195,6 +201,8 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
     // Step 10 — freeze (R7.2)
     items.forEach(Object.freeze);
     Object.freeze(items);
+    lines.forEach(Object.freeze);
+    Object.freeze(lines);
 
     const buildDurationMs = performance.now() - t0;
 
@@ -202,6 +210,8 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
       items: items as readonly EvidenceItem[],
       truncated,
       buildDurationMs,
+      lines,
+      shallow,
     };
   } finally {
     // Always clean up cloned repos (R8.2)

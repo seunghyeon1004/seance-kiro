@@ -495,9 +495,12 @@ describe('askGhost — timeout', () => {
     };
 
     const { TimeoutError: TE } = await import('../../src/errors.js');
-    await expect(
-      askGhost({ system: 's', user: 'u' }, 'sess', fakeClient),
-    ).rejects.toThrow(TE);
+    const err = await askGhost({ system: 's', user: 'u' }, 'sess', fakeClient).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(TE);
+    // first-seance T1: the code the server and the page read (design.md §4.1)
+    expect((err as InstanceType<typeof TE>).code).toBe('TIMEOUT');
 
     delete process.env['LLM_TIMEOUT_MS'];
   });
