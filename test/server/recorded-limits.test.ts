@@ -39,7 +39,8 @@ process.env['RATE_LIMIT_MAX'] = '2';
 process.env['RECORDED_RATE_LIMIT_MAX'] = '12';
 
 const KEY = 'test-dummy-key-not-a-secret';
-const DAILY = 'The séance is closed for tonight. The spirits will answer again tomorrow.';
+const DAILY =
+  "The live ghost has used today's calls. The sample questions and the ward still work.";
 const CLIENT =
   'The spirits are tired. Let them rest a few minutes before you call again.';
 const CHIP = SAMPLE_QUESTIONS.crypt[0]!;

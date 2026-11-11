@@ -317,3 +317,73 @@ This addendum changes `src/ghost/verifier.ts` only through `ward-hardening` R11.
 **R14.5** After a network failure on `/api/ask` or `/api/exorcise`, `api()` shall throw at once with the message "The connection dropped. The ghost may still have answered; ask again in a moment." The callers show it as they show any other error.
 
 **R14.6** A verified memory claim shall carry the label "Citations verified". This amends R12.7 ("Verified"). Speculation keeps the label "Speculation".
+
+## Polish addendum (2026-11-11, re-audits)
+
+Input: `docs/kiro-evidence/reaudit-layout-session.txt` (findings C1–C15, S1–S7) and `docs/kiro-evidence/reaudit-first-run-session.txt` (the judge's path, read by a model, run against nothing). The human picked the fixes below, L1–L15 from the layout audit and F1–F12 from the first-run audit. Nothing else in either audit is in scope: not the screenshots, the README, the Dockerfile, `render.yaml`, the verifier, the reason strings, `X-Forwarded-For` or the clone depth.
+
+Decisions:
+
+- **One vocabulary.** A claim is never called verified; its citations are. The per-claim label stays "Citations verified" (R14.6). The tallies say "passed the ward". The Markdown report and the API field names do not change.
+- **The limit is read once.** The ward's limit sentence (ward-hardening R2.3) moves from a paragraph above the guide to the first ghost answer of each séance. This amends ward-hardening R11.2, which repeated it under every answer.
+- **The model's words are labelled once.** One sentence at the top of the exorcism replaces the per-section and per-step labels.
+- **No token field.** The pull request text a token fetches is shown nowhere, and the ghost may not quote it, so the page stops asking for one. The API still accepts `githubToken`.
+- **Errors stay next to their controls,** and focus follows the result the visitor asked for.
+
+`src/ghost/verifier.ts`, `src/ratelimit.ts`, `test/server/ratelimit.test.ts`, `recordings/*.json` and `test/fixtures/**/*.json` are unchanged.
+
+### R15 Polish (2026-11-11, re-audits)
+
+**R15.1** (L1, C1) Below 60rem the hero candle's wax shall be 4.9rem and its wick 0.75rem tall, so the candle fits its 7.5rem box. `.candle-stage` shall have `pointer-events: none`, and below 40rem it shall not be displayed.
+
+**R15.2** (L2, C2) The guide's steps shall be numbered by a CSS counter on `.guide-title` ("1. Ask the ghost", "2. Try to fool the ward", "3. Run the exorcism"), with `list-style: none` and no inline-start padding on the list.
+
+**R15.3** (L3, C3) `.summon .actions` shall span the whole form row (`grid-column: 1 / -1`), which beats `.field.wide`. The token disclosure no longer exists (R15.21).
+
+**R15.4** (L4, C4) After a summon, when `(min-width: 60rem)` matches, the page shall scroll `#seance` to the top of the view and focus `#h-guide` with `preventScroll`. Below 60rem it shall scroll `#h-guide` as before.
+
+**R15.5** (L5, C5) `#verified-counter` shall be `position: sticky` at the top of the talk column, on the paper background, while it has text, and static when empty.
+
+**R15.6** (L6, C6) A failed exorcism shall be written into `#exorcise-err`, and a failed preset or possessed-ghost request into `#ward-err`. Each is a `<p class="err" role="alert">` in its guide step, tied to the button that failed with `aria-describedby`, and is not added to `#log`. It is hidden and untied when that step's next request starts, and on a new summon. Failures from the manual plant form still go to `#log`. `#map-status` and `#map-err` shall follow `#map-meta`.
+
+**R15.7** (L7, C7) A "Do not touch" entry shall be a block ruled on its inline-start side, with no border, radius or background of its own.
+
+**R15.8** (L8, C8) In the header the wordmark shall sit on the left and the nav and the candle button on the right (`justify-content: flex-start`, `margin-inline-start: auto` on the nav, `row-gap: var(--space-xs)`). Below 40rem the candle button shall also get `margin-inline-start: auto`, so a wrapped button sits on the right of one second row.
+
+**R15.9** (L9, C9, C10) `.claim .lab` and `.cite` shall have `font-style: normal`, so a speculation claim's italic does not reach its label or its hash buttons. The speculation label shall use `--color-speculation` (a flagged-commit warning keeps its accent). The quotation marks of `.found-quote` shall use the body font.
+
+**R15.10** (L15, C15) The rules the audit named as dead shall be removed: `.btn[disabled]`, `.btn.ghost[disabled]` (no `.btn` is ever disabled; busy buttons use `aria-disabled`, and only `.cite` gets `disabled`), the top-level `.field.grow`, every `.token` rule, the `grid-column` of `.actions`, and the unused `--color-success` token. `.ledger li` and `.map-tile` stay in the `unicode-bidi: plaintext` list, because ward-hardening R11.8 and `test/ui/bidi.test.ts` require them. `public/base.css` is unchanged.
+
+**R15.11** (F3) `#ward-limit` shall be removed. The ward's limit sentence shall appear once per séance, under the tally of the first ghost answer (live or recorded), and not under planted or scripted turns. This amends ward-hardening R2.3 and R11.2.
+
+**R15.12** (L10, C11, C12) `.haunting-map` shall have `margin-top: var(--space-2xl)`, like the exorcism. `#map-note` shall be shown in a neutral style (rule border, paper-2 background), not the error style. An empty `#log` and an empty map status shall take no space.
+
+**R15.13** (F5) `#repo-help` shall read "crypt and possessed are samples. Or paste a public GitHub link." When the repository field holds a GitHub link, `#repo-note` shall add "Séance reads the default branch and the most recent 100 commits." after the blob or tree note, if any. When the summoned repository is `possessed`, `#crypt-possessed` under the crypt heading shall read "This sample's commits try to give the ghost orders. Flagged commits are marked." This amends R1.3.
+
+**R15.14** (L11, C13) After a chip, preset or possessed-ghost click, the new turn (`tabindex="-1"`) shall take focus with `preventScroll`, after it is scrolled into view. An answer to a typed question leaves focus in the form.
+
+**R15.15** (L12, C14, S3–S6) `.ledger details summary` shall have `padding-block: var(--space-2xs)`. A cite click shall scroll its ledger row with `block: 'nearest'`. `.ledger li` shall be `position: relative`. `.source-lines` shall have `padding-inline-start: calc(6ch + var(--space-sm))`. `.planchette` shall have `pointer-events: none`.
+
+**R15.16** (L13, S2) The content of `#plant` after its summary shall sit in `<div class="plant-body">`, a one-column grid with `gap: var(--space-sm)`.
+
+**R15.17** (L14, S7) An author name inserted next to fixed copy shall be its own `<bdi>`: in `#ghost-name`, in "Haunted by <name>" (map headings and tiles), and the legend's `.map-name`.
+
+**R15.18** (F1) "Blame the wrong author" shall send "<name> wrote commit <sha7>.", citing that commit, which someone else wrote, with the quote from its subject. The pair is the first one in ledger order whose cited commit does not name that author and whose short hash spells no year the commit does not back (by its date or its fields), so only the ward's author check refuses it. This amends design.md §11.2 of ward-hardening.
+
+**R15.19** (F2) In a scripted turn, a silence claim shall carry the label "Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it." and the class `ordered`, styled like an unverified claim (dashed, in the rejected colour). `#ward-status` after the possessed ghost shall read "The ward verified ${verified} of ${checked} claims from the possessed ghost." plus the silence note of R4.3 (" 1 silence claim was not checked."), from the response's tally. This amends R13.10.
+
+**R15.20** (F4) The recorded answer label shall read "A recorded answer (the live model is unavailable). The ward checked it again just now." and `#ex-recorded` "A recorded plan (the live model is unavailable). The ward checked it again just now." This amends R7.10.
+
+**R15.21** (F6) The page shall have no GitHub token field, and neither the summon form nor "Summon here" shall send `githubToken`. The API keeps accepting it. This amends haunting-map R6.1.
+
+**R15.22** (F7) The exorcism shall start with one sentence, `#ex-words`: "The summary, the tests, the steps and the reasons are the model's words. The ward checked only the cited claims shown under each step." The per-section and per-step "model's words, not checked" labels shall be removed, in steps, "Do not touch" entries and struck entries. `#ex-tests-lab` shall read "Read each test before you run it." This amends ward-hardening R7.4.
+
+**R15.23** (F8) The map's counts shall read "N of M commits by departed authors". Its limits shall sit in `<details class="map-limits" id="map-limit">` with the summary "What this map leaves out". The tile of the open file ("You are here") shall have no "Summon here" button. These amend haunting-map R2.6, R5.2, R5.6 and R5.10.
+
+**R15.24** (F9) When the open séance is not a sample's default range and the live model is unavailable (health said `model: false`, or an ask in this séance failed with `CONFIG_ERROR`, `MODEL_CONFIG`, `MODEL_BUSY`, `TIMEOUT` or `RATE_LIMITED`), step 1 shall show `#guide-ask-note` ("The live model is unavailable here, so only the sample lines have recorded answers.") and `#back-btn` ("Back to ${sample}, line ${n}"). The button fills the form with the default range of the last sample summoned (crypt when none was) and summons it.
+
+**R15.25** (F10) With an empty ledger the misquote and wrong-author buttons shall be hidden. A chip click while a request runs shall show "Wait for the ghost to finish answering." in `#guide-ask-status` (presets already do so in `#ward-status`). Ask and exorcise shall show elapsed seconds in `#ask-elapsed` and `#exorcise-elapsed`, as the remote summon does.
+
+**R15.26** (F11) The model limiter's daily message shall be "The live ghost has used today's calls. The sample questions and the ward still work." `test/server/ratelimit.test.ts` does not assert it and stays unchanged.
+
+**R15.27** (F12) The footer shall link "Source on GitHub" to https://github.com/seunghyeon1004/seance-kiro with `rel="noopener"`. Rule 1 of "How it works" shall read "It remembers only commits. Messages, diffs, authors and dates from git history."

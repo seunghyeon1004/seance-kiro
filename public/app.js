@@ -18,6 +18,8 @@ const ORDERS_GHOST = 'A ghost whose name tries to give orders';
 const HUNK_UI_CHARS = 4000;
 const QUOTE_MIN_CHARS = 8;
 const QUOTE_MAX_CHARS = 500;
+/** The ward's year rule (src/ghost/verifier.ts YEAR_RE): 1970–2099, not touching another digit. */
+const YEAR_RE = /(?<![0-9])(?:19[7-9][0-9]|20[0-9][0-9])(?![0-9])/g;
 
 /** Where the ward found a quote (R2.2). */
 const FIELD_LABEL = {
@@ -44,7 +46,18 @@ const state = {
   totalVerified: 0,
   totalClaims: 0,
   totalSilent: 0,
+  /** The sample the "Back to" button summons: the last one summoned (first-seance R15.24). */
+  lastSample: 'crypt',
+  /** /api/health said `model: false` (R15.24). */
+  modelDown: false,
+  /** An ask in this séance failed because the model is unavailable (R15.24). */
+  askDown: false,
+  /** The ward's limit sentence was shown under a ghost answer of this séance (R15.11). */
+  limitShown: false,
 };
+
+/** Wide screens: the two-column séance of styles.css (first-seance R15.4). */
+const wideScreen = window.matchMedia('(min-width: 60rem)');
 
 function el(tag, props = {}, children = []) {
   const n = document.createElement(tag);
@@ -181,6 +194,7 @@ const BLOB_NOTE =
   'Filled in the file and lines from the link. Séance reads the default branch, not the branch or commit in the link.';
 const TREE_NOTE =
   'That link points at a folder. Finish the file path in the File field. Séance reads the default branch.';
+const GITHUB_NOTE = 'Séance reads the default branch and the most recent 100 commits.';
 
 /**
  * A GitHub link as people paste it, in the one form the server accepts (R9.1–R9.4).
@@ -284,7 +298,6 @@ function validate() {
         file,
         startLine: start,
         endLine: end,
-        githubToken: $('token').value.trim() || undefined,
       }
     : null;
 }
@@ -315,8 +328,12 @@ $('repo').addEventListener('change', () => {
     $('start').value = String(n.startLine);
     $('end').value = String(n.endLine);
   }
-  $('repo-note').textContent = n.note || '';
-  $('repo-note').hidden = !n.note;
+  // first-seance R15.13: a GitHub link also says what is read, after the blob or tree note
+  const note = [n.note, /^https:\/\/github\.com\//.test(n.repoUrl) ? GITHUB_NOTE : '']
+    .filter(Boolean)
+    .join(' ');
+  $('repo-note').textContent = note;
+  $('repo-note').hidden = !note;
   const next = sampleSwap($('repo').value.trim(), {
     file: $('file').value,
     start: $('start').value,
@@ -331,9 +348,9 @@ $('repo').addEventListener('change', () => {
 const REMOTE_TEXT =
   'Cloning from GitHub and reading the history. This usually takes 10 to 60 seconds.';
 
-/** Updates #summon-elapsed every second (not a live region). Returns a stop function (R10.4). */
-function startElapsed() {
-  const out = $('summon-elapsed');
+/** Updates the `outId` counter every second (not a live region). Returns a stop function (R10.4, R15.25). */
+function startElapsed(outId) {
+  const out = $(outId);
   let s = 0;
   out.textContent = '';
   const id = setInterval(() => {
@@ -374,20 +391,34 @@ function openSeance(data, input) {
   state.totalClaims = 0;
   state.totalSilent = 0;
   state.lastReport = null;
+  state.askDown = false;
+  state.limitShown = false;
+  if (Object.prototype.hasOwnProperty.call(SAMPLE_DEFAULTS, input.repoUrl))
+    state.lastSample = input.repoUrl;
   renderSource(data, input);
   renderLedger(data);
   renderMap(data, input.file);
   renderGuide(state.sample);
-  // R2.4, R2.5: a name that tries to give orders is never printed as the ghost's name
-  $('ghost-name').textContent = !data.items.length
-    ? 'Speaks only from the commits.'
-    : data.persona.suspicious === true
-      ? 'A ghost whose name tries to give orders (see the crypt), speaking only from the commits.'
-      : `${data.persona.author}, speaking only from the commits.`;
+  // R15.13: the possessed sample says once, under the crypt heading, what its commits do
+  $('crypt-possessed').hidden = input.repoUrl !== 'possessed';
+  // R2.4, R2.5: a name that tries to give orders is never printed as the ghost's name;
+  // R15.17: a name next to fixed copy sits in its own <bdi>
+  if (!data.items.length) $('ghost-name').textContent = 'Speaks only from the commits.';
+  else if (data.persona.suspicious === true)
+    $('ghost-name').textContent =
+      'A ghost whose name tries to give orders (see the crypt), speaking only from the commits.';
+  else
+    $('ghost-name').replaceChildren(
+      el('bdi', { text: data.persona.author }),
+      document.createTextNode(', speaking only from the commits.'),
+    );
   $('verified-counter').textContent = '';
   $('ask-status').textContent = '';
+  $('guide-ask-status').textContent = '';
   $('ward-status').textContent = '';
   $('exorcise-status').textContent = '';
+  stepError('ward-err', '', null);
+  stepError('exorcise-err', '', null);
   clearQError();
   $('copy-report-btn').hidden = true;
   $('exorcism-wrap').hidden = true;
@@ -396,9 +427,11 @@ function openSeance(data, input) {
   setHaunting(0);
   setConfidence(0.5);
   $('seance').hidden = false;
+  updateAskNote();
   $('summon-status').textContent = summonFound(data.items.length);
+  // R15.4: on wide screens the whole séance, line in question included, comes into view
   const h = $('h-guide');
-  h.scrollIntoView({
+  (wideScreen.matches ? $('seance') : h).scrollIntoView({
     behavior: reduceMotion.matches ? 'auto' : 'smooth',
     block: 'start',
   });
@@ -429,7 +462,7 @@ $('summon-form').addEventListener('submit', async (e) => {
   let stopElapsed = null;
   if (/^https:\/\//i.test(input.repoUrl)) {
     $('summon-status').textContent = REMOTE_TEXT;
-    stopElapsed = startElapsed();
+    stopElapsed = startElapsed('summon-elapsed');
   } else {
     $('summon-status').textContent = 'Gathering evidence…';
   }
@@ -456,6 +489,7 @@ async function wake() {
     const h = await api('/api/health', undefined, { status: 'summon-status' });
     if ($('summon-status').textContent === WAKE_TEXT) $('summon-status').textContent = '';
     $('model-note').hidden = h.model !== false;
+    state.modelDown = h.model === false;
     const built = Array.isArray(h.samples) ? h.samples : [];
     for (const o of [...$('repo-list').options]) if (!built.includes(o.value)) o.remove();
   } catch {
@@ -568,7 +602,7 @@ function focusCommit(sha) {
   if (!row) return;
   row.scrollIntoView({
     behavior: reduceMotion.matches ? 'auto' : 'smooth',
-    block: 'center',
+    block: 'nearest',
   });
   row.focus({ preventScroll: true });
   state.lastCited = sha;
@@ -580,9 +614,9 @@ function focusCommit(sha) {
 
 const plural = (n, word) => `${countFmt.format(n)} ${word}${n === 1 ? '' : 's'}`;
 
-/** "N of M commits by ghosts", singular when M is 1 (R2.6, R5.11). */
+/** "N of M commits by departed authors", singular when M is 1 (R2.6, R5.11, first-seance R15.23). */
 function commitsText(n, m) {
-  return `${countFmt.format(n)} of ${countFmt.format(m)} commit${m === 1 ? '' : 's'} by ghosts`;
+  return `${countFmt.format(n)} of ${countFmt.format(m)} commit${m === 1 ? '' : 's'} by departed authors`;
 }
 
 /** The ghost's name, or the warning wording for a suspicious name (R8.2). */
@@ -590,9 +624,10 @@ function ghostLabel(g) {
   return g.suspicious ? ORDERS_GHOST : g.name;
 }
 
-/** "Haunted by <name>", or the warning in its own label for a suspicious name (R8.2). */
+/** "Haunted by <name>", the name in a <bdi> (R15.17), or the warning in its own label for a suspicious name (R8.2). */
 function hauntedBy(g, withGlyph) {
-  if (!g.suspicious) return [document.createTextNode(`Haunted by ${g.name}`)];
+  if (!g.suspicious)
+    return [document.createTextNode('Haunted by '), el('bdi', { text: g.name })];
   const out = [
     document.createTextNode('Haunted by '),
     el('span', { class: 'lab warn', text: ORDERS_GHOST.replace(/^A /, 'a ') }),
@@ -607,7 +642,7 @@ function legendItem(g) {
     el('span', { class: 'glyph', text: g.glyph }),
     g.suspicious
       ? el('span', { class: 'lab warn', text: ghostLabel(g) })
-      : el('span', { class: 'map-name', text: ghostLabel(g) }),
+      : el('bdi', { class: 'map-name', text: ghostLabel(g) }),
     el('span', {
       class: 'meta',
       text: `Last seen ${dateFmt.format(new Date(g.lastSeen))}`,
@@ -616,18 +651,21 @@ function legendItem(g) {
   ]);
 }
 
-/** One tile (R5.6–R5.8, R5.10). `ghost` is null for a tended file. Tiles take no focus. */
+/** One tile (R5.6–R5.8, R5.10). `ghost` is null for a tended file. Tiles take no focus. The tile you are on has no button (R15.23). */
 function mapTile(f, ghost, here) {
   const li = el('li', { class: 'map-tile' });
   li.setAttribute('data-path', f.path);
   li.style.setProperty('--share', String(f.departedTouches / f.totalTouches));
-  const button = el('button', {
-    class: 'btn small ghost',
-    type: 'button',
-    text: 'Summon here',
-    'aria-label': `Summon here: ${f.path}`,
-  });
-  button.addEventListener('click', () => summonHere(f.path, button));
+  let button = null;
+  if (f.path !== here) {
+    button = el('button', {
+      class: 'btn small ghost',
+      type: 'button',
+      text: 'Summon here',
+      'aria-label': `Summon here: ${f.path}`,
+    });
+    button.addEventListener('click', () => summonHere(f.path, button));
+  }
   li.append(
     ...[
       el('p', { class: 'map-path' }, [el('code', { text: f.path })]),
@@ -751,8 +789,6 @@ async function summonHere(path, button) {
   setLine('map-err', '');
   const repoUrl = state.repoUrl;
   const body = { repoUrl, file: path, wholeFile: true };
-  const token = $('token').value.trim();
-  if (token) body.githubToken = token;
   try {
     const data = await api('/api/summon', body, { status: 'map-status' });
     $('file').value = path;
@@ -823,25 +859,36 @@ function foundNode(quotes) {
   ]);
 }
 
+/** The label of a silence claim the commits ordered, in a scripted turn (first-seance R15.19). */
+const ORDERED_SILENCE_LABEL =
+  'Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it.';
+
 /**
  * One claim. `bucket` is 'verified', 'rejected' or 'silent'. Each state has a text label;
- * a claim that cites a flagged commit says so (R2.2, R4.5, R6.4).
+ * a claim that cites a flagged commit says so (R2.2, R4.5, R6.4). `opts.ordered`: a silence
+ * claim of the scripted ghost, which the commits ordered, labelled as not verified (R15.19).
  */
-function claimNode(c, bucket) {
+function claimNode(c, bucket, opts = {}) {
   const warn = () =>
     el('span', {
       class: 'lab warn',
       text: 'Cites a commit that tries to give the ghost orders',
     });
   if (bucket === 'silent') {
-    return el('article', { class: 'claim silence' }, [
-      el('span', {
-        class: 'lab',
-        text: "The record is silent (the ghost's words, not checked)",
-      }),
-      el('span', { class: 'txt', text: c.text }),
-      el('span', { class: 'why', text: `Unanswered question: ${c.silenceReason}` }),
-    ]);
+    return el(
+      'article',
+      { class: opts.ordered ? 'claim silence ordered' : 'claim silence' },
+      [
+        el('span', {
+          class: 'lab',
+          text: opts.ordered
+            ? ORDERED_SILENCE_LABEL
+            : "The record is silent (the ghost's words, not checked)",
+        }),
+        el('span', { class: 'txt', text: c.text }),
+        el('span', { class: 'why', text: `Unanswered question: ${c.silenceReason}` }),
+      ],
+    );
   }
   if (bucket === 'rejected') {
     const node = el('article', { class: 'claim rejected' });
@@ -880,12 +927,12 @@ function counterText(tv, tc, ts) {
   if (tc + ts === 0) return '';
   const extra =
     ts > 0 ? `, plus ${ts} silence claim${ts === 1 ? '' : 's'} not checked` : '';
-  return `${tv} of ${tc} claims verified this séance${extra}`;
+  return `${tv} of ${tc} claims passed the ward this séance${extra}`;
 }
 
 const RECORDED_LABEL =
-  'A recorded answer (the model is resting). The ward checked it again just now.';
-/** The #ward-limit sentence (ward-hardening R2.3), repeated under each answer's tally (R11.2). */
+  'A recorded answer (the live model is unavailable). The ward checked it again just now.';
+/** The ward's limit (ward-hardening R2.3, R11.2), shown once per séance, under the first ghost answer (R15.11). */
 const WARD_LIMIT_TEXT =
   "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.";
 const SCRIPTED_LABEL =
@@ -895,10 +942,11 @@ const SCRIPTED_LABEL =
  * One turn. `opts.planted`: the visitor's own claim, labelled as such, which never counts
  * for the ghost (R4.1, R4.2). `opts.scripted`: the possessed ghost's scripted claims, labelled,
  * with no question line, which never count either (R13.8, R13.9). A recorded answer is
- * labelled and counts like a live one (R7.10).
+ * labelled and counts like a live one (R7.10). `opts.focus`: the turn takes focus after its
+ * scroll (R15.14).
  */
 function renderAnswer(data, question, opts = {}) {
-  const turn = el('div', { class: 'turn' });
+  const turn = el('div', { class: 'turn', tabindex: '-1' });
   if (opts.planted) {
     $('log').append(
       el('div', { class: 'turn-q planted' }, [
@@ -920,17 +968,20 @@ function renderAnswer(data, question, opts = {}) {
   if (opts.scripted)
     turn.append(el('p', { class: 'lab scripted', text: SCRIPTED_LABEL }));
   for (const c of data.verified) turn.append(claimNode(c, 'verified'));
-  for (const s of data.silent) turn.append(claimNode(s, 'silent'));
+  for (const s of data.silent)
+    turn.append(claimNode(s, 'silent', { ordered: opts.scripted === true }));
   for (const r of data.rejected) turn.append(claimNode(r, 'rejected'));
   const tally = el('p', { class: 'tally' }, [
     el('strong', { text: `${data.tally.verified} of ${data.tally.checked}` }),
-    document.createTextNode(
-      ` claims verified by the ward.${silenceNote(data.tally.silent)}`,
-    ),
+    document.createTextNode(` claims passed the ward.${silenceNote(data.tally.silent)}`),
   ]);
   turn.append(tally);
-  // ward-hardening R11.2: the ward's limit is read with every result, not only at the top
-  turn.append(el('p', { class: 'meta', text: WARD_LIMIT_TEXT }));
+  const ghosts = !opts.planted && !opts.scripted;
+  // ward-hardening R11.2, first-seance R15.11: the limit, once, under the first ghost answer
+  if (ghosts && !state.limitShown) {
+    turn.append(el('p', { class: 'meta', text: WARD_LIMIT_TEXT }));
+    state.limitShown = true;
+  }
   $('log').append(turn);
   const cited = data.verified
     .flatMap((v) => v.citations.map((c) => c.sha7))
@@ -941,7 +992,8 @@ function renderAnswer(data, question, opts = {}) {
     behavior: reduceMotion.matches ? 'auto' : 'smooth',
     block: 'nearest',
   });
-  if (!opts.planted && !opts.scripted) {
+  if (opts.focus) turn.focus({ preventScroll: true });
+  if (ghosts) {
     // R3.3 / R3.9, ward-hardening R4.3: the persistent session counter uses the server tally
     const counter = $('verified-counter');
     setConfidence(data.score);
@@ -963,22 +1015,33 @@ function renderAnswer(data, question, opts = {}) {
 
 // ---- Ask ----------------------------------------------------------------------------------
 
-/** The one ask path, for chips and the form (R3.2, R3.8, R12.1). */
+/** Error codes that mean the live model cannot answer now (first-seance R15.24). */
+const MODEL_DOWN_CODES = [
+  'CONFIG_ERROR',
+  'MODEL_CONFIG',
+  'MODEL_BUSY',
+  'TIMEOUT',
+  'RATE_LIMITED',
+];
+
+/** The one ask path, for chips and the form (R3.2, R3.8, R12.1). A chip's answer takes focus (R15.14). */
 async function askQuestion(q, fromForm = false) {
   if (state.busy || !state.sessionId) return;
   state.busy = true;
   $('ask-btn').setAttribute('aria-disabled', 'true');
   $('ask-status').textContent = 'The ghost stirs…';
+  $('guide-ask-status').textContent = '';
   $('log').setAttribute('aria-busy', 'true');
+  const stopElapsed = startElapsed('ask-elapsed');
   try {
     const data = await api(
       '/api/ask',
       { sessionId: state.sessionId, question: q },
       { status: 'ask-status' },
     );
-    renderAnswer(data, q, { planted: false });
+    renderAnswer(data, q, { planted: false, focus: !fromForm });
     $('ask-status').textContent =
-      `${data.recorded ? 'A recorded answer' : 'The ghost answered'}: ${data.tally.verified} of ${data.tally.checked} claims verified.`;
+      `${data.recorded ? 'A recorded answer' : 'The ghost answered'}: ${data.tally.verified} of ${data.tally.checked} claims passed the ward.`;
     setDone('ask', true);
     if (fromForm) $('q').value = '';
   } catch (err) {
@@ -988,7 +1051,13 @@ async function askQuestion(q, fromForm = false) {
     }
     $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
     $('ask-status').textContent = '';
+    if (MODEL_DOWN_CODES.includes(err.code)) {
+      state.askDown = true;
+      updateAskNote();
+    }
   } finally {
+    stopElapsed();
+    $('guide-ask-status').textContent = '';
     state.busy = false;
     $('ask-btn').removeAttribute('aria-disabled');
     $('log').removeAttribute('aria-busy');
@@ -1057,13 +1126,47 @@ function renderGuide(sample) {
   $('guide-chips').replaceChildren(
     ...chipQuestions(sample).map((q) => {
       const b = el('button', { class: 'btn small ghost chip', type: 'button', text: q });
-      b.addEventListener('click', () => askQuestion(q));
+      b.addEventListener('click', () => {
+        // R15.25: a click while the ghost answers says so in step 1
+        if (state.busy) $('guide-ask-status').textContent = WAIT_TEXT;
+        else askQuestion(q);
+      });
       return b;
     }),
   );
   for (const step of ['ask', 'ward', 'exorcise']) setDone(step, false);
   $('possess-btn').hidden = sample !== 'possessed';
+  // R15.25: with no commit, the misquote and wrong-author claims have nothing to cite
+  const empty = state.items.size === 0;
+  for (const name of ['misquote', 'wrongauthor'])
+    document.querySelector(`[data-preset="${name}"]`).hidden = empty;
 }
+
+const WAIT_TEXT = 'Wait for the ghost to finish answering.';
+
+/**
+ * Step 1's note and way back (first-seance R15.24): shown when this séance is not a sample's
+ * default range, so no recording answers its chips, and the live model is unavailable.
+ */
+function updateAskNote() {
+  const show = state.sample === null && (state.modelDown || state.askDown);
+  const d = SAMPLE_DEFAULTS[state.lastSample];
+  $('guide-ask-note').hidden = !show;
+  $('back-btn').hidden = !show;
+  $('back-btn').textContent = `Back to ${state.lastSample}, line ${d.start}`;
+}
+
+$('back-btn').addEventListener('click', () => {
+  if (state.busy) return;
+  const d = SAMPLE_DEFAULTS[state.lastSample];
+  $('repo').value = state.lastSample;
+  $('file').value = d.file;
+  $('start').value = String(d.start);
+  $('end').value = String(d.end);
+  $('repo-note').textContent = '';
+  $('repo-note').hidden = true;
+  $('summon-form').requestSubmit();
+});
 
 /** "done" in text, never by colour alone (R3.5). */
 function setDone(step, done) {
@@ -1089,10 +1192,11 @@ function namesAsWord(s, name) {
 }
 
 /**
- * The "Blame the wrong author" claim: a ledger author, and a commit by someone else whose
- * subject, message and diff do not name that author, quoted from its subject. The hash and
- * quote pass, so only the ward's author check can refuse it. The first such pair in ledger
- * order, or null (design.md §11.2).
+ * The "Blame the wrong author" claim: "<name> wrote commit <sha7>.", citing that commit, which
+ * someone else wrote, so the sentence is false by construction (first-seance R15.18). The cited
+ * subject, message and diff do not name that author, and every year the short hash spells is
+ * the commit's own or in its fields, so only the ward's author check can refuse it. Quoted from
+ * the subject. The first such pair in ledger order, or null (design.md §11.2).
  */
 function wrongAuthorPreset(items) {
   const shared = new Map();
@@ -1111,7 +1215,14 @@ function wrongAuthorPreset(items) {
         namesAsWord(hunk, other)
       )
         continue;
-      return { text: `${other} wrote this line.`, sha7: i.shortSha, quote };
+      const fields = [i.subject, i.body || '', hunk];
+      const unbacked = (i.shortSha.match(YEAR_RE) || []).some(
+        (y) =>
+          String(i.date || '').slice(0, 4) !== y &&
+          !fields.some((f) => (f.match(YEAR_RE) || []).includes(y)),
+      );
+      if (unbacked) continue;
+      return { text: `${other} wrote commit ${i.shortSha}.`, sha7: i.shortSha, quote };
     }
   }
   return null;
@@ -1146,9 +1257,26 @@ document.querySelectorAll('[data-preset]').forEach((b) =>
     $('plant-text').value = claim.text;
     $('plant-sha').value = claim.sha7;
     $('plant-quote').value = claim.quote;
-    plant(claim);
+    plant(claim, b);
   }),
 );
+
+/**
+ * A guide step's error (first-seance R15.6): written into `errId`, which is tied to the button
+ * that failed with aria-describedby; an empty `msg` hides it and unties every button.
+ */
+function stepError(errId, msg, button) {
+  $(errId).textContent = msg || '';
+  $(errId).hidden = !msg;
+  for (const b of document.querySelectorAll('#guide button')) {
+    const ids = (b.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter((id) => id && id !== errId);
+    if (msg && b === button) ids.push(errId);
+    if (ids.length) b.setAttribute('aria-describedby', ids.join(' '));
+    else b.removeAttribute('aria-describedby');
+  }
+}
 
 $('plant-btn').addEventListener('click', () =>
   plant({
@@ -1170,8 +1298,12 @@ function plantError(fieldId, msg) {
   $(fieldId).focus();
 }
 
-/** The one plant path, for the preset buttons and the manual form (R3.3, R4.3, R10.3). */
-async function plant(claim) {
+/**
+ * The one plant path, for the preset buttons and the manual form (R3.3, R4.3, R10.3). `preset`
+ * is the step 2 button that sent it: its failure is shown in step 2, and its turn takes focus
+ * (R15.6, R15.14). The manual form's failures still go to the log.
+ */
+async function plant(claim, preset = null) {
   if (!state.sessionId) return;
   const sha7 = String(claim.sha7).trim().toLowerCase();
   const quote = String(claim.quote).trim();
@@ -1198,6 +1330,7 @@ async function plant(claim) {
     return;
   }
   state.busy = true;
+  stepError('ward-err', '', null);
   try {
     const answer = {
       voice: 'planted by you',
@@ -1209,16 +1342,18 @@ async function plant(claim) {
       { sessionId: state.sessionId, answer },
       { status: 'ward-status' },
     );
-    renderAnswer(data, text, { planted: true });
+    renderAnswer(data, text, { planted: true, focus: preset !== null });
     $('ward-status').textContent = data.verified.length
-      ? 'The ward verified your claim.'
+      ? 'Your claim passed the ward.'
       : 'The ward refused your claim.';
     setDone('ward', true);
   } catch (err) {
     if (err.code === 'SESSION_NOT_FOUND') endSeance();
     else {
       $('ward-status').textContent = '';
-      $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
+      if (preset) stepError('ward-err', err.message, preset);
+      else
+        $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
     }
   } finally {
     state.busy = false;
@@ -1227,13 +1362,9 @@ async function plant(claim) {
 
 // ---- The possessed ghost (R13.7–R13.11) ---------------------------------------------------
 
-/** #ward-status after a scripted verdict, from the response's tally (R13.10). */
+/** #ward-status after a scripted verdict, from the response's tally (R13.10, R15.19). */
 function scriptedStatus(t) {
-  const refused = t.checked - t.verified;
-  let s = `The ward refused ${refused} of ${t.checked} claims from the possessed ghost.`;
-  if (t.silent > 0)
-    s += ` It also made ${t.silent} silence claim${t.silent === 1 ? '' : 's'}, which the ward does not check.`;
-  return s;
+  return `The ward verified ${t.verified} of ${t.checked} claims from the possessed ghost.${silenceNote(t.silent)}`;
 }
 
 /** The one possess path: scripted claims through the live ward, no model (R13.8–R13.11). */
@@ -1244,20 +1375,21 @@ async function possess() {
     return;
   }
   state.busy = true;
+  stepError('ward-err', '', null);
   try {
     const data = await api(
       '/api/possess',
       { sessionId: state.sessionId },
       { status: 'ward-status' },
     );
-    renderAnswer(data, '', { planted: false, scripted: true });
+    renderAnswer(data, '', { planted: false, scripted: true, focus: true });
     $('ward-status').textContent = scriptedStatus(data.tally);
     setDone('ward', true);
   } catch (err) {
     if (err.code === 'SESSION_NOT_FOUND') endSeance();
     else {
       $('ward-status').textContent = '';
-      $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
+      stepError('ward-err', err.message, $('possess-btn'));
     }
   } finally {
     state.busy = false;
@@ -1316,19 +1448,13 @@ function planClaims(parent, claims, rejected) {
   for (const c of rejected) parent.append(claimNode(c, 'rejected'));
 }
 
-/** Plan steps; the step text is the model's, and says so (R7.4, R7.5). */
+/** Plan steps; the one #ex-words sentence says the text is the model's (R7.4, R7.5, R15.22). */
 function stepNodes(steps) {
   if (!steps.length)
     return [el('li', { class: 'notice', text: 'The ward kept no step of this plan.' })];
   return steps.map((s, i) => {
     // R7.9: each step is a <details open> with summary = step description
     const inner = el('div', { class: 'step-body' });
-    inner.append(
-      el('p', {
-        class: 'lab unchecked',
-        text: "The step and its rationale are the model's words, not checked.",
-      }),
-    );
     // R7.8: reversibility badge as its own element (not text inside rationale)
     inner.append(
       el('span', {
@@ -1346,7 +1472,7 @@ function stepNodes(steps) {
   });
 }
 
-/** Do-not-touch entries; the reason is the model's, and says so (R7.4). */
+/** Do-not-touch entries; the reason is the model's, as #ex-words says (R7.4, R15.22). */
 function dntNodes(entries) {
   return entries.map((x) => {
     // R7.9: each do-not-touch entry is a <details open> with summary = line range
@@ -1355,12 +1481,6 @@ function dntNodes(entries) {
         ? `Line ${x.lineRange.start}`
         : `Lines ${x.lineRange.start}–${x.lineRange.end}`;
     const inner = el('div', { class: 'dnt-body' });
-    inner.append(
-      el('p', {
-        class: 'lab unchecked',
-        text: "The reason is the model's words, not checked.",
-      }),
-    );
     inner.append(el('div', { text: x.reason }));
     planClaims(inner, x.claims, x.rejectedClaims);
     const details = el('details', { open: '' }, [
@@ -1376,7 +1496,6 @@ function droppedNodes(dropped) {
   return dropped.map((x) => {
     const li = el('li', {}, [
       el('p', { class: 'dropped-title', text: x.title }),
-      el('p', { class: 'lab unchecked', text: "The model's words, not checked" }),
       el('p', { text: x.modelText }),
       el('p', { class: 'why', text: x.dropReason }),
     ]);
@@ -1401,7 +1520,9 @@ $('exorcise-btn').addEventListener('click', async () => {
   state.busy = true;
   $('exorcise-btn').setAttribute('aria-disabled', 'true');
   $('exorcise-status').textContent = 'Performing exorcism…';
+  stepError('exorcise-err', '', null);
   $('exorcism-wrap').setAttribute('aria-busy', 'true');
+  const stopElapsed = startElapsed('exorcise-elapsed');
   try {
     const d = await api(
       '/api/exorcise',
@@ -1435,11 +1556,11 @@ $('exorcise-btn').addEventListener('click', async () => {
     $('ex-dropped').replaceChildren(...droppedNodes(d.plan.dropped));
     $('ex-dropped-wrap').hidden = d.plan.dropped.length === 0;
     const { ok, total } = planTally(d.plan);
-    $('ex-verified').textContent = `${ok} of ${total} plan claims verified by the ward.`;
+    $('ex-verified').textContent = `${ok} of ${total} plan claims passed the ward.`;
     $('ex-recorded').hidden = !d.recorded;
     $('exorcism-wrap').hidden = false;
     $('exorcise-status').textContent =
-      `Exorcism ready: ${d.score} of 100, ${severityLabel(d.score)}. ${ok} of ${total} plan claims verified.`;
+      `Exorcism ready: ${d.score} of 100, ${severityLabel(d.score)}. ${ok} of ${total} plan claims passed the ward.`;
     setDone('exorcise', true);
     $('exorcism').scrollIntoView({
       behavior: reduceMotion.matches ? 'auto' : 'smooth',
@@ -1452,8 +1573,9 @@ $('exorcise-btn').addEventListener('click', async () => {
       return;
     }
     $('exorcise-status').textContent = '';
-    $('log').append(el('div', { class: 'notice', role: 'alert', text: err.message }));
+    stepError('exorcise-err', err.message, $('exorcise-btn'));
   } finally {
+    stopElapsed();
     state.busy = false;
     $('exorcise-btn').removeAttribute('aria-disabled');
     $('exorcism-wrap').removeAttribute('aria-busy');

@@ -595,20 +595,15 @@ describe('ward-hardening T7 – index.html (design.md §11.1)', () => {
     expect(values).toEqual(['crypt', 'possessed']);
   });
 
-  it('#repo-help names both samples (R8.4; copy from first-seance R1.3)', () => {
+  it('#repo-help names both samples (R8.4; copy from first-seance R1.3, R15.13)', () => {
     expect(text('repo-help')).toBe(
-      "crypt and possessed are samples; possessed's commits try to give the ghost orders. Or paste a public GitHub link: Séance reads its default branch and the last 100 commits.",
+      'crypt and possessed are samples. Or paste a public GitHub link.',
     );
   });
 
-  it('#ward-limit follows #verified-counter with the R2.3 sentence (R2.3)', () => {
-    const limit = byId('verified-counter').nextElementSibling;
-    expect(limit?.id).toBe('ward-limit');
-    expect(limit?.tagName).toBe('P');
-    expect(limit?.className).toBe('meta');
-    expect(text('ward-limit')).toBe(
-      "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.",
-    );
+  it('the R2.3 sentence is no longer a paragraph above the guide (first-seance R15.11)', () => {
+    expect(doc.getElementById('ward-limit')).toBeNull();
+    expect(byId('verified-counter').nextElementSibling?.id).toBe('guide');
   });
 
   it('the plant quote field is required in words, with an 8-character placeholder (R1.1)', () => {
@@ -628,15 +623,14 @@ describe('ward-hardening T7 – index.html (design.md §11.1)', () => {
     expect(b?.previousElementSibling?.getAttribute('data-preset')).toBe('misquote');
   });
 
-  it('#ex-summary-lab and #ex-tests-lab label the model text as unchecked (R7.4)', () => {
-    expect(byId('ex-summary-lab').nextElementSibling?.id).toBe('ex-summary');
-    expect(byId('ex-summary-lab').className).toBe('lab unchecked');
-    expect(text('ex-summary-lab')).toBe("The model's words, not checked");
-    expect(byId('ex-tests-lab').nextElementSibling?.id).toBe('ex-tests');
-    expect(byId('ex-tests-lab').className).toBe('lab unchecked');
-    expect(text('ex-tests-lab')).toBe(
-      "The model's words, not checked. Read each test before you run it.",
+  it('one #ex-words sentence labels the model text; #ex-tests-lab keeps the reading advice (R7.4, first-seance R15.22)', () => {
+    expect(doc.getElementById('ex-summary-lab')).toBeNull();
+    expect(byId('ex-words').className).toBe('lab unchecked');
+    expect(text('ex-words')).toBe(
+      "The summary, the tests, the steps and the reasons are the model's words. The ward checked only the cited claims shown under each step.",
     );
+    expect(byId('ex-tests-lab').nextElementSibling?.id).toBe('ex-tests');
+    expect(text('ex-tests-lab')).toBe('Read each test before you run it.');
   });
 
   it('#ex-dropped-wrap follows #ex-dnt, starts hidden and holds the struck list (R7.5)', () => {
@@ -649,7 +643,7 @@ describe('ward-hardening T7 – index.html (design.md §11.1)', () => {
     expect(text('h-dropped')).toBe('Struck from the plan');
     expect(byId('ex-dropped-help').className).toBe('meta');
     expect(text('ex-dropped-help')).toBe(
-      'The ward found no verified claim behind these, so they are not part of the plan.',
+      'No claim behind these passed the ward, so they are not part of the plan.',
     );
     expect(byId('ex-dropped').tagName).toBe('UL');
     expect(byId('ex-dropped').className).toBe('dropped');
@@ -792,7 +786,7 @@ describe('haunting-map T5 – index.html (design.md §7.1)', () => {
     expect(byId('h-map').tagName).toBe('H2');
     expect(text('h-map')).toBe('The haunting map');
     expect(text('map-limit')).toBe(
-      'Each number counts the commits that changed a file. Merge commits are skipped, renames are not followed, every path counts alike, .mailmap is not applied, and lines are not read one by one.',
+      'What this map leaves out Each number counts the commits that changed a file. Merge commits are skipped, renames are not followed, every path counts alike, .mailmap is not applied, and lines are not read one by one.',
     );
     for (const id of [
       'map-meta',

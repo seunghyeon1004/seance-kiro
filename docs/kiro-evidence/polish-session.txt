@@ -1,0 +1,761 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent warden, claude-opus-5.5), 2026-11-11: the findings of the two re-audits fixed, test-first where a test can prove them (27 items), with addenda in the first-seance and haunting-map specs. Unedited output; only the home directory prefix is replaced with ~. The table at the end says which fixes are proven by tests and which only by reading the CSS. By hand afterwards: the last two strings that still called a claim verified. DESIGN.md changed during the session because it was being edited by hand at the same time; Kiro noticed and left it alone.
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Polish pass on the page from two re-audits: docs/kiro-evidence/reaudit-layout-session.txt and docs/kiro-evidence/reaudit-first-run-session.txt (read both fully first, then .kiro/steering/ui-spooky.md, public/*, src/server.ts, test/ui/, test/e2e/). Test first wherever a behaviour or a rule can be tested (jsdom flows through test/e2e/harness.ts against the real server, static CSS/HTML tests, property tests); say plainly which fixes are only checked by reading. Keep the specs truthful: add a "Polish addendum (2026-11-11, re-audits)" to first-seance (requirements.md with new ids, design copy table, a new task with ticked items) and to haunting-map where its copy or markup changes.
+
+Do exactly these (decisions made by the human; do not widen the scope):
+
+Layout audit:
+L1 (C1) hero candle on narrow screens: scale the wax and wick in the 60rem block so the candle fits its box, `pointer-events: none` on the stage, and hide `.candle-stage` below 40rem.
+L2 (C2) guide step numbers: counters on the guide titles ("1. Ask the ghost" ...), no stray indent.
+L3 (C3) `.summon .actions` and `.summon .token` span the whole row (specificity), if the token disclosure still exists after F6.
+L4 (C4) after a summon on wide screens (min-width 60rem) scroll #seance to the top and focus #h-guide with preventScroll; on narrow screens keep the current target.
+L5 (C5) the verified counter stays visible: sticky at the top of the talk column while it has text, on a paper background; static when empty.
+L6 (C6) errors next to their controls: exorcise, plant-preset and possess failures are written into an `.err` paragraph in the same guide step (role alert, tied with aria-describedby), not appended to the log; #map-status and #map-err move to just after #map-meta.
+L7 (C7) no card inside a card in "Do not touch": the entry becomes a left-ruled block.
+L8 (C8) header: wordmark left, nav and the candle button to the right; on phones one tidy second row at most.
+L9 (C9, C10) speculation italic does not leak into labels and cite buttons; the speculation label uses the speculation colour; quote marks of `.found-quote` in the body font.
+L10 (C11, C12) map section margin-top like the exorcism; #map-note in a neutral style, not the error style; `.log:empty` and empty map status take no space.
+L11 (C13) after a chip, preset or possess click, focus moves to the new turn (tabindex -1, preventScroll after the scroll).
+L12 (C14, S3, S4, S5, S6) ledger summary padding; cite click scrolls with block 'nearest'; `.ledger li { position: relative }`; source line numbers padding `calc(6ch + var(--space-sm))`; planchette `pointer-events: none`.
+L13 (S2) the plant disclosure's content sits in a `<div class="plant-body">` with its own grid and gap.
+L14 (S7) author names inserted as text next to fixed copy are wrapped in `<bdi>` (#ghost-name, map names and headings).
+L15 (C15) remove only CSS that is provably dead and named in the audit (`.btn[disabled]` rules stay if any button can still be disabled; check before deleting). Do not touch base.css.
+
+First-run audit:
+F1 "Blame the wrong author" must be false by construction: the text becomes "<name> wrote commit <sha7>." citing that commit by someone else (the quote still from its subject).
+F2 The scripted possessed ghost's silence claim: in a scripted turn the silence item is labelled "Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it." and is styled like an unverified claim (dashed), never like a neutral statement. #ward-status for that turn: "The ward verified 0 of 4 claims from the possessed ghost. 1 silence claim was not checked." (numbers from the tally).
+F3 One vocabulary: a claim is never called verified, its citations are. Per-claim label stays "Citations verified". Per-answer tally becomes "N of M claims passed the ward." (silence note unchanged), the séance counter "N of M claims passed the ward this séance", #ask-status "The ghost answered: N of M claims passed the ward." / "A recorded answer: N of M claims passed the ward.", the plan tally "N of M plan claims passed the ward." The Markdown report and the API field names do not change. The #ward-limit paragraph above the guide is removed; the limit sentence is shown once per séance, under the tally of the first ghost answer only (not under planted or scripted turns, not repeated).
+F4 Recorded label: "A recorded answer (the live model is unavailable). The ward checked it again just now." and the plan equivalent.
+F5 Hero copy: #repo-help becomes "crypt and possessed are samples. Or paste a public GitHub link." When the repository field holds a GitHub link, #repo-note says "Séance reads the default branch and the most recent 100 commits." (combined with the existing blob/tree notes). When the summoned sample is `possessed`, the crypt shows one line under its heading: "This sample's commits try to give the ghost orders. Flagged commits are marked."
+F6 Remove the GitHub token disclosure from the page (the pull request text it fetches is not shown anywhere and is not evidence the ghost may quote). The API keeps accepting `githubToken`. Remove the token from "Summon here" requests too.
+F7 Exorcism labels: one sentence at the top of the exorcism, "The summary, the tests, the steps and the reasons are the model's words. The ward checked only the cited claims shown under each step." Remove the per-section and per-step "model's words, not checked" labels. Keep "Read each test before you run it." next to the tests.
+F8 Map: "N of M commits by departed authors" instead of "by ghosts"; the limits sentence moves into `<details class="map-limits"><summary>What this map leaves out</summary>...</details>`; the tile marked "You are here" has no "Summon here" button.
+F9 No model on this server (health `model: false`) or a session that is not a sample's default range: when step 1's chips cannot be answered by a recording and the model is unavailable, step 1 shows "The live model is unavailable here, so only the sample lines have recorded answers." and a button "Back to <sample>, line <n>" that summons the sample's default range again (for the last sample used, crypt by default).
+F10 Small states: when the ledger is empty hide the misquote and wrong-author buttons; a chip or preset click while a request runs shows "Wait for the ghost to finish answering." in that step's status; ask and exorcise show elapsed seconds like the remote summon does.
+F11 Daily cap message (src/server.ts; test/server/ratelimit.test.ts must stay byte-for-byte unchanged, it does not assert the text): "The live ghost has used today's calls. The sample questions and the ward still work." 
+F12 Footer: add a link "Source on GitHub" to https://github.com/seunghyeon1004/seance-kiro (rel noopener). Rule 1 in "How it works" loses "nothing else".
+
+Not in scope: screenshots, the README (the human rewrites it), the Dockerfile and render.yaml, the verifier, the reason strings, X-Forwarded-For, clone depth.
+
+Hard rules: tokens only, no literal colours, no `transition: all`, no new animation, sentence case, no emoji, textContent only for untrusted text, no inline styles or scripts in HTML, `npm run contrast` must pass with any new pair added to the table. src/ghost/verifier.ts, src/ratelimit.ts, test/server/ratelimit.test.ts, recordings/*.json and test/fixtures/**/*.json stay byte-for-byte unchanged. Do not run git add/commit/push/stash. Finish with `npm test`, `npm run typecheck`, `npm run lint`, `npm run contrast` (paste the real summary lines) and a table: item, fix, test that proves it or "by reading".
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=12
+[tool] Check repo state and file sizes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Survey tests and specs
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Baseline first: run the full suite and checksum the protected files.
+[tool] Record protected file checksums and baseline tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+Baseline is green (1336 tests). Now I'll find every test and spec that pins copy I'm about to change.
+[tool] Find tests and source pinning copy that changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep tests for copy that will change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Map server routes and error codes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find daily cap text usages and scripted ghost
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect verifier year detection
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Outline first-seance spec files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Outline haunting-map spec
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] See how e2e tests drive timers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check dead CSS candidates and related tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find focus/scroll/log assertions in tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now I have the full picture. Starting with the harness: it needs a `media` option (for the wide-screen scroll in L4) and a record of `scrollIntoView` and `focus` calls (for L4, L11, L12).
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Add a sequence number to recorded view calls
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check tsconfig scope and a11y proxy helper
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the failing behaviour tests, in a new e2e file that drives the real page against the real server.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now the static HTML/CSS checks, in a separate file.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+Now updating existing tests that pin the old copy, so they fail against the current code before I change it.
+[tool] Check remaining test references
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Editing `test/ui/first-seance.test.ts`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `test/ui/spooky-ui.test.ts`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `test/ui/dom.test.ts`:
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] View dom.test sections to edit
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the property tests in `test/ui/pbt/ui.pbt.ts`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the e2e flows: `crypt.test.ts`.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+`possessed.test.ts`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+`haunting.test.ts`:
+[tool] View haunting test helpers
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Rename map count copy in haunting e2e test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+`recorded.test.ts`, `wake.test.ts`, and the server daily-cap constant:
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Failed: Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run updated tests to confirm they fail first
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Red across the board for the right reasons. Now the implementation, starting with `public/index.html`.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `public/app.js`, section by section. State and constants first:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now `openSeance`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Map functions:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Claims, tally and `renderAnswer`:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+`askQuestion`, the chips and the F9 note:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the wrong-author preset (F1), with the year guard so only the author check can refuse it:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Presets, `plant()` and `possess()` with errors in step 2 and focus on the new turn:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Exorcism nodes and handler:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Server daily-cap text (F11):
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the CSS. Header (L8), form (L3, L15), candle (L1), planchette and ledger (L12):
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Now the talk column, claims, plant, log and the "Do not touch" entries:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+A speculation claim can also carry the orange `.lab.warn` label, and `.claim.speculation .lab` would turn it purple. I'll scope the rule with `:not(.warn)` and update the test to match.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Guide counters (L2), step errors and elapsed counters, the map (L10), quote marks (L9):
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Run the UI and e2e suites:
+[tool] Re-run UI, e2e and server limit tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Normalise whitespace in assertions and update copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Re-run UI and e2e tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Green. Full suite, typecheck, lint and contrast:
+[tool] Run tests, typecheck, lint and contrast
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Format changed files and re-lint
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+`DESIGN.md` shows up in the diff, but I never edited it. Checking what changed it:
+[tool] Inspect unexpected DESIGN.md change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+That `DESIGN.md` edit isn't mine. It appeared during this session (it already uses "passed the ward"), so I'll leave it alone and mention it in the report. Next, checking the protected files:
+[tool] Verify protected files are byte-identical
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 15 protected files are byte-identical, and nothing is staged. Quick review of the `app.js` diff:
+[tool] Review app.js changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Code is done and green. Now the specs, starting with the first-seance requirements addendum:
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Locate the requirements the addendum amends
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+Now the design addendum (§18) with the copy table:
+[tool] Append to File
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+Now the haunting-map addendum (its copy and markup changed):
+[tool] Read haunting-map spec endings and copy table
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Final verification run and protected-file check
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All 27 items are done and the checks pass. Nothing is staged or committed.
+
+```
+npm test           Test Files  87 passed (87)
+                        Tests  1382 passed (1382)
+npm run typecheck  tsc --noEmit (no errors)
+npm run lint       All matched files use Prettier code style!
+npm run contrast   All 20 table pairs and 28 usage pairs pass; the table agrees with :root. ✓
+```
+
+The suite went from 1336 to 1382 tests. Before I changed any code, 72 tests failed for the expected reasons. The 15 protected files have the same checksums as before I started. No new colour pair was needed; every pair the new rules use is already in the contrast table.
+
+| Item | Fix | Proof |
+|---|---|---|
+| L1 | In the 60rem block the hero candle's wax is 4.9rem and its wick 0.75rem (the selector names the hero stage, so the small candle by "The ghost" is unaffected). The stage ignores the pointer and is hidden below 40rem | CSS rules: `test/ui/polish.test.ts`. That the candle fits: by reading |
+| L2 | Guide titles numbered by a CSS counter, no list indent | `test/ui/polish.test.ts` |
+| L3 | `.summon .actions` spans the whole row. The token disclosure is gone (F6) | `test/ui/polish.test.ts` |
+| L4 | At 60rem and wider, scroll to `#seance` and focus `#h-guide` without scrolling. Narrow screens unchanged | `test/e2e/polish.test.ts`, wide and narrow |
+| L5 | Counter is sticky on a paper background while it has text, static when empty | Rules: `polish.test.ts`. Stickiness itself: by reading |
+| L6 | `#ward-err` and `#exorcise-err` (alerts, tied to the failing button) replace log notices for presets, possess and exorcise. `#map-status` and `#map-err` now follow `#map-meta` | `test/e2e/polish.test.ts`, `test/e2e/wake.test.ts`, `polish.test.ts` |
+| L7 | "Do not touch" entry is a left rule, not a card | Rule: `polish.test.ts`. Look: by reading |
+| L8 | Wordmark left, nav and candle button right, second row on phones | Rules: `polish.test.ts`. Wrapping: by reading |
+| L9 | Labels and cite buttons upright, speculation label in the speculation colour, quote marks in the body font | Rules: `polish.test.ts`. Look: by reading |
+| L10 | Map margin-top, neutral `#map-note`, empty `.log` and map status take no space | Rules: `polish.test.ts`. Look: by reading |
+| L11 | A chip, preset or possess turn takes focus with `preventScroll`, after its scroll | `test/e2e/polish.test.ts` (checks call order) |
+| L12 | Cite click scrolls with `block: 'nearest'`. Ledger summary padding, ledger rows positioned, wider line-number padding, planchette ignores the pointer | Scroll: e2e. Rules: `polish.test.ts`. Effects of the last four: by reading |
+| L13 | Plant form content moved into `.plant-body`, a grid with a gap | `polish.test.ts` (markup and rule). Spacing: by reading |
+| L14 | `<bdi>` around the name in `#ghost-name`, map headings, tiles and legend | `test/e2e/polish.test.ts` |
+| L15 | Removed `.btn[disabled]` and `.btn.ghost[disabled]` (no `.btn` is ever disabled; only `.cite` is), the top-level `.field.grow`, all `.token` rules, the `.actions` grid-column and the unused `--color-success` token | `polish.test.ts`, `first-seance.test.ts` |
+| F1 | The claim is now "\<name\> wrote commit \<sha7\>." It also skips any short hash that spells a year the commit doesn't back, so only the author check refuses it | e2e, `dom.test.ts`, property test against the real verifier |
+| F2 | Scripted silence claim gets the "Not verified…" label and the dashed, unverified style. `#ward-status` is built from the tally | e2e, `possessed.test.ts`, two property tests. Dashed look: by reading |
+| F3 | "passed the ward" in the tally, counter, `#ask-status` and plan tally. `#ward-limit` removed; the limit sentence appears once, under the first ghost answer | e2e, `crypt.test.ts`, `dom.test.ts`, counter property test |
+| F4 | Both recorded labels say "the live model is unavailable" | `recorded.test.ts`, `first-seance.test.ts` |
+| F5 | New `#repo-help`. GitHub note added to `#repo-note`. Possessed line under the crypt heading | e2e, `harness.test.ts`, `polish.test.ts` |
+| F6 | Token field removed. No `githubToken` sent by the summon form or "Summon here" | e2e (request bodies), `polish.test.ts` |
+| F7 | One `#ex-words` sentence at the top. Per-section and per-step labels removed. Tests note kept | e2e, `dom.test.ts`, property test |
+| F8 | "by departed authors", "What this map leaves out" disclosure, no button on the "You are here" tile | `haunting.test.ts`, `haunting-ui.pbt.ts`, e2e |
+| F9 | Step 1 note and "Back to \<sample\>, line \<n\>" (last sample used, crypt by default) | e2e: no key, after a model failure, and with possessed as the last sample |
+| F10 | Misquote and wrong-author hidden on an empty ledger. "Wait for the ghost…" on busy chip clicks. Elapsed seconds for ask and exorcise | e2e (fake intervals) |
+| F11 | New daily-cap message | `test/server/recorded-limits.test.ts` (`ratelimit.test.ts` unchanged) |
+| F12 | "Source on GitHub" footer link with `rel="noopener"`. Rule 1 no longer says "nothing else" | `polish.test.ts` |
+
+To test the scroll, focus and wide-screen behaviour, I extended `test/e2e/harness.ts`: it can now answer `matchMedia` per query and it records every scroll and focus call.
+
+**Specs:** first-seance has R15.1–R15.27, design §18 (with the copy table, and a note in §9 pointing to it) and task T12. Haunting-map has R11.1–R11.7, design §14 and task T8. The only unticked item is the human browser check.
+
+**Decisions and gaps you should know about:**
+- **Kept on purpose:** `.ledger li` and `.map-tile` stay in the `unicode-bidi` list, even though the audit called them dead. Ward-hardening R11.8 and `test/ui/bidi.test.ts` require them.
+- **Still in the log:** server errors from the manual "Plant a false memory" form. L6 named only presets, possess and exorcise.
+- **"Verified" left as is:** "The ward verified your claim." and `#ex-dropped-help` still call a claim verified, because F3 didn't list them.
+- **F9 trigger:** the note also appears after an ask fails with `MODEL_BUSY`, `TIMEOUT` or a per-client 429, all of which are temporary. It is cleared on the next summon.
+- **Header, by reading:** between about 520 and 640 px, all three header items fit on one row, and the two `auto` margins split the space, so the nav sits in the middle.
+- **Year guard:** the wrong-author year check copies only the verifier's first (raw) year check, not its second pass on normalised text. They can only disagree when a commit field hides a year behind zero-width characters.
+- **DESIGN.md:** it changed during this session and I didn't edit it (its text already says "passed the ward"). I left it as it is.
+
+**Evidence-rules hook:** `git diff --cached` is empty, so there is nothing staged to review. `src/ghost/verifier.ts` and `src/ghost/schema.ts` are unchanged in the working tree too.
+- ✅ The verifier is only ever stricter: no change.
+- ✅ Memory and speculation claims still need 1–10 `{ sha7, quote }` citations, quote 8–500 characters from one field: schema unchanged.
+- ✅ A silence claim never lands in `verified`: unchanged. The new label is display only.
+- ✅ `recordings/*.json` and `test/fixtures/**/*.json` are unchanged (checksums match).
+exit 0

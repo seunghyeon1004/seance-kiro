@@ -203,6 +203,9 @@ const firstChip = (p: Page): ReturnType<Page['$']> =>
 
 const notices = (p: Page): string[] =>
   [...p.doc.querySelectorAll('#log .notice')].map((n) => n.textContent ?? '');
+/** first-seance R15.6: an exorcise failure is written into step 3, not the log. */
+const exorciseErrors = (p: Page): string[] =>
+  p.$('exorcise-err').hidden ? [] : [p.$('exorcise-err').textContent ?? ''];
 
 describe(
   'flow 4b: a model-calling POST is never replayed after a network failure',
@@ -242,13 +245,14 @@ describe(
       const p = page;
       const before = client.calls.length;
       p.click(p.$('exorcise-btn'));
-      for (let i = 0; i < 40 && notices(p).length === 0; i++) {
+      for (let i = 0; i < 40 && exorciseErrors(p).length === 0; i++) {
         await vi.advanceTimersByTimeAsync(1_000);
         await settle();
       }
       expect(tries).toBe(1);
       expect(client.calls.length - before).toBe(1);
-      expect(notices(p)).toEqual([DROPPED]);
+      expect(exorciseErrors(p)).toEqual([DROPPED]);
+      expect(notices(p)).toEqual([]);
       expect(p.$('exorcise-status').textContent).not.toBe(WAKE_TEXT);
     });
 

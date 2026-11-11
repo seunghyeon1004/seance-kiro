@@ -1,4 +1,4 @@
-/* global Document, Element, HTMLElement, HTMLInputElement, Window -- DOM types only; the nodes come from jsdom */
+/* global Document, Element, FocusOptions, HTMLElement, HTMLInputElement, Window -- DOM types only; the nodes come from jsdom */
 /**
  * The shared DOM harness (first-seance design.md §10.1, R11.1, R11.2).
  *
@@ -100,6 +100,17 @@ export interface OpenOptions {
   readonly noKey?: boolean;
   /** Called with the window after the stubs and before app.js runs (to seed or break localStorage). */
   readonly beforeScript?: (w: Window & typeof globalThis) => void;
+  /** What `matchMedia(query).matches` returns, per query; every other query is false. */
+  readonly media?: Readonly<Record<string, boolean>>;
+}
+
+/** One scrollIntoView or focus call, with the element's id ('' when it has none). */
+export interface ViewCall {
+  /** Order across both lists, so a test can tell whether a focus came after a scroll. */
+  readonly seq: number;
+  readonly id: string;
+  readonly el: Element;
+  readonly options: unknown;
 }
 
 type ServerModule = typeof import('../../src/server.js');
@@ -116,6 +127,10 @@ export interface Page {
     /** The response body parsed as JSON, or null when it is not JSON. */
     data: unknown;
   }>;
+  /** Every scrollIntoView call, in order (jsdom has none, so the stub records them). */
+  readonly scrolls: ViewCall[];
+  /** Every HTMLElement.focus call, in order, with its options (jsdom ignores preventScroll). */
+  readonly focuses: ViewCall[];
   $(id: string): HTMLElement;
   input(id: string): HTMLInputElement;
   click(el: Element): void;
@@ -199,7 +214,7 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
 
   // 5. Stubs
   w.matchMedia = ((q: string) => ({
-    matches: false,
+    matches: opts.media?.[q] === true,
     media: q,
     onchange: null,
     addEventListener: () => undefined,
@@ -208,7 +223,17 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
     removeListener: () => undefined,
     dispatchEvent: () => false,
   })) as unknown as typeof w.matchMedia;
-  w.Element.prototype.scrollIntoView = () => undefined;
+  const scrolls: ViewCall[] = [];
+  const focuses: ViewCall[] = [];
+  let seq = 0;
+  w.Element.prototype.scrollIntoView = function (this: Element, options?: unknown) {
+    scrolls.push({ seq: seq++, id: this.id, el: this, options });
+  };
+  const nativeFocus = w.HTMLElement.prototype.focus;
+  w.HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    focuses.push({ seq: seq++, id: this.id, el: this, options });
+    nativeFocus.call(this, options);
+  };
   if (opts.nodeTimers) {
     const timers = w as unknown as Record<string, unknown>;
     timers['setTimeout'] = (fn: () => void, ms?: number) => globalThis.setTimeout(fn, ms);
@@ -283,6 +308,8 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
     doc,
     server,
     requests,
+    scrolls,
+    focuses,
     $,
     input,
     click(el) {

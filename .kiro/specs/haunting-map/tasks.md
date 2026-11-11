@@ -215,3 +215,15 @@ Covers: N1, N2, N3, R7.1, R7.3, R8.1 (re-check), and the traceability check.
 - [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R10.1–R10.3.
+
+---
+
+## T8 — Polish addendum (2026-11-11, re-audits)
+
+Done together with first-seance T12; design.md §14.
+
+- [x] Change the failing expectations first: "by departed authors" in `test/ui/pbt/haunting-ui.pbt.ts` and `test/e2e/haunting.test.ts`; no button on the "You are here" tile and step 5 on the crypt map in `test/e2e/haunting.test.ts`; the disclosure text in `test/ui/spooky-ui.test.ts`; the markup order, the disclosure and the rules in `test/ui/polish.test.ts`; the `<bdi>` names and the open-file tile in `test/e2e/polish.test.ts`.
+- [x] Move `#map-status` and `#map-err` after `#map-meta` and fold `#map-limit` into `details.map-limits` in `public/index.html`. Change `commitsText`, `hauntedBy`, `legendItem`, `mapTile` and `summonHere` in `public/app.js`, and the map rules in `public/styles.css` (R11.1–R11.7).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. The reader, `computeHauntingMap` and `/api/summon` are unchanged.
+
+Covers: R11.1–R11.7.

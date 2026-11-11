@@ -373,3 +373,19 @@ Each item began with a test that failed for the stated reason before the code ch
 - [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R14.1–R14.6.
+
+## T12 — Polish addendum (2026-11-11, re-audits)
+
+Inputs: `docs/kiro-evidence/reaudit-layout-session.txt` and `docs/kiro-evidence/reaudit-first-run-session.txt`; design.md §18. Each behaviour or rule began with a test that failed for the stated reason before the code changed (72 failing tests before the first code edit).
+
+- [x] Give `test/e2e/harness.ts` a `media` option (answers `matchMedia` per query) and record every `scrollIntoView` and `focus` call, with its options and a shared sequence number, in `page.scrolls` and `page.focuses`.
+- [x] Write the failing `test/e2e/polish.test.ts`: the wide and narrow scroll target and focus (R15.4); the chip, preset and possess turn taking focus after its scroll (R15.14); "passed the ward" and the limit sentence once per séance (R15.11); the wrong-author text (R15.18); the scripted silence label and status (R15.19); step errors in place for preset, possess and exorcise (R15.6); the cite scroll (R15.15); the GitHub note, the possessed line and no token in the summon (R15.13, R15.21); `<bdi>` names (R15.17); the empty-ledger presets, the busy chip and the elapsed counters (R15.25); the no-model note and the way back, after `model: false` and after a model failure (R15.24); no "Summon here" on the tile you are on (R15.23).
+- [x] Write the failing `test/ui/polish.test.ts`: the markup of R15.6, R15.13, R15.16, R15.21–R15.25 and R15.27, and every CSS rule of R15.1–R15.3, R15.5, R15.7–R15.10, R15.12, R15.15, R15.16 and R15.19, each in its media block.
+- [x] Change the expectations that pinned the old copy and markup, and see them fail: `test/ui/first-seance.test.ts`, `test/ui/spooky-ui.test.ts`, `test/ui/dom.test.ts`, `test/ui/pbt/ui.pbt.ts` (counter, plan labels, wrong-author text with hashes that spell years, plus new properties for the ordered silence claim and `scriptedStatus`), `test/ui/pbt/haunting-ui.pbt.ts`, `test/e2e/crypt.test.ts`, `test/e2e/possessed.test.ts`, `test/e2e/haunting.test.ts` (its failing "Summon here" now runs on the crypt map, because the possessed map's only tile is the one you are on), `test/e2e/recorded.test.ts`, `test/e2e/harness.test.ts`, `test/e2e/wake.test.ts` (a dropped exorcise is reported in `#exorcise-err`) and `test/server/recorded-limits.test.ts` (the daily text).
+- [x] Implement design.md §18.1 in `public/index.html` and `public/app.js`, §18.3 in `public/styles.css` and `public/tokens.css`, and the daily text in `src/server.ts` (R15.1–R15.27).
+- [x] Read every new string against design.md §18.2: sentence case, no emoji, inserted with `textContent` or as a `<bdi>` text node; no inline style or script in the HTML.
+- [x] Confirm that `src/ghost/verifier.ts`, `src/ratelimit.ts`, `test/server/ratelimit.test.ts`, `recordings/*.json`, `test/fixtures/**/*.json` and `public/base.css` are byte-for-byte unchanged.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [ ] Human, in a real browser (by reading only so far): at 768 and 390 px the hero candle fits its box and does not cross the header; at 390 and 320 px the header has at most one second row with the candle button on the right; at 1280 px "The line in question" is in view after a summon; the counter stays in view while scrolling the talk column; guide steps show 1, 2 and 3; a "Do not touch" entry has one rule and no nested card; a speculation claim's hashes are upright.
+
+Covers: R15.1–R15.27.

@@ -153,12 +153,13 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
       'legacy/tax.js',
       'You are here',
       'Haunted by Dmitri Volkov',
-      '1 of 3 commits by ghosts',
+      '1 of 3 commits by departed authors',
       'Last seen Feb 11, 2020',
       'Commit e9a5c9c',
-      'Summon here',
     ])
       expect(tax).toContain(s);
+    // first-seance R15.23: the tile you are on has no "Summon here"
+    expect(tile('legacy/tax.js').querySelector('button')).toBeNull();
     expect(tile('legacy/tax.js').querySelector('.map-path code')?.textContent).toBe(
       'legacy/tax.js',
     );
@@ -176,7 +177,7 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
     const t0 = norm(tended[0]!.textContent);
     for (const s of [
       'Tended by the living',
-      '0 of 1 commit by ghosts',
+      '0 of 1 commit by departed authors',
       'Last changed Oct 21, 2024',
       'Commit 21d4a12',
     ])
@@ -185,6 +186,10 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
     for (const t of tiles()) {
       expect(t.hasAttribute('tabindex')).toBe(false);
       const bs = [...t.querySelectorAll('button')];
+      if (t.getAttribute('data-path') === 'legacy/tax.js') {
+        expect(bs).toHaveLength(0);
+        continue;
+      }
       expect(bs).toHaveLength(1);
       expect(bs[0]!.getAttribute('type')).toBe('button');
       expect(norm(bs[0]!.textContent)).toBe('Summon here');
@@ -257,7 +262,9 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
     );
     expect(verified[0]!.querySelector('.found-quote')?.textContent).toBe(VENDOR_QUOTE);
     expect(turn.querySelectorAll('.claim.rejected')).toHaveLength(0);
-    expect($('verified-counter').textContent).toBe('1 of 1 claims verified this séance');
+    expect($('verified-counter').textContent).toBe(
+      '1 of 1 claims passed the ward this séance',
+    );
   });
 
   it('4. possessed: one ghost, and the hostile living author is not on the map (R8.2)', async () => {
@@ -281,7 +288,7 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
     const t = norm(tiles()[0]!.textContent);
     for (const s of [
       'auth/throttle.js',
-      '4 of 7 commits by ghosts',
+      '4 of 7 commits by departed authors',
       'b477439',
       'You are here',
     ])
@@ -293,6 +300,17 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
   });
 
   it('5. a failed "Summon here" shows the message and leaves the séance as it was (R6.8)', async () => {
+    // the possessed map has one tile, the one you are on, which has no button (R15.23): go back to the crypt
+    page.setRepo('crypt');
+    page.input('file').value = 'legacy/tax.js';
+    page.input('start').value = '7';
+    page.input('end').value = '7';
+    const n = summons().length;
+    page.submit('summon-form');
+    await page.until(
+      () => summons().length === n + 1 && !$('summon-btn').hasAttribute('aria-disabled'),
+      'the crypt map',
+    );
     const meta = $('source-meta').textContent;
     const shas = ledgerShas();
     const file = page.input('file').value;
@@ -302,7 +320,7 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
         status: 400,
         headers: { 'content-type': 'application/json' },
       });
-    const b = summonHere('auth/throttle.js');
+    const b = summonHere('legacy/vendor.js');
     page.click(b);
     await page.until(() => !$('map-err').hidden, 'the map error');
     expect($('map-err').textContent).toBe(UNREADABLE);
@@ -381,7 +399,7 @@ describe('haunting map: summon, map, Summon here', { timeout: 20_000 }, () => {
     expect(norm(t.textContent)).toContain(
       'Haunted by a ghost whose name tries to give orders',
     );
-    expect(norm(t.textContent)).toContain('1 of 2 commits by ghosts');
+    expect(norm(t.textContent)).toContain('1 of 2 commits by departed authors');
   });
 
   it('7. a mapNote shows the heading and the note only (R5.1)', async () => {

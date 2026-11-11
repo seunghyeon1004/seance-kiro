@@ -36,9 +36,9 @@ describe('T6 — hero copy (R1.1–R1.5)', () => {
     );
   });
 
-  it('#repo-help names the samples and what is read (R1.3)', () => {
+  it('#repo-help names the samples (R1.3, amended by R15.13)', () => {
     expect(text('repo-help')).toBe(
-      "crypt and possessed are samples; possessed's commits try to give the ghost orders. Or paste a public GitHub link: Séance reads its default branch and the last 100 commits.",
+      'crypt and possessed are samples. Or paste a public GitHub link.',
     );
   });
 
@@ -163,12 +163,12 @@ function constObject(name: string): string {
 }
 
 describe('T7 — the guide (design.md §8.9, §9; R3.1–R3.7)', () => {
-  it('sits after #ward-limit and before #log, headed "Try it in three clicks"', () => {
+  it('sits after #verified-counter and before #log, headed "Try it in three clicks" (R15.11 removed #ward-limit)', () => {
     const guide = byId('guide');
     expect(guide.tagName).toBe('SECTION');
     expect(guide.className).toBe('guide');
     expect(guide.getAttribute('aria-labelledby')).toBe('h-guide');
-    expect(guide.previousElementSibling?.id).toBe('ward-limit');
+    expect(guide.previousElementSibling?.id).toBe('verified-counter');
     expect(guide.nextElementSibling?.id).toBe('log');
     expect(byId('h-guide').tagName).toBe('H3');
     expect(byId('h-guide').getAttribute('tabindex')).toBe('-1');
@@ -286,12 +286,13 @@ describe('T7 — the ask form, the counter and the copy button (R3.8, R3.9, R10.
     expect(err.hasAttribute('role')).toBe(false);
   });
 
-  it('.ask-actions holds the ask button, the hidden copy button and #ask-status', () => {
+  it('.ask-actions holds the ask button, the hidden copy button, #ask-status and #ask-elapsed', () => {
     const actions = byId('ask-form').querySelector('.ask-actions')!;
     expect([...actions.children].map((c) => c.id)).toEqual([
       'ask-btn',
       'copy-report-btn',
       'ask-status',
+      'ask-elapsed',
     ]);
     const copy = byId('copy-report-btn');
     expect(copy.hasAttribute('hidden')).toBe(true);
@@ -322,7 +323,7 @@ describe('T7 — the ask form, the counter and the copy button (R3.8, R3.9, R10.
     expect(p.className).toBe('lab recorded');
     expect(p.hasAttribute('hidden')).toBe(true);
     expect(text('ex-recorded')).toBe(
-      'A recorded plan (the model is resting). The ward checked it again just now.',
+      'A recorded plan (the live model is unavailable). The ward checked it again just now.',
     );
   });
 
@@ -330,9 +331,9 @@ describe('T7 — the ask form, the counter and the copy button (R3.8, R3.9, R10.
     for (const s of [
       'Planted by you',
       'You asked: ',
-      'A recorded answer (the model is resting). The ward checked it again just now.',
+      'A recorded answer (the live model is unavailable). The ward checked it again just now.',
       'The ward refused your claim.',
-      'The ward verified your claim.',
+      'Your claim passed the ward.',
       'Wait for the ghost to finish answering.',
       'Type a question first, or click one of the questions above.',
       'Cited in the latest answer',
@@ -351,13 +352,14 @@ describe('T7 — the ask form, the counter and the copy button (R3.8, R3.9, R10.
 });
 
 describe('T7 — styles for C12 and C14 (design.md §8.10)', () => {
-  it('a disabled quiet button and a disabled cite look disabled (C12)', () => {
-    for (const sel of ['.btn.ghost[disabled]', '.cite:disabled']) {
+  it('a disabled cite looks disabled (C12); no .btn can be disabled, so its rules are gone (R15.10)', () => {
+    for (const sel of ['.cite:disabled']) {
       expect(ruleHas(sel, /color:\s*var\(--color-muted\)/), sel).toBe(true);
       expect(ruleHas(sel, /border-style:\s*dashed/), sel).toBe(true);
       expect(ruleHas(sel, /background:\s*transparent/), sel).toBe(true);
       expect(ruleHas(sel, /cursor:\s*not-allowed/), sel).toBe(true);
     }
+    expect(rules.some((r) => r.selectors.includes('.btn.ghost[disabled]'))).toBe(false);
   });
 
   it('empty status regions take no space but stay in the tree (C14)', () => {

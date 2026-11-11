@@ -176,6 +176,8 @@ const UI_CONSTS = [
   'QUOTE_MAX_CHARS',
   'FIELD_LABEL',
   'SAMPLE_DEFAULTS',
+  'YEAR_RE',
+  'ORDERED_SILENCE_LABEL',
 ];
 const UI_FNS = [
   'el',
@@ -185,6 +187,7 @@ const UI_FNS = [
   'ledgerRow',
   'silenceNote',
   'counterText',
+  'scriptedStatus',
   'sampleSwap',
   'planTally',
   'planClaims',
@@ -197,10 +200,15 @@ const UI_FNS = [
 ];
 
 interface Ui {
-  claimNode: (c: unknown, bucket: 'verified' | 'rejected' | 'silent') => HTMLElement;
+  claimNode: (
+    c: unknown,
+    bucket: 'verified' | 'rejected' | 'silent',
+    opts?: { ordered?: boolean },
+  ) => HTMLElement;
   ledgerRow: (i: unknown) => HTMLElement;
   silenceNote: (s: number) => string;
   counterText: (tv: number, tc: number, ts: number) => string;
+  scriptedStatus: (t: { verified: number; checked: number; silent: number }) => string;
   sampleSwap: (
     repo: string,
     fields: { file: string; start: string; end: string },
@@ -229,6 +237,8 @@ const ui = load<Ui>(UI_CONSTS, UI_FNS, {
 
 const WARN = 'Cites a commit that tries to give the ghost orders';
 const SILENT_LABEL = "The record is silent (the ghost's words, not checked)";
+const ORDERED_LABEL =
+  'Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it.';
 const FIELD_TEXT = {
   subject: 'in the commit subject',
   body: 'in the commit message',
@@ -322,6 +332,19 @@ describe('claimNode - verified, silent and rejected (R2.2, R4.5, R6.4)', () => {
     },
   );
 
+  test.prop([untrusted, untrusted], params)(
+    'a silence claim the commits ordered says it is not verified, in its own class (R15.19)',
+    (text, silenceReason) => {
+      const n = ui.claimNode({ text, silenceReason }, 'silent', { ordered: true });
+      expect(n.className).toBe('claim silence ordered');
+      expect(labs(n)).toEqual([ORDERED_LABEL]);
+      expect(n.querySelector('.txt')?.textContent).toBe(text);
+      expect(n.querySelector('.found')).toBeNull();
+      expect(n.querySelector('.cites')).toBeNull();
+      expect(tagsOk(n)).toBe(true);
+    },
+  );
+
   test.prop([untrusted, fc.string(), untrusted, fc.boolean()], params)(
     'a rejected claim shows the reason, and the warning when it cites a flagged commit',
     (text, kind, reason, sus) => {
@@ -382,11 +405,26 @@ describe('tally and counter texts (R4.3)', () => {
       const want =
         tc + ts === 0
           ? ''
-          : `${tv} of ${tc} claims verified this séance` +
+          : `${tv} of ${tc} claims passed the ward this séance` +
             (ts > 0
               ? `, plus ${ts} silence claim${ts === 1 ? '' : 's'} not checked`
               : '');
       expect(ui.counterText(tv, tc, ts)).toBe(want);
+    },
+  );
+  test.prop([fc.nat(50), fc.nat(50), fc.nat(5)], params)(
+    'the scripted #ward-status reads verified of checked from the tally, plus the silence note (R15.19)',
+    (v, extra, s) => {
+      const t = { verified: v, checked: v + extra, silent: s };
+      const note =
+        s === 0
+          ? ''
+          : s === 1
+            ? ' 1 silence claim was not checked.'
+            : ` ${s} silence claims were not checked.`;
+      expect(ui.scriptedStatus(t)).toBe(
+        `The ward verified ${v} of ${v + extra} claims from the possessed ghost.${note}`,
+      );
     },
   );
 });
@@ -489,7 +527,7 @@ describe('exorcism plan (R7.4, R7.5, R7.6)', () => {
   );
 
   test.prop([planArb], params)(
-    'steps, entries and dropped entries carry the not-checked labels; no steps gives the notice',
+    'steps, entries and dropped entries carry no per-step "not checked" label (R15.22); no steps gives the notice',
     (plan) => {
       const steps = ui.stepNodes(plan.steps);
       if (plan.steps.length === 0) {
@@ -500,20 +538,18 @@ describe('exorcism plan (R7.4, R7.5, R7.6)', () => {
       } else {
         expect(steps).toHaveLength(plan.steps.length);
         for (const li of steps) {
+          expect(li.querySelector('.lab.unchecked')).toBeNull();
           const first = li.querySelector('.step-body')?.firstElementChild;
-          expect(first?.className).toBe('lab unchecked');
-          expect(first?.textContent).toBe(
-            "The step and its rationale are the model's words, not checked.",
-          );
+          expect(first?.className).toMatch(/^badge badge--(rev|irrev)$/);
         }
       }
       const dnt = ui.dntNodes(plan.doNotTouchList);
       expect(dnt).toHaveLength(plan.doNotTouchList.length);
-      for (const li of dnt) {
+      dnt.forEach((li, j) => {
+        expect(li.querySelector('.lab.unchecked')).toBeNull();
         const first = li.querySelector('.dnt-body')?.firstElementChild;
-        expect(first?.className).toBe('lab unchecked');
-        expect(first?.textContent).toBe("The reason is the model's words, not checked.");
-      }
+        expect(first?.textContent).toBe(plan.doNotTouchList[j]!.reason);
+      });
       const dropped = ui.droppedNodes(plan.dropped);
       expect(dropped).toHaveLength(plan.dropped.length);
       dropped.forEach((li, j) => {
@@ -521,11 +557,10 @@ describe('exorcism plan (R7.4, R7.5, R7.6)', () => {
         const kids = [...li.children];
         expect(kids[0]?.className).toBe('dropped-title');
         expect(kids[0]?.textContent).toBe(d.title);
-        expect(kids[1]?.className).toBe('lab unchecked');
-        expect(kids[1]?.textContent).toBe("The model's words, not checked");
-        expect(kids[2]?.textContent).toBe(d.modelText);
-        expect(kids[3]?.className).toBe('why');
-        expect(kids[3]?.textContent).toBe(d.dropReason);
+        expect(li.querySelector('.lab.unchecked')).toBeNull();
+        expect(kids[1]?.textContent).toBe(d.modelText);
+        expect(kids[2]?.className).toBe('why');
+        expect(kids[2]?.textContent).toBe(d.dropReason);
         expect(li.querySelectorAll('article.claim.rejected')).toHaveLength(
           d.rejectedClaims.length,
         );
@@ -553,14 +588,18 @@ describe('the wrongauthor preset (design.md §11.2)', () => {
         subject: textArb,
         body: textArb,
         hunk: textArb,
+        // first-seance R15.18: a short hash such as a2003ff names a year in the claim text
+        yearSha: fc.boolean(),
       }),
       { minLength: 1, maxLength: 6 },
     )
     .map((rows) =>
-      rows.map((r, k) => ({
+      rows.map(({ yearSha, ...r }, k) => ({
         id: `E${k + 1}`,
         sha: k.toString(16).padStart(40, '0'),
-        shortSha: k.toString(16).padStart(7, '0'),
+        shortSha: yearSha
+          ? `a20${String(k).padStart(2, '0')}ff`
+          : k.toString(16).padStart(7, '0'),
         email: 'x@example.invalid',
         date: '2020-01-01T00:00:00.000Z',
         files: ['a.js'],
@@ -579,7 +618,7 @@ describe('the wrongauthor preset (design.md §11.2)', () => {
       claims: [
         {
           kind: 'memory',
-          text: `${other} wrote this line.`,
+          text: `${other} wrote commit ${item.shortSha}.`,
           citations: [{ sha7: item.shortSha, quote }],
         },
       ],
@@ -596,7 +635,7 @@ describe('the wrongauthor preset (design.md §11.2)', () => {
         for (const item of items) {
           if (onlyF11(items, other, item)) {
             want = {
-              text: `${other} wrote this line.`,
+              text: `${other} wrote commit ${item.shortSha}.`,
               sha7: item.shortSha,
               quote: item.subject.slice(0, 500),
             };
@@ -647,7 +686,7 @@ describe('the wrongauthor preset (design.md §11.2)', () => {
       },
     ];
     expect(ui.wrongAuthorPreset(items)).toEqual({
-      text: 'Osric Penhallow wrote this line.',
+      text: 'Osric Penhallow wrote commit 0000003.',
       sha7: '0000003',
       quote: 'chore: tidy the comment',
     });

@@ -452,6 +452,8 @@ A remote repository is cloned again by "Summon here", so the request takes as lo
 
 ### 7.3 Copy
 
+The polish addendum (§14, R11) replaces the `#map-limit` and tile rows below; §14 is the page as it is.
+
 | Where | Text |
 | --- | --- |
 | `#h-map` | `The haunting map` |
@@ -699,3 +701,34 @@ Split on NUL, this is `'', H1, '\n'+p, p, '', H2, '', H3, '\n'+p, ''`. `parseNam
 | Review finding | Requirement | Test |
 | --- | --- | --- |
 | MEDIUM 5 a file name forges map commits | R10.1–R10.3 | `test/evidence/haunting.git.test.ts` (real repository), `test/evidence/haunting.test.ts` (exact bytes), HM10 in `test/evidence/pbt/haunting.pbt.ts` |
+
+## 14. Polish addendum (2026-11-11, re-audits)
+
+Requirements R11.1–R11.7 (first-seance R15, design.md §18 there, has the page-wide part).
+
+Markup, in order inside `#map`: `#h-map`, `#map-meta`, `#map-status`, `#map-err`, `details.map-limits#map-limit` (summary, `p.meta`), `#map-cut`, `#map-note`, `#map-legend`, `#map-groups`, `#map-living`. `renderMap` still hides `#map-limit` when no map is drawn; it now hides the whole disclosure.
+
+`app.js`: `commitsText` returns `${n} of ${m} commit(s) by departed authors`. `hauntedBy` returns `['Haunted by ', <bdi>name</bdi>]` for a name that is not suspicious, and the legend's name is `bdi.map-name`. `mapTile(f, ghost, here)` creates the button only when `f.path !== here`; the `.filter(Boolean)` already drops the missing node. `summonHere` sends `{ repoUrl, file, wholeFile: true }` and nothing else.
+
+`styles.css`: `.haunting-map { position: relative; margin-top: var(--space-2xl) }`, `.haunting-map .notice { border-color: var(--color-rule); background: var(--color-paper-2) }` (ink on paper-2, 15.19:1, already in the table), `.haunting-map .status:empty { position: absolute }`, and `.map-limits` summary and paragraph rules. Tokens only.
+
+Copy rows that replace §7.3:
+
+| Where | Text |
+| --- | --- |
+| `#map-limit` summary | `What this map leaves out` |
+| `#map-limit` paragraph | the §7.3 sentence, unchanged |
+| tile, haunted | path, `You are here` (current file, and then no button), `Haunted by ${name}`, `${n} of ${m} commit(s) by departed authors`, `Last seen ${date}`, `Commit ${sha7}`, `Summon here` (other files) |
+| tile, tended | path, `You are here` (and then no button), `Tended by the living`, `0 of ${m} commit(s) by departed authors`, `Last changed ${date}`, `Commit ${sha7}`, `Summon here` (other files) |
+
+The §11.3 flow changes in two places: the "You are here" tile has no button, and step 5 (a failed "Summon here") first summons the crypt again, because the possessed map's only tile is the open file.
+
+| Item | Requirement | Test |
+| --- | --- | --- |
+| "by departed authors" | R11.1 | `test/ui/pbt/haunting-ui.pbt.ts` (commitsText), `test/e2e/haunting.test.ts` |
+| limits disclosure | R11.2 | `test/ui/polish.test.ts`, `test/ui/spooky-ui.test.ts` |
+| no button on the open file | R11.3 | `test/e2e/haunting.test.ts`, `test/e2e/polish.test.ts` |
+| no token | R11.4 | `test/e2e/haunting.test.ts` (request body), `test/ui/polish.test.ts` |
+| status and error order | R11.5 | `test/ui/polish.test.ts` |
+| margin, neutral note, empty status | R11.6 | `test/ui/polish.test.ts` (rules); what they look like by reading |
+| `<bdi>` names | R11.7 | `test/e2e/polish.test.ts` |

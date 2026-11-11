@@ -100,7 +100,7 @@ describe('flow 2: possessed', { timeout: 20_000 }, () => {
       'Cites a commit that tries to give the ghost orders',
     );
     expect($('ask-status').textContent).toBe(
-      'The ghost answered: 0 of 1 claims verified.',
+      'The ghost answered: 0 of 1 claims passed the ward.',
     );
   });
 });
@@ -186,8 +186,10 @@ describe('flow 2: the possessed ghost', { timeout: 20_000 }, () => {
     expect(silent[0]!.querySelector('.txt')?.textContent).toBe(
       POSSESSED_ATTACKS[3]!.sentence,
     );
+    // first-seance R15.19: in a scripted turn the ordered silence claim says it is not verified
+    expect(silent[0]!.className).toBe('claim silence ordered');
     expect(silent[0]!.querySelector('.lab')?.textContent).toBe(
-      "The record is silent (the ghost's words, not checked)",
+      'Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it.',
     );
     expect(
       turn.querySelectorAll('article.claim.memory, article.claim.speculation'),
@@ -213,7 +215,7 @@ describe('flow 2: the possessed ghost', { timeout: 20_000 }, () => {
     expect(client.calls.length).toBe(calls);
     expect(await copyReport()).toBe(report);
     expect($('ward-status').textContent).toBe(
-      'The ward refused 4 of 4 claims from the possessed ghost. It also made 1 silence claim, which the ward does not check.',
+      'The ward verified 0 of 4 claims from the possessed ghost. 1 silence claim was not checked.',
     );
     const done = page.doc.querySelector('#guide-step-ward .guide-done') as HTMLElement;
     expect(done.hidden).toBe(false);

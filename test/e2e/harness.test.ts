@@ -246,6 +246,7 @@ describe('first-seance T5 on the page', { timeout: 20_000 }, () => {
 
 const BLOB_NOTE =
   'Filled in the file and lines from the link. Séance reads the default branch, not the branch or commit in the link.';
+const GITHUB_NOTE = 'Séance reads the default branch and the most recent 100 commits.';
 const TREE_NOTE =
   'That link points at a folder. Finish the file path in the File field. Séance reads the default branch.';
 
@@ -370,15 +371,20 @@ describe('first-seance T6 on the page', { timeout: 20_000 }, () => {
     expect(p.input('file').value).toBe('src/a.ts');
     expect([p.input('start').value, p.input('end').value]).toEqual(['10', '20']);
     expect(p.$('repo-note').hidden).toBe(false);
-    expect(p.$('repo-note').textContent).toBe(BLOB_NOTE);
+    // first-seance R15.13: every GitHub link also says what is read
+    expect(p.$('repo-note').textContent).toBe(`${BLOB_NOTE} ${GITHUB_NOTE}`);
 
     p.setRepo('www.github.com/o/r/tree/main/src/lib/');
     expect(p.input('repo').value).toBe('https://github.com/o/r');
     expect(p.input('file').value).toBe('src/lib/');
-    expect(p.$('repo-note').textContent).toBe(TREE_NOTE);
+    expect(p.$('repo-note').textContent).toBe(`${TREE_NOTE} ${GITHUB_NOTE}`);
 
     p.setRepo('github.com/o/r.git/');
     expect(p.input('repo').value).toBe('https://github.com/o/r');
+    expect(p.$('repo-note').hidden).toBe(false);
+    expect(p.$('repo-note').textContent).toBe(GITHUB_NOTE);
+
+    p.setRepo('crypt');
     expect(p.$('repo-note').hidden).toBe(true);
     expect(p.$('repo-note').textContent).toBe('');
   });

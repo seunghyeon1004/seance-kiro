@@ -19,9 +19,9 @@ import type { Page, Samples } from './harness.js';
 import { recordAnswers } from '../../scripts/record-answers.js';
 
 const RECORDED_LABEL =
-  'A recorded answer (the model is resting). The ward checked it again just now.';
+  'A recorded answer (the live model is unavailable). The ward checked it again just now.';
 const RECORDED_PLAN =
-  'A recorded plan (the model is resting). The ward checked it again just now.';
+  'A recorded plan (the live model is unavailable). The ward checked it again just now.';
 const MODEL_NOTE =
   'The model is resting on this server. The sample questions have recorded answers, which the ward checks again; the ward demo works as always.';
 
@@ -86,11 +86,11 @@ describe('flow 3: the model is down', { timeout: 30_000 }, () => {
     );
     expect(p.$('ask-status').textContent?.startsWith('A recorded answer:')).toBe(true);
     expect(p.$('ask-status').textContent).toBe(
-      'A recorded answer: 1 of 1 claims verified.',
+      'A recorded answer: 1 of 1 claims passed the ward.',
     );
     // a recorded answer is the ghost's: it counts (R7.10)
     expect(p.$('verified-counter').textContent).toBe(
-      '1 of 1 claims verified this séance, plus 1 silence claim not checked',
+      '1 of 1 claims passed the ward this séance, plus 1 silence claim not checked',
     );
     const ask = p.requests.find((r) => r.path === '/api/ask');
     expect(ask?.status).toBe(200);

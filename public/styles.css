@@ -64,9 +64,10 @@ main,
 .bar-in {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: baseline;
   gap: var(--space-lg);
+  row-gap: var(--space-xs);
 }
 .mark {
   font-family: var(--font-display);
@@ -78,6 +79,7 @@ main,
   display: flex;
   gap: var(--space-lg);
   font-size: var(--text-sm);
+  margin-inline-start: auto;
 }
 .bar nav a {
   color: var(--color-ink-2);
@@ -133,9 +135,6 @@ h1 {
 .field.wide {
   grid-column: span 2;
 }
-.field.grow {
-  flex: 1 1 14rem;
-}
 label {
   font-size: var(--text-sm);
   color: var(--color-ink-2);
@@ -190,10 +189,6 @@ textarea {
 .form-err {
   grid-column: 1 / -1;
 }
-.token {
-  grid-column: 1 / -1;
-}
-.token summary,
 .plant summary {
   cursor: pointer;
   font-size: var(--text-sm);
@@ -201,15 +196,14 @@ textarea {
   padding-block: var(--space-xs);
   width: fit-content;
 }
-.token input {
-  margin-top: var(--space-xs);
-  max-width: 22rem;
-}
 .actions {
-  grid-column: span 4;
   display: flex;
   align-items: center;
   gap: var(--space-md);
+}
+/* first-seance R15.3: beats .field.wide (0,2,0), so the summon row spans the form */
+.summon .actions {
+  grid-column: 1 / -1;
 }
 .status {
   font-size: var(--text-sm);
@@ -241,12 +235,6 @@ textarea {
 .btn:active {
   transform: translateY(1px);
 }
-.btn[disabled] {
-  background: var(--color-paper-3);
-  border-color: var(--color-rule);
-  color: var(--color-muted);
-  cursor: progress;
-}
 .btn.ghost {
   background: transparent;
   color: var(--color-ink);
@@ -266,6 +254,7 @@ textarea {
   display: grid;
   place-items: center;
   min-height: 22rem;
+  pointer-events: none;
 }
 .candle {
   --confidence: 0.55;
@@ -408,6 +397,7 @@ h3 {
   height: 4.4rem;
   transform-origin: 50% 60%;
   transition: transform 400ms var(--ease-out);
+  pointer-events: none;
 }
 .planchette span {
   position: absolute;
@@ -439,6 +429,7 @@ h3 {
   border-top: var(--rule-hair) solid var(--color-rule);
 }
 .ledger li {
+  position: relative;
   padding: var(--space-sm);
   border-bottom: var(--rule-hair) solid var(--color-rule);
   scroll-margin-block: var(--space-lg);
@@ -479,6 +470,7 @@ h3 {
   color: var(--color-muted);
   cursor: pointer;
   width: fit-content;
+  padding-block: var(--space-2xs);
 }
 .ledger pre {
   margin: var(--space-xs) 0 0;
@@ -509,6 +501,9 @@ h3 {
   gap: var(--space-md);
   min-height: 6rem;
 }
+.log:empty {
+  min-height: 0;
+}
 .turn-q {
   justify-self: end;
   max-width: 34rem;
@@ -533,6 +528,7 @@ h3 {
   display: block;
   font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-style: normal;
   color: var(--color-muted);
   margin-bottom: var(--space-3xs);
 }
@@ -546,8 +542,17 @@ h3 {
   color: var(--color-speculation);
   font-style: italic;
 }
+.claim.speculation .lab:not(.warn) {
+  color: var(--color-speculation);
+}
 .claim.silence {
   color: var(--color-ink-2);
+}
+/* first-seance R15.19: a silence claim the commits ordered looks unverified, never neutral */
+.claim.silence.ordered {
+  border-style: dashed;
+  border-color: var(--color-rejected);
+  color: var(--color-rejected);
 }
 .claim.rejected {
   border-style: dashed;
@@ -577,6 +582,7 @@ h3 {
   cursor: pointer;
   font-family: var(--font-outlier);
   font-size: var(--text-xs);
+  font-style: normal;
   color: var(--color-accent);
   background: transparent;
   border: var(--rule-hair) solid var(--color-rule);
@@ -614,11 +620,15 @@ h3 {
 .plant {
   border-top: var(--rule-hair) solid var(--color-rule);
   padding-top: var(--space-xs);
-  display: grid;
-  gap: var(--space-sm);
 }
 .plant[open] {
   padding-bottom: var(--space-sm);
+}
+/* first-seance R15.16: the disclosure's content has its own grid, so gap reaches it in every browser */
+.plant-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
 }
 .plant-presets,
 .plant-row {
@@ -727,11 +737,13 @@ h3 {
   display: grid;
   gap: var(--space-sm);
 }
+/* first-seance R15.7: a left rule, not a card, because each entry holds claim cards */
 .dnt li {
-  padding: var(--space-sm) var(--space-md);
-  border: var(--rule-hair) solid var(--color-accent);
-  border-radius: var(--radius-card);
-  background: var(--color-paper-2);
+  padding: var(--space-xs) var(--space-md);
+  border: 0;
+  border-inline-start: 2px solid var(--color-accent);
+  border-radius: 0;
+  background: none;
 }
 .dnt .range {
   font-family: var(--font-outlier);
@@ -801,11 +813,21 @@ h3 {
   color: var(--color-accent);
 }
 
-/* R3.3 / R3.9: persistent session verified counter */
+/* R3.3 / R3.9: persistent session verified counter; first-seance R15.5: it stays in view
+   at the top of the talk column while it has text */
 .verified-counter {
   font-size: var(--text-sm);
   color: var(--color-muted);
   min-height: 1.2em;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--color-paper);
+  padding-block: var(--space-xs);
+}
+.verified-counter:empty {
+  position: static;
+  padding-block: 0;
 }
 
 /* How and footer */
@@ -873,6 +895,13 @@ h3 {
     width: 3rem;
     height: 7.5rem;
   }
+  /* first-seance R15.1: wax and wick scale with the 7.5rem candle, so it fits its box */
+  .candle-stage .wax {
+    height: 4.9rem;
+  }
+  .candle-stage .wick {
+    height: 0.75rem;
+  }
   .crypt {
     position: relative; /* the planchette stays inside the crypt (audit C13) */
   }
@@ -891,9 +920,16 @@ h3 {
   .summon {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .field.wide,
-  .actions {
+  .field.wide {
     grid-column: 1 / -1;
+  }
+  /* first-seance R15.1: the hero goes straight to the form on phones */
+  .candle-stage {
+    display: none;
+  }
+  /* first-seance R15.8: at most one second header row, with the button on the right */
+  #candles-btn {
+    margin-inline-start: auto;
   }
   .btn {
     width: 100%;
@@ -968,6 +1004,11 @@ h3 {
   font-family: var(--font-outlier);
   color: var(--color-ink-2);
 }
+/* first-seance R15.9: the browser's quotation marks are punctuation, not code */
+.found-quote::before,
+.found-quote::after {
+  font-family: var(--font-body);
+}
 #ledger li[data-suspicious='true'] {
   border-inline-start: 2px dashed var(--color-accent);
 }
@@ -1041,8 +1082,13 @@ h3 {
 }
 
 /* first-seance (design.md §8.10). Tokens only, no new animation. */
-#summon-elapsed:empty {
+#summon-elapsed:empty,
+#ask-elapsed:empty,
+#exorcise-elapsed:empty {
   display: none;
+}
+.ask-actions #ask-elapsed {
+  order: 2;
 }
 .actions {
   flex-wrap: wrap;
@@ -1066,6 +1112,7 @@ h3 {
 .source-lines {
   margin: 0;
   padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xl);
+  padding-inline-start: calc(6ch + var(--space-sm));
   background: var(--color-paper-2);
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-card);
@@ -1095,7 +1142,9 @@ h3 {
 }
 .guide-steps {
   margin: 0;
-  padding-inline-start: var(--space-lg);
+  list-style: none;
+  padding-inline-start: 0;
+  counter-reset: g;
   display: grid;
   gap: var(--space-md);
 }
@@ -1104,9 +1153,14 @@ h3 {
   gap: var(--space-xs);
   position: relative;
   min-width: 0;
+  counter-increment: g;
 }
 .guide-title {
   color: var(--color-ink);
+}
+/* first-seance R15.2: a grid item draws no marker, so the title carries the number */
+.guide-title::before {
+  content: counter(g) '. ';
 }
 .guide-done {
   margin-inline-start: var(--space-xs);
@@ -1142,8 +1196,7 @@ h3 {
   border-radius: var(--radius-card);
 }
 
-/* a11y C12: a disabled quiet button or cite looks disabled */
-.btn.ghost[disabled],
+/* a11y C12: a disabled cite looks disabled (no .btn is ever disabled: busy buttons use aria-disabled) */
 .cite:disabled {
   color: var(--color-muted);
   border-style: dashed;
@@ -1247,12 +1300,31 @@ html.still .flame {
 /* haunting-map (design.md §7.4). Tokens only; the fog repeats the text, never replaces it.
    Every grid is one shrinkable column or auto-fill tracks no wider than the screen (R5.9). */
 .haunting-map {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
+  margin-top: var(--space-2xl);
   padding-block: var(--space-xl);
   border-top: var(--rule-hair) solid var(--color-rule);
   min-width: 0;
+}
+/* first-seance R15.12: the map's note is neutral text, not an error */
+.haunting-map .notice {
+  border-color: var(--color-rule);
+  background: var(--color-paper-2);
+}
+.haunting-map .status:empty {
+  position: absolute;
+}
+.map-limits summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  width: fit-content;
+}
+.map-limits p {
+  margin-top: var(--space-2xs);
 }
 .haunting-map h2 {
   font-size: var(--text-2xl);

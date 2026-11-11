@@ -808,7 +808,7 @@ Contrast. The pairs used are ink-2 and muted on paper-2, verified and accent on 
 
 ## 9. Copy
 
-Every string below is exact. `${…}` values come from the server or the ledger and are inserted with `textContent`.
+Every string below is exact. `${…}` values come from the server or the ledger and are inserted with `textContent`. Rows that the polish addendum changed are listed again in §18.2; where the two tables differ, §18.2 is the page as it is.
 
 | Where | Text |
 | --- | --- |
@@ -1324,3 +1324,104 @@ Requirements R14.1–R14.6.
 | MEDIUM 7 recorded answers unlimited | R14.1, R14.2 | `test/server/recorded-limits.test.ts` (R14.1) |
 | LOW 8 `ledgerShas` unchecked | R14.3 | `test/ghost/recordings.test.ts` (`loadRecordingFor`), `test/server/recorded-limits.test.ts` (R14.3) |
 | HIGH 1, the page label | R14.6 | `test/e2e/crypt.test.ts`, `test/e2e/recorded.test.ts`, `test/ui/pbt/ui.pbt.ts`, `test/ui/first-seance.test.ts` |
+
+## 18. Polish addendum (2026-11-11, re-audits)
+
+Requirements R15.1–R15.27. Inputs: `docs/kiro-evidence/reaudit-layout-session.txt` and `docs/kiro-evidence/reaudit-first-run-session.txt`.
+
+### 18.1 Page (`public/index.html`, `public/app.js`)
+
+- **Markup.** `#ward-limit` and the token `<details>` are removed. Step 1 gains `#guide-ask-note` (`p.help`, hidden), `#back-btn` (`button.btn.small.ghost`, hidden) and `#guide-ask-status` (`span.status`, `role="status"`, `aria-live="polite"`). Step 2 gains `#ward-err` after `#ward-status`; step 3 gains `#exorcise-elapsed` and `#exorcise-err` after `#exorcise-status`. `.ask-actions` gains `#ask-elapsed` after `#ask-status`. `#crypt-possessed` follows `#h-crypt`. `#plant` holds its summary and `div.plant-body`. In the map, `#map-status` and `#map-err` follow `#map-meta`, and `#map-limit` is `details.map-limits`. `#ex-words` follows `#ex-recorded`; `#ex-summary-lab` is removed. The footer gains the source link.
+- **State.** `state.lastSample` (default `'crypt'`, set by every summon of a sample), `state.modelDown` (health said `model: false`), `state.askDown` (reset per séance; set when an ask fails with a code in `MODEL_DOWN_CODES`), `state.limitShown` (reset per séance).
+- **`openSeance`.** Writes `#ghost-name` as `<bdi>${author}</bdi>, speaking only from the commits.`; shows `#crypt-possessed` for `possessed`; clears `#guide-ask-status` and both step errors; calls `updateAskNote()`; scrolls `#seance` when `wideScreen = matchMedia('(min-width: 60rem)')` matches and `#h-guide` otherwise, then focuses `#h-guide` with `preventScroll`.
+- **`renderGuide`.** A chip click while `state.busy` writes `WAIT_TEXT` into `#guide-ask-status` instead of asking. The misquote and wrong-author presets are hidden when `state.items` is empty.
+- **`updateAskNote()`.** Shows the note and `#back-btn` when `state.sample === null && (state.modelDown || state.askDown)`, and sets the button text from `SAMPLE_DEFAULTS[state.lastSample]`. The button fills `#repo`, `#file`, `#start` and `#end` and calls `requestSubmit()` on the summon form, so the normal summon path runs.
+- **`stepError(errId, msg, button)`.** Sets or hides the step error and keeps `aria-describedby` on the guide's buttons in step: only `button` refers to `errId`, and only while there is a message. `plant(claim, preset)` uses `#ward-err` when `preset` is a step 2 button, and `#log` for the manual form, as before. `possess()` uses `#ward-err`; the exorcise handler uses `#exorcise-err`.
+- **`renderAnswer`.** Turns get `tabindex="-1"`; with `opts.focus` the turn is focused with `preventScroll` after its `scrollIntoView`. Chips, presets and the possessed ghost pass `focus: true`; a typed question does not. The tally reads "passed the ward". `WARD_LIMIT_TEXT` is appended under the first ghost answer only (`state.limitShown`). In a scripted turn silence claims go through `claimNode(s, 'silent', { ordered: true })`.
+- **`wrongAuthorPreset`.** The text is `${other} wrote commit ${sha7}.`. A pair is skipped when the short hash contains a year (`YEAR_RE`, the verifier's pattern) that is neither the commit's date year nor in its subject, message or the first 4000 diff characters, so the author check stays the only refusal. The verifier's second, Unicode-normalised pass is not mirrored; the short hash is ASCII, so it can only differ when a cited field hides a year with default-ignorable characters.
+- **`startElapsed(outId)`.** Takes the output id; summon, ask and exorcise each pass their own.
+- **Map.** `commitsText` says "by departed authors". `hauntedBy` and the legend wrap the name in `<bdi>`. `mapTile` adds no button when `f.path === here`. `summonHere` sends no token.
+
+### 18.2 Copy
+
+| Where | Text |
+| --- | --- |
+| `#repo-help` | crypt and possessed are samples. Or paste a public GitHub link. |
+| `#repo-note`, any GitHub link | Séance reads the default branch and the most recent 100 commits. (after the blob or tree note, joined with one space) |
+| `#crypt-possessed` | This sample's commits try to give the ghost orders. Flagged commits are marked. |
+| `#ghost-name` | `<bdi>${author}</bdi>`, speaking only from the commits. (the other two forms unchanged) |
+| tally | **${v} of ${c}** claims passed the ward. (+ silence note of R4.3) |
+| ward's limit, under the first ghost answer only | The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both. |
+| `#verified-counter` | ${v} of ${c} claims passed the ward this séance (+ ", plus ${s} silence claim(s) not checked") |
+| `#ask-status` | The ghost answered: ${v} of ${c} claims passed the ward. / A recorded answer: ${v} of ${c} claims passed the ward. |
+| recorded answer | A recorded answer (the live model is unavailable). The ward checked it again just now. |
+| `#ex-recorded` | A recorded plan (the live model is unavailable). The ward checked it again just now. |
+| `#ex-words` | The summary, the tests, the steps and the reasons are the model's words. The ward checked only the cited claims shown under each step. |
+| `#ex-tests-lab` | Read each test before you run it. |
+| `#ex-verified` | ${ok} of ${total} plan claims passed the ward. |
+| `#exorcise-status` | Exorcism ready: ${score} of 100, ${severity}. ${ok} of ${total} plan claims passed the ward. |
+| wrong-author preset | ${name} wrote commit ${sha7}. |
+| scripted silence label | Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it. |
+| `#ward-status`, scripted | The ward verified ${verified} of ${checked} claims from the possessed ghost. (+ silence note of R4.3) |
+| `#guide-ask-note` | The live model is unavailable here, so only the sample lines have recorded answers. |
+| `#back-btn` | Back to ${sample}, line ${n} |
+| `#guide-ask-status`, busy | Wait for the ghost to finish answering. |
+| `#ask-elapsed`, `#exorcise-elapsed` | ${s} second(s) so far |
+| server, daily cap | The live ghost has used today's calls. The sample questions and the ward still work. |
+| rule 1 | **It remembers only commits.** Messages, diffs, authors and dates from git history. |
+| footer link | Source on GitHub |
+
+Unchanged, and still using "verified" for a claim, because the addendum did not list them: `#ward-status` "The ward verified your claim.", `#ex-dropped-help` and the server's drop reasons. The Markdown ward report keeps "N of M claims verified" and the API field names stay as they are.
+
+Review note (by hand, 2026-11-11): both were then brought into the same vocabulary. `#ward-status` reads "Your claim passed the ward." when a planted claim passes, and `#ex-dropped-help` reads "No claim behind these passed the ward, so they are not part of the plan." The server's drop reasons ("The ward verified none of the claims behind this step.") are unchanged.
+
+### 18.3 Styles (`public/styles.css`, `public/tokens.css`)
+
+Tokens only; no literal colour, no `transition: all`, no new animation. The new colour pairs are already in the contrast table: muted on paper (the sticky counter), speculation on paper (its label), rejected on paper (the ordered silence claim), ink on paper-2 (the map note), accent on paper as a non-text rule (the "Do not touch" rule, 8.98:1).
+
+- 60rem block: `.candle-stage .wax { height: 4.9rem }`, `.candle-stage .wick { height: 0.75rem }`. The selector names the stage, so the small candle in the talk head keeps its own sizes.
+- 40rem block: `.candle-stage { display: none }`, `#candles-btn { margin-inline-start: auto }`.
+- `.bar-in` `justify-content: flex-start; row-gap`, `.bar nav { margin-inline-start: auto }`.
+- `.summon .actions { grid-column: 1 / -1 }`; `.actions` loses its `grid-column`.
+- `.guide-steps` `list-style: none; padding-inline-start: 0; counter-reset: g`; `.guide-steps > li { counter-increment: g }`; `.guide-title::before { content: counter(g) '. ' }`.
+- `.verified-counter` sticky (`top: 0`, `z-index: var(--z-sticky)`, paper background, `padding-block: var(--space-xs)`); `:empty` static with no padding.
+- `.claim .lab`, `.cite`: `font-style: normal`; `.claim.speculation .lab:not(.warn)`: speculation colour; `.found-quote::before, ::after`: body font.
+- `.claim.silence.ordered`: dashed, rejected border and colour.
+- `.dnt li`: no border, radius or background; `border-inline-start: 2px solid var(--color-accent)`.
+- `.haunting-map`: `position: relative; margin-top: var(--space-2xl)`; `.haunting-map .notice` neutral; `.haunting-map .status:empty { position: absolute }`; `.map-limits` summary and paragraph.
+- `.log:empty { min-height: 0 }`; `#ask-elapsed:empty, #exorcise-elapsed:empty { display: none }`.
+- `.ledger details summary` padding, `.ledger li { position: relative }`, `.source-lines` inline-start padding, `.planchette { pointer-events: none }`, `.candle-stage { pointer-events: none }`.
+- `.plant` is no longer a grid; `.plant-body` is.
+- Removed: `.btn[disabled]`, `.btn.ghost[disabled]`, top-level `.field.grow`, the `.token` rules, `--color-success`.
+
+### 18.4 Tests
+
+| Item | Requirement | Test |
+| --- | --- | --- |
+| L1 | R15.1 | `test/ui/polish.test.ts` (rules); the fit itself by reading |
+| L2 | R15.2 | `test/ui/polish.test.ts` |
+| L3 | R15.3 | `test/ui/polish.test.ts` |
+| L4 | R15.4 | `test/e2e/polish.test.ts` (wide and narrow, through `media`, `scrolls`, `focuses` in the harness) |
+| L5 | R15.5 | `test/ui/polish.test.ts` (rules); stickiness by reading |
+| L6 | R15.6 | `test/e2e/polish.test.ts` (preset, possess, exorcise), `test/e2e/wake.test.ts` (dropped exorcise), `test/ui/polish.test.ts` (markup, map order) |
+| L7 | R15.7 | `test/ui/polish.test.ts` |
+| L8 | R15.8 | `test/ui/polish.test.ts` (rules); the wrapped row by reading |
+| L9 | R15.9 | `test/ui/polish.test.ts` |
+| L10 | R15.12 | `test/ui/polish.test.ts` |
+| L11 | R15.14 | `test/e2e/polish.test.ts` (chip, preset, possess: focus after the scroll) |
+| L12 | R15.15 | `test/e2e/polish.test.ts` (cite scroll), `test/ui/polish.test.ts` (rules) |
+| L13 | R15.16 | `test/ui/polish.test.ts` |
+| L14 | R15.17 | `test/e2e/polish.test.ts` |
+| L15 | R15.10 | `test/ui/polish.test.ts`, `test/ui/first-seance.test.ts` (C12 now `.cite:disabled` only) |
+| F1 | R15.18 | `test/e2e/polish.test.ts`, `test/ui/dom.test.ts`, `test/e2e/crypt.test.ts`, property in `test/ui/pbt/ui.pbt.ts` (real verifier, hashes that spell years) |
+| F2 | R15.19 | `test/e2e/polish.test.ts`, `test/e2e/possessed.test.ts`, properties in `test/ui/pbt/ui.pbt.ts` (`claimNode` ordered, `scriptedStatus`) |
+| F3 | R15.11 | `test/e2e/polish.test.ts`, `test/e2e/crypt.test.ts`, `test/ui/dom.test.ts`, `test/ui/pbt/ui.pbt.ts` (counter) |
+| F4 | R15.20 | `test/e2e/recorded.test.ts`, `test/ui/first-seance.test.ts` |
+| F5 | R15.13 | `test/e2e/polish.test.ts`, `test/e2e/harness.test.ts`, `test/ui/polish.test.ts` |
+| F6 | R15.21 | `test/e2e/polish.test.ts` (summon body), `test/e2e/haunting.test.ts` (Summon here body), `test/ui/polish.test.ts` |
+| F7 | R15.22 | `test/e2e/polish.test.ts`, `test/ui/dom.test.ts`, property in `test/ui/pbt/ui.pbt.ts` |
+| F8 | R15.23 | `test/e2e/haunting.test.ts`, `test/e2e/polish.test.ts`, `test/ui/pbt/haunting-ui.pbt.ts`, `test/ui/spooky-ui.test.ts` |
+| F9 | R15.24 | `test/e2e/polish.test.ts` (no key; a model failure; the last sample) |
+| F10 | R15.25 | `test/e2e/polish.test.ts` (empty ledger, busy chip and preset, elapsed ask and exorcise under fake intervals) |
+| F11 | R15.26 | `test/server/recorded-limits.test.ts` |
+| F12 | R15.27 | `test/ui/polish.test.ts` |

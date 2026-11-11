@@ -175,16 +175,14 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     const tally = turn.querySelector('.tally')!;
     for (const a of ['role', 'aria-live', 'aria-atomic'])
       expect(tally.hasAttribute(a)).toBe(false);
-    // ward-hardening R11.2: the ward's limit is read with every result
+    // ward-hardening R11.2, first-seance R15.11: the ward's limit is read under the first answer
     const limit = tally.nextElementSibling!;
     expect(limit.tagName).toBe('P');
     expect(limit.className).toBe('meta');
     expect(limit.textContent).toBe(
       "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.",
     );
-    expect(limit.textContent).toBe(
-      norm(page.doc.getElementById('ward-limit')?.textContent),
-    );
+    expect(page.doc.getElementById('ward-limit')).toBeNull();
 
     const lit = [...page.doc.querySelectorAll('#ledger li.lit')];
     expect(lit.length).toBeGreaterThan(0);
@@ -200,11 +198,11 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     expect(doneShown('ask')).toBe(true);
     expect($('guide-step-ask').getAttribute('data-done')).toBe('true');
     expect($('ask-status').textContent).toBe(
-      'The ghost answered: 1 of 1 claims verified.',
+      'The ghost answered: 1 of 1 claims passed the ward.',
     );
     expect($('copy-report-btn').hidden).toBe(false);
     expect($('verified-counter').textContent).toBe(
-      '1 of 1 claims verified this séance, plus 1 silence claim not checked',
+      '1 of 1 claims passed the ward this séance, plus 1 silence claim not checked',
     );
   });
 
@@ -259,7 +257,9 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     page.click(button('Blame the wrong author'));
     await page.until(() => page.turns().length === 4, 'the wrongauthor verdict');
     expect(wardRequests()).toBe(3);
-    const other = /^(.*) wrote this line\.$/.exec(page.input('plant-text').value)?.[1];
+    const other = /^(.*) wrote commit [0-9a-f]{7}\.$/.exec(
+      page.input('plant-text').value,
+    )?.[1];
     expect(other).toBeDefined();
     expect(lastTurn().querySelector('article.claim.rejected .why')?.textContent).toBe(
       `The ward refused it: ${F11(other!)}`,
@@ -278,7 +278,7 @@ describe('flow 1: crypt', { timeout: 20_000 }, () => {
     const status = $('exorcise-status').textContent ?? '';
     expect(status.startsWith('Exorcism ready:')).toBe(true);
     expect(status).toMatch(
-      /^Exorcism ready: \d+ of 100, (Restless|Troubled|Haunted|Possessed)\. \d+ of \d+ plan claims verified\.$/,
+      /^Exorcism ready: \d+ of 100, (Restless|Troubled|Haunted|Possessed)\. \d+ of \d+ plan claims passed the ward\.$/,
     );
     expect(status).toContain(
       `${$('ex-score').textContent} of 100, ${$('ex-severity').textContent}.`,

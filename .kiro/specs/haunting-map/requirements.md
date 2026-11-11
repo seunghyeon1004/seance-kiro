@@ -212,3 +212,25 @@ Decision: keep exactly two git calls (R1.2) and make the parse unambiguous. The 
 **R10.2** `parseNameLog` shall split the output on NUL into tokens and read a commit header only from the token directly after an empty token. A header shall begin with RS, a full sha of 40 or 64 lower-case hex characters and US; its four fields shall pass the record schema (R1.9). The tokens up to the next empty token shall be that commit's paths, with one leading newline removed from the first. A header that fails either check shall be skipped and counted, with its paths. A path containing RS, US, newlines or a whole fake header shall be read as a path, and shall never produce or remove a commit.
 
 **R10.3** Tests shall show R10.2 with a real git repository holding a file named `a` RS, a 40-hex fake sha, US, a name, US, an email, US, a date (created with `git hash-object` and `git update-index --cacheinfo`), and with a property test over paths of arbitrary characters other than NUL, including fake headers, serialised as git emits them.
+
+## Polish addendum (2026-11-11, re-audits)
+
+Input: `docs/kiro-evidence/reaudit-layout-session.txt` (C6, C11, C12, S7) and `docs/kiro-evidence/reaudit-first-run-session.txt` (the map's "by ghosts", its limits sentence, the "Summon here" on the file already open, the token field). The page-wide requirements are first-seance R15; these are the map's share. The reader, the pure function and the API do not change.
+
+Decisions: on this page "the ghost" is the persona that speaks, so the map counts commits "by departed authors"; the limits are kept but folded away; a tile does not offer to summon the file that is already open.
+
+### R11 Polish (2026-11-11, re-audits)
+
+**R11.1** The UI shall show `departedTouches` and `totalTouches` as "N of M commits by departed authors", with "commit" when M is 1. This amends R2.6 and R5.6. "Ghost" keeps its meaning in `#map-meta` and the legend.
+
+**R11.2** The limits sentence of R5.2 shall sit in `<details class="map-limits" id="map-limit">`, closed, with the summary "What this map leaves out" and the sentence in a `<p class="meta">`. This amends R5.2.
+
+**R11.3** The tile whose path is the open séance's file ("You are here") shall have no "Summon here" button. Every other tile keeps one. This amends R5.6 and R5.10.
+
+**R11.4** "Summon here" shall not send `githubToken`; the page has no token field (first-seance R15.21). This amends R6.1.
+
+**R11.5** `#map-status` and `#map-err` shall follow `#map-meta`, so a failed "Summon here" is reported near the top of the section, whichever tile was pressed (first-seance R15.6). R6.8 is otherwise unchanged.
+
+**R11.6** The section shall have `margin-top: var(--space-2xl)`. `#map-note` shall be shown in a neutral style (rule border, paper-2 background), and an empty `#map-status` shall take no space (first-seance R15.12).
+
+**R11.7** A ghost's name next to fixed copy shall be its own `<bdi>`: in "Haunted by <name>" (group headings and tiles) and the legend's `.map-name` (first-seance R15.17). Suspicious names are still never printed (R8.2).

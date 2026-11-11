@@ -107,14 +107,17 @@ describe('commitsText (R2.6, R5.11)', () => {
   test.prop(
     [fc.integer({ min: 0, max: 2000 }), fc.integer({ min: 1, max: 2000 })],
     params,
-  )('says "N of M commits by ghosts", with "commit" only when M is 1', (a, b) => {
-    const n = Math.min(a, b);
-    const s = fns.commitsText(n, b);
-    const word = b === 1 ? 'commit' : 'commits';
-    expect(s).toBe(
-      `${n.toLocaleString('en-US')} of ${b.toLocaleString('en-US')} ${word} by ghosts`,
-    );
-  });
+  )(
+    'says "N of M commits by departed authors", with "commit" only when M is 1 (first-seance R15.23)',
+    (a, b) => {
+      const n = Math.min(a, b);
+      const s = fns.commitsText(n, b);
+      const word = b === 1 ? 'commit' : 'commits';
+      expect(s).toBe(
+        `${n.toLocaleString('en-US')} of ${b.toLocaleString('en-US')} ${word} by departed authors`,
+      );
+    },
+  );
 });
 
 describe('ghostLabel (R8.2)', () => {

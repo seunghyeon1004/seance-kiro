@@ -663,7 +663,8 @@ const modelRateLimit = limitBy(
   modelLimiter,
   {
     client: 'The spirits are tired. Let them rest a few minutes before you call again.',
-    daily: 'The séance is closed for tonight. The spirits will answer again tomorrow.',
+    daily:
+      "The live ghost has used today's calls. The sample questions and the ward still work.",
   },
   (c) => {
     if (c.get('recording') === undefined) return false;

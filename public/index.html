@@ -58,9 +58,7 @@
                 </datalist>
                 <p class="err" id="repo-err" hidden></p>
                 <p class="help" id="repo-help">
-                  crypt and possessed are samples; possessed's commits try to give the
-                  ghost orders. Or paste a public GitHub link: Séance reads its default
-                  branch and the last 100 commits.
+                  crypt and possessed are samples. Or paste a public GitHub link.
                 </p>
                 <p class="help" id="repo-note" role="status" hidden></p>
               </div>
@@ -99,17 +97,6 @@
                 />
                 <p class="err" id="end-err" hidden></p>
               </div>
-              <details class="field wide token">
-                <summary>GitHub token for pull request text</summary>
-                <label for="token" class="visually-hidden">GitHub token</label>
-                <input
-                  id="token"
-                  name="githubToken"
-                  type="password"
-                  autocomplete="off"
-                  placeholder="Optional"
-                />
-              </details>
               <div class="field wide actions">
                 <button class="btn" id="summon-btn" type="submit">Summon</button>
                 <span
@@ -148,6 +135,10 @@
             <section class="crypt" aria-labelledby="h-crypt">
               <div class="crypt-head">
                 <h2 id="h-crypt">The crypt</h2>
+                <p class="meta" id="crypt-possessed" hidden>
+                  This sample's commits try to give the ghost orders. Flagged commits are
+                  marked.
+                </p>
                 <p class="meta" id="crypt-meta"></p>
                 <p class="meta" id="crypt-shallow" hidden>
                   Only the most recent 100 commits were read. Older history is not in the
@@ -173,11 +164,6 @@
               </div>
             </div>
             <p class="verified-counter" id="verified-counter"></p>
-            <p class="meta" id="ward-limit">
-              The ward checks that each quote is really in the cited commit. It cannot
-              check that the ghost's sentence says the same thing as the quote, so read
-              both.
-            </p>
 
             <section class="guide" id="guide" aria-labelledby="h-guide">
               <h3 id="h-guide" tabindex="-1">Try it in three clicks</h3>
@@ -187,6 +173,19 @@
                     Ask the ghost <span class="guide-done" hidden>done</span>
                   </p>
                   <div class="chips" id="guide-chips"></div>
+                  <p class="help" id="guide-ask-note" hidden>
+                    The live model is unavailable here, so only the sample lines have
+                    recorded answers.
+                  </p>
+                  <button class="btn small ghost" id="back-btn" type="button" hidden>
+                    Back to crypt, line 7
+                  </button>
+                  <span
+                    class="status"
+                    id="guide-ask-status"
+                    role="status"
+                    aria-live="polite"
+                  ></span>
                 </li>
                 <li id="guide-step-ward" data-done="false">
                   <p class="guide-title">
@@ -220,6 +219,7 @@
                     role="status"
                     aria-live="polite"
                   ></span>
+                  <p class="err" id="ward-err" role="alert" hidden></p>
                 </li>
                 <li id="guide-step-exorcise" data-done="false">
                   <p class="guide-title">
@@ -238,6 +238,8 @@
                     role="status"
                     aria-live="polite"
                   ></span>
+                  <span class="meta" id="exorcise-elapsed"></span>
+                  <p class="err" id="exorcise-err" role="alert" hidden></p>
                 </li>
               </ol>
             </section>
@@ -263,41 +265,44 @@
                   role="status"
                   aria-live="polite"
                 ></span>
+                <span class="meta" id="ask-elapsed"></span>
               </div>
             </form>
 
             <details class="plant" id="plant">
               <summary>Plant a false memory</summary>
-              <p class="help">Write your own claim and send it to the ward.</p>
-              <label for="plant-text">Claim</label>
-              <input
-                id="plant-text"
-                value="I added this wait so Windows XP clients would not time out."
-              />
-              <div class="plant-row">
-                <div class="field">
-                  <label for="plant-sha">Cited commit</label
-                  ><input
-                    id="plant-sha"
-                    value="deadbee"
-                    maxlength="7"
-                    spellcheck="false"
-                    aria-describedby="plant-sha-help"
-                  />
-                  <p class="help" id="plant-sha-help">7 characters, 0–9 and a–f.</p>
+              <div class="plant-body">
+                <p class="help">Write your own claim and send it to the ward.</p>
+                <label for="plant-text">Claim</label>
+                <input
+                  id="plant-text"
+                  value="I added this wait so Windows XP clients would not time out."
+                />
+                <div class="plant-row">
+                  <div class="field">
+                    <label for="plant-sha">Cited commit</label
+                    ><input
+                      id="plant-sha"
+                      value="deadbee"
+                      maxlength="7"
+                      spellcheck="false"
+                      aria-describedby="plant-sha-help"
+                    />
+                    <p class="help" id="plant-sha-help">7 characters, 0–9 and a–f.</p>
+                  </div>
+                  <div class="field grow">
+                    <label for="plant-quote">Quote from it</label
+                    ><input
+                      id="plant-quote"
+                      placeholder="Exact words from the commit, at least 8 characters"
+                    />
+                  </div>
                 </div>
-                <div class="field grow">
-                  <label for="plant-quote">Quote from it</label
-                  ><input
-                    id="plant-quote"
-                    placeholder="Exact words from the commit, at least 8 characters"
-                  />
-                </div>
+                <p class="err" id="plant-err" role="alert" hidden></p>
+                <button class="btn small" id="plant-btn" type="button">
+                  Send it through the ward
+                </button>
               </div>
-              <p class="err" id="plant-err" role="alert" hidden></p>
-              <button class="btn small" id="plant-btn" type="button">
-                Send it through the ward
-              </button>
             </details>
           </section>
         </div>
@@ -306,11 +311,16 @@
           <section class="haunting-map" id="map" aria-labelledby="h-map">
             <h2 id="h-map">The haunting map</h2>
             <p class="meta" id="map-meta"></p>
-            <p class="meta" id="map-limit">
-              Each number counts the commits that changed a file. Merge commits are
-              skipped, renames are not followed, every path counts alike, .mailmap is not
-              applied, and lines are not read one by one.
-            </p>
+            <span class="status" id="map-status" role="status" aria-live="polite"></span>
+            <p class="err" id="map-err" role="alert" hidden></p>
+            <details class="map-limits" id="map-limit">
+              <summary>What this map leaves out</summary>
+              <p class="meta">
+                Each number counts the commits that changed a file. Merge commits are
+                skipped, renames are not followed, every path counts alike, .mailmap is
+                not applied, and lines are not read one by one.
+              </p>
+            </details>
             <p class="meta" id="map-cut" hidden></p>
             <p class="notice" id="map-note" hidden></p>
             <ul class="map-legend" id="map-legend" aria-label="Ghosts on this map"></ul>
@@ -319,8 +329,6 @@
               <summary id="map-living-sum">Tended by the living</summary>
               <ul class="map-tiles" id="map-living-tiles"></ul>
             </details>
-            <span class="status" id="map-status" role="status" aria-live="polite"></span>
-            <p class="err" id="map-err" role="alert" hidden></p>
           </section>
         </div>
 
@@ -328,7 +336,12 @@
           <section class="exorcism" id="exorcism" aria-labelledby="h-ex" tabindex="-1">
             <h2 id="h-ex">The exorcism</h2>
             <p class="lab recorded" id="ex-recorded" hidden>
-              A recorded plan (the model is resting). The ward checked it again just now.
+              A recorded plan (the live model is unavailable). The ward checked it again
+              just now.
+            </p>
+            <p class="lab unchecked" id="ex-words">
+              The summary, the tests, the steps and the reasons are the model's words. The
+              ward checked only the cited claims shown under each step.
             </p>
             <div class="ex-top">
               <p class="score">
@@ -338,14 +351,11 @@
               </p>
               <ul class="signals" id="ex-signals"></ul>
             </div>
-            <p class="lab unchecked" id="ex-summary-lab">
-              The model's words, not checked
-            </p>
             <p class="summary" id="ex-summary"></p>
             <p class="meta" id="ex-verified"></p>
             <h3>Write these tests first</h3>
             <p class="lab unchecked" id="ex-tests-lab">
-              The model's words, not checked. Read each test before you run it.
+              Read each test before you run it.
             </p>
             <ol class="tests" id="ex-tests"></ol>
             <h3>Then, in order</h3>
@@ -355,8 +365,7 @@
             <section id="ex-dropped-wrap" hidden aria-labelledby="h-dropped">
               <h3 id="h-dropped">Struck from the plan</h3>
               <p class="meta" id="ex-dropped-help">
-                The ward found no verified claim behind these, so they are not part of the
-                plan.
+                No claim behind these passed the ward, so they are not part of the plan.
               </p>
               <ul class="dropped" id="ex-dropped"></ul>
             </section>
@@ -370,7 +379,7 @@
           <ol class="rules">
             <li>
               <strong>It remembers only commits.</strong> Messages, diffs, authors and
-              dates from git history, nothing else.
+              dates from git history.
             </li>
             <li>
               <strong>Every claim cites a commit.</strong> A short hash and the exact
@@ -389,6 +398,11 @@
       <div class="container foot-in">
         <p>
           Séance, open source under the MIT license. Built with Kiro for Kiroween 2026.
+        </p>
+        <p>
+          <a href="https://github.com/seunghyeon1004/seance-kiro" rel="noopener"
+            >Source on GitHub</a
+          >
         </p>
       </div>
     </footer>
