@@ -5,7 +5,7 @@
 | Second | What the judge does | What the page does | Requirement |
 | --- | --- | --- | --- |
 | 0 | Opens the URL | `GET /api/health` starts the container waking. If the proxy answers with an error page, `#summon-status` says the free server is waking up, and `api()` retries. | R5.2, R5.4 |
-| 5 | Reads the hero | The lede says that every claim is checked and invented ones are struck out. The form is prefilled with `crypt`, `legacy/tax.js`, line 7. | R1 |
+| 5 | Reads the hero | The lede says that every claim must quote the commits and a citation that is not there is struck out (R16.6). The form is prefilled with `crypt`, `legacy/tax.js`, line 7. | R1 |
 | 10 | Clicks **Summon** | The page shows the line in question, the crypt, the ghost's name from the ledger, and the guide. Focus moves to the guide heading. | R2, R3.1, R12.4 |
 | 15 | Clicks **Why is there a three second wait here?** | The answer arrives. Verified claims show "The words the ward found". Step 1 says "done". If the model is down, a recorded answer is shown with its label and checked again by the ward. | R3.2, R7 |
 | 45 | Clicks **Invent a citation** | The ward strikes the claim and gives its reason. The ghost's counter does not move. Step 2 says "done". | R3.3, R4 |
@@ -753,7 +753,7 @@ The guide:
     </li>
     <li id="guide-step-exorcise" data-done="false">
       <p class="guide-title">Run the exorcism <span class="guide-done" hidden>done</span></p>
-      <p class="help">A haunting score and a refactor plan. Steps the ward cannot back are struck out. This can take a minute.</p>
+      <p class="help">A haunting score and a refactor plan. Steps with no claim that passed the ward are struck out. This can take a minute.</p>
       <button class="btn small ghost" id="exorcise-btn" type="button">Start the exorcism</button>
       <span class="status" id="exorcise-status" role="status" aria-live="polite"></span>
     </li>
@@ -812,7 +812,7 @@ Every string below is exact. `${…}` values come from the server or the ledger 
 
 | Where | Text |
 | --- | --- |
-| `.lede` | Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim is checked against the commits, and invented ones are struck out. |
+| `.lede` | Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim must quote the commits, and a citation that is not there is struck out. (R16.6) |
 | `#repo-help` | crypt and possessed are samples; possessed's commits try to give the ghost orders. Or paste a public GitHub link: Séance reads its default branch and the last 100 commits. |
 | `#repo-note` (blob) | Filled in the file and lines from the link. Séance reads the default branch, not the branch or commit in the link. |
 | `#repo-note` (tree) | That link points at a folder. Finish the file path in the File field. Séance reads the default branch. |
@@ -834,7 +834,7 @@ Every string below is exact. `${…}` values come from the server or the ledger 
 | step titles | Ask the ghost / Try to fool the ward / Run the exorcism |
 | done marker | done |
 | `#guide-ward-help` | Each button sends a false claim straight to the ward. No model is involved. |
-| step 3 help | A haunting score and a refactor plan. Steps the ward cannot back are struck out. This can take a minute. |
+| step 3 help (R16.7) | A haunting score and a refactor plan. Steps with no claim that passed the ward are struck out. This can take a minute. |
 | `#exorcise-btn` | Start the exorcism |
 | `#ward-status` | The ward refused your claim. / The ward verified your claim. / Wait for the ghost to finish answering. |
 | planted turn label | Planted by you |
@@ -1315,7 +1315,7 @@ Requirements R14.1–R14.6.
 
 - **Recorded limiter (R14.1, R14.2).** `recordedLimiter` in `src/server.ts` is a `createModelLimiter` with `dailyMax: Infinity`, like the summon and ward limiters. `recordedLimitRefusal(c)` checks it with the shared `requestClientKey(c)` (factored out of `limitBy`) right before each of the four places a recording is served: the ask and exorcise handlers, on the gate's path (`recordedVia` set: no model, or the daily cap) and on the model-failure path. A refused check returns the 429, an accepted one records the request in this limiter only. `modelGate` and `limitBy` are otherwise unchanged, so the model limiter's counters move exactly as before. On the model-failure path the request was already charged by the model limiter on its way in, as before.
 - **Ledger match (R14.3).** `loadRecordingFor(target, ledgerShas, dir?)` in `src/ghost/recordings.ts` wraps `loadRecording` and compares `rec.ledgerShas` with the given hashes element by element. `recordingForRequest` passes `entry.ledger.items.map((i) => i.shortSha)`.
-- **Retries (R14.4, R14.5).** `NO_REPLAY_PATHS` and `retriesNetworkFailure(path, method)` in `public/app.js`. In `api()`, a rejected fetch for which `retriesNetworkFailure` is false throws `CONNECTION_DROPPED` before any wait. The proxy-page branch is unchanged. The e2e harness gives each `ProxyRequest` a `forward()`, so a test proxy can let the server run the request and then drop the answer.
+- **Retries (R14.4, R14.5).** `NO_REPLAY_PATHS` and `retriesNetworkFailure(path, method)` in `public/app.js` (renamed `mayRetry` by §19). In `api()`, a rejected fetch for which `retriesNetworkFailure` is false throws `CONNECTION_DROPPED` before any wait. The proxy-page branch is unchanged. The e2e harness gives each `ProxyRequest` a `forward()`, so a test proxy can let the server run the request and then drop the answer.
 - **Label (R14.6).** `claimNode` writes "Citations verified".
 
 | Review finding | Requirement | Test |
@@ -1362,13 +1362,14 @@ Requirements R15.1–R15.27. Inputs: `docs/kiro-evidence/reaudit-layout-session.
 | `#exorcise-status` | Exorcism ready: ${score} of 100, ${severity}. ${ok} of ${total} plan claims passed the ward. |
 | wrong-author preset | ${name} wrote commit ${sha7}. |
 | scripted silence label | Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it. |
-| `#ward-status`, scripted | The ward verified ${verified} of ${checked} claims from the possessed ghost. (+ silence note of R4.3) |
+| `#ward-status`, scripted (R16.5) | ${verified} of ${checked} claims from the possessed ghost passed the ward. (+ silence note of R4.3) |
 | `#guide-ask-note` | The live model is unavailable here, so only the sample lines have recorded answers. |
 | `#back-btn` | Back to ${sample}, line ${n} |
 | `#guide-ask-status`, busy | Wait for the ghost to finish answering. |
 | `#ask-elapsed`, `#exorcise-elapsed` | ${s} second(s) so far |
 | server, daily cap | The live ghost has used today's calls. The sample questions and the ward still work. |
-| rule 1 | **It remembers only commits.** Messages, diffs, authors and dates from git history. |
+| rule 1 (R16.3) | **It is given only commits.** Messages, diffs, authors and dates from git history. |
+| rule 2 (R16.4) | **Every memory cites a commit.** A short hash and the exact words from that commit. |
 | footer link | Source on GitHub |
 
 Unchanged, and still using "verified" for a claim, because the addendum did not list them: `#ward-status` "The ward verified your claim.", `#ex-dropped-help` and the server's drop reasons. The Markdown ward report keeps "N of M claims verified" and the API field names stay as they are.
@@ -1425,3 +1426,15 @@ Tokens only; no literal colour, no `transition: all`, no new animation. The new 
 | F10 | R15.25 | `test/e2e/polish.test.ts` (empty ledger, busy chip and preset, elapsed ask and exorcise under fake intervals) |
 | F11 | R15.26 | `test/server/recorded-limits.test.ts` |
 | F12 | R15.27 | `test/ui/polish.test.ts` |
+
+## 19. Addendum: inquisitor second pass (2026-11-11)
+
+Requirements R16.1–R16.7.
+
+- **Retries (R16.1, R16.2).** `retriesNetworkFailure` is renamed `mayRetry(path, method)`, with the same rule (false exactly for a POST to a path in `NO_REPLAY_PATHS`), and `api()` computes it once as `retryable`. A rejected fetch with `!retryable` throws `CONNECTION_DROPPED`, as before. In the retry branch, a response (a 502, 503 or 504 that `shouldRetry` accepts) with `!retryable` throws `notAnswered(res.status)` before any wait. `shouldRetry` is unchanged, so our own JSON errors still go to the `!res.ok` path. The e2e test of §17 that expected a retried proxy 502 on `/api/ask` now has the proxy call `req.forward()` and then return an HTML 502: one attempt, one model call, the R16.2 notice. The same for `/api/exorcise` with a 503 (the message goes into `#exorcise-err`). A proxy 502 on `/api/ward` is still retried after 2,000 ms. CP4 tests `mayRetry` over any path string.
+- **Copy (R16.3–R16.7).** `public/index.html` for the lede, step 3 and the rules; `scriptedStatus` in `public/app.js`. The copy tables of §8 and §18.2 are updated in place and marked with these ids. The design notes above that quote the old text describe the earlier state.
+
+| Second-pass finding | Requirement | Test |
+| --- | --- | --- |
+| MEDIUM a forwarded proxy error replays a model call | R16.1, R16.2 | `test/e2e/wake.test.ts` flow 4b, CP4 in `test/ui/pbt/first-seance.pbt.ts` |
+| Wording on the page | R16.3–R16.7 | `test/ui/first-seance.test.ts`, `test/ui/polish.test.ts`, `test/ui/pbt/ui.pbt.ts`, `test/e2e/possessed.test.ts`, `test/e2e/polish.test.ts` |

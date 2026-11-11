@@ -415,7 +415,7 @@ describe('possessed', { timeout: 30_000 }, () => {
     expect(sil[0]!.classList.contains('ordered')).toBe(true);
     expect(sil[0]!.querySelector('.lab')?.textContent).toBe(ORDERED_LABEL);
     expect(p.$('ward-status').textContent).toBe(
-      'The ward verified 0 of 4 claims from the possessed ghost. 1 silence claim was not checked.',
+      '0 of 4 claims from the possessed ghost passed the ward. 1 silence claim was not checked.',
     );
     expect(limitsIn(turn)).toBe(0);
     expect(p.doc.activeElement).toBe(turn);

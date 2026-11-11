@@ -135,12 +135,12 @@ const verifierResultArb: fc.Arbitrary<VerifierResult> = fc
 
 describe('P1 — count line matches input lengths', () => {
   test.prop([verifierResultArb], fcParams)(
-    '**N of M claims verified** matches verified.length and total',
+    '**N of M claims passed the ward** matches verified.length and total',
     (result) => {
       const report = renderWardReport(result);
       const n = result.verified.length;
       const m = result.verified.length + result.rejected.length;
-      expect(report).toContain(`**${n} of ${m} claims verified**`);
+      expect(report).toContain(`**${n} of ${m} claims passed the ward**`);
     },
   );
 });
@@ -225,8 +225,11 @@ describe('P3 — escapeMd output is free of newlines and unescaped structural ch
 // P5 — bidi controls (ward-hardening R11.9)
 // ---------------------------------------------------------------------------
 
-describe('P5 — escapeMd leaves no bidi embedding, override or isolate control (R11.9)', () => {
+describe('P5 — escapeMd leaves no bidi embedding, override, isolate or mark (R11.9, R12.10)', () => {
   const BIDI = [
+    '\u061C',
+    '\u200E',
+    '\u200F',
     '\u202A',
     '\u202B',
     '\u202C',
@@ -247,9 +250,10 @@ describe('P5 — escapeMd leaves no bidi embedding, override or isolate control 
     'no control survives, and each becomes one visible \\uXXXX escape',
     (input) => {
       const out = escapeMd(input);
-      expect(out).not.toMatch(/[\u202A-\u202E\u2066-\u2069]/);
+      expect(out).not.toMatch(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/);
       const controls = [...input].filter((ch) => BIDI.includes(ch)).length;
-      const escapes = out.match(/(?<!\\)(?:\\\\)*\\u(?:202[A-E]|206[6-9])/g) ?? [];
+      const escapes =
+        out.match(/(?<!\\)(?:\\\\)*\\u(?:061C|200[EF]|202[A-E]|206[6-9])/g) ?? [];
       expect(escapes.length).toBe(controls);
     },
   );
@@ -294,7 +298,7 @@ describe('ward-hardening T3 — limit line and silence section', () => {
       const lines = renderWardReport(result).split('\n');
       const n = result.verified.length;
       const m = result.verified.length + result.rejected.length;
-      const i = lines.indexOf(`**${n} of ${m} claims verified**`);
+      const i = lines.indexOf(`**${n} of ${m} claims passed the ward**`);
       expect(i).toBeGreaterThan(0);
       expect(lines[i + 1]).toBe(LIMIT_LINE);
     },

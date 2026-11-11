@@ -32,7 +32,7 @@ describe('T6 — hero copy (R1.1–R1.5)', () => {
   it('the lede says what the ward does (R1.2)', () => {
     const lede = doc.querySelector('#summon .lede');
     expect((lede?.textContent ?? '').replace(/\s+/g, ' ').trim()).toBe(
-      "Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim is checked against the commits, and invented ones are struck out.",
+      "Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim must quote the commits, and a citation that is not there is struck out.",
     );
   });
 
@@ -222,7 +222,7 @@ describe('T7 — the guide (design.md §8.9, §9; R3.1–R3.7)', () => {
 
     const ex = byId('guide-step-exorcise');
     expect(ex.querySelector('p.help')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'A haunting score and a refactor plan. Steps the ward cannot back are struck out. This can take a minute.',
+      'A haunting score and a refactor plan. Steps with no claim that passed the ward are struck out. This can take a minute.',
     );
     expect(ex.contains(byId('exorcise-btn'))).toBe(true);
     expect(text('exorcise-btn')).toBe('Start the exorcism');

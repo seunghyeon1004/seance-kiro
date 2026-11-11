@@ -838,3 +838,21 @@ Requirements R11.1–R11.13. The review is `docs/kiro-evidence/inquisitor-review
 | SUSPECTED unbounded author | R11.13 | `test/evidence/summon-bounds.test.ts` |
 | SUSPECTED bidi controls | R11.8, R11.9 | `test/ui/bidi.test.ts`, `test/ghost/report.test.ts`, `test/ghost/pbt/report.pbt.ts` (P5) |
 | HIGH 2 `X-Forwarded-For` | none: open risk, §14 | none |
+
+## 17. Addendum: inquisitor second pass (2026-11-11)
+
+Requirements R12.1–R12.10. The review is `docs/kiro-evidence/inquisitor-second-pass-session.txt`.
+
+- **Detection forms (R12.1–R12.3).** `src/ghost/verifier.ts` has `DEFAULT_IGNORABLE_RE = /^\p{Default_Ignorable_Code_Point}$/u` and keeps the R11.4 table, renamed `R11_4_IGNORABLE_RANGES`, frozen. `formWith(ignorable)` builds a form (remove, NFKC, remove), and `DETECTION_FORMS` is `[r11_4DetectionText, detectionText]`. `buildIndex` stores one `FormView` (fields, years, author) per form and item, and one longest-first author list per form. Step 7b loops over the forms and runs the year and author checks of steps 6 and 7 on each, pushing only reasons not already present. Each pass only adds reasons, so the result is at least as strict as the raw-plus-R11.4 ward (CP14 against the frozen copy `test/ghost/pbt/verifier-r11-4.ts`) and as the ward before R11.4 (CP10). The table is not extended: the property defines the class. A test checks that the property covers every code point of the table in the running Node, and the coverage was checked on Node 20.18.0 (Unicode 15.1) and 24.5.0 (Unicode 16.0), giving the same 17 ranges.
+- **Why the R11.4 pass stays (R12.3).** The property form removes U+1BCA0 where the R11.4 form keeps it as a word boundary. With only the property form, `B\u200Bob\u{1BCA0}by` (the raw text names no `Bob`, the R11.4 form names `Bob`, the property form reads `Bobby`) and `20\u200B24\u{1BCA0}5` would be verified where the ward rejected them. Both are test cases in `test/ghost/verifier.unicode.test.ts` and words in the CP14 generator.
+- **Stated limits (R12.4).** Unchanged from §4.3 and R11.6: case is not folded and confusables are not detected. Visible look-alikes such as U+00A0 inside a name, combining marks and U+2800 are not removed.
+- **Recordings (R12.5).** `test/recordings.test.ts` runs every shipped answer and every plan step and entry through `verify` and the frozen R11.4 copy and expects deep-equal results. The prompt hashes stay `464f2680` and `b0b2564e`.
+- **GitHub timeout (R12.6, R12.7).** `fetchGitHubRef` reads `GITHUB_TIMEOUT_MS` per call (`GITHUB_TIMEOUT_DEFAULT_MS = 5000`), passes an `AbortController` signal to `fetch`, and races the inner request (fetch, rate-limit check, `json()`, Zod) against a timer that aborts the signal and rejects. A timeout is logged and gives `undefined`. `deadlineGuard` now also exposes `passed()`, and `buildLedger` enriches only when `!beforeGit.passed()`. A remote summon therefore spends at most one GitHub timeout past the deadline before the next `beforeGit` throws `HistoryError`. `GITHUB_TIMEOUT_MS` is documented in `.env.example`.
+- **Wording (R12.8–R12.10).** `STEP_DROP_REASON` and `ENTRY_DROP_REASON` in `src/exorcism/plan.ts`; the count line in `renderWardReport`; the `escapeMd` class gains `\u061C\u200E\u200F`, and the escape pads to four hex digits.
+
+| Second-pass finding | Requirement | Test |
+| --- | --- | --- |
+| MEDIUM invisible controls outside `IGNORABLE_RANGES` | R12.1–R12.5 | `test/ghost/verifier.unicode.test.ts`, CP14–CP16 in `test/ghost/pbt/verifier.unicode.pbt.ts`, `test/recordings.test.ts` |
+| MEDIUM the summon deadline excludes GitHub enrichment | R12.6, R12.7 | `test/evidence/github.test.ts`, `test/evidence/summon-bounds.test.ts` |
+| Wording: plan drop reasons, report count line | R12.8, R12.9 | `test/exorcism/plan.test.ts`, `test/ghost/report.test.ts`, P1 in `test/ghost/pbt/report.pbt.ts` |
+| SUSPECTED U+061C, U+200E, U+200F in the report | R12.10 | `test/ghost/report.test.ts`, P5 in `test/ghost/pbt/report.pbt.ts` |

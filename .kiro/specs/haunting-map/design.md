@@ -732,3 +732,13 @@ The §11.3 flow changes in two places: the "You are here" tile has no button, an
 | status and error order | R11.5 | `test/ui/polish.test.ts` |
 | margin, neutral note, empty status | R11.6 | `test/ui/polish.test.ts` (rules); what they look like by reading |
 | `<bdi>` names | R11.7 | `test/e2e/polish.test.ts` |
+
+## 15. Addendum: inquisitor second pass (2026-11-11)
+
+Requirement R12.1. In `readHauntingMap`, the line that logged skipped records and went on now returns `failed('MAP_SKIPPED', 'skipped <n> commit record(s)')`: the same `MAP_NOTE_FAILED` note and the same `console.error` as every other failure. `parseNameLog` is unchanged and still never throws. The note's wording ("git could not read the history in time") is the fixed R1.6 sentence; it is not exact for this cause, and a new sentence was left out to keep one fixed failure note.
+
+Test: `test/evidence/haunting.git.test.ts` (R12.1) builds a repository in a temp dir with a commit by `Tom` and a commit by `Mallory\u001fMaintainer` (set through `GIT_AUTHOR_NAME`; git keeps the U+001F, which the test checks with `git log --format=%an`). Before the change, the reader returned a map without the second commit.
+
+| Second-pass finding | Requirement | Test |
+| --- | --- | --- |
+| LOW a US in an author or email silently drops a commit | R12.1 | `test/evidence/haunting.git.test.ts` |

@@ -227,3 +227,11 @@ Done together with first-seance T12; design.md §14.
 - [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. The reader, `computeHauntingMap` and `/api/summon` are unchanged.
 
 Covers: R11.1–R11.7.
+
+---
+
+## T9 — Addendum: inquisitor second pass (2026-11-11)
+
+- [x] Write the failing test in `test/evidence/haunting.git.test.ts`: a real commit whose author contains U+001F; `readHauntingMap` returned a map without it. Return `MAP_NOTE_FAILED` from `readHauntingMap` when `skipped > 0` (R12.1). `npx vitest run test/evidence test/e2e/haunting.test.ts test/mcp` passes.
+
+Covers: R12.1.

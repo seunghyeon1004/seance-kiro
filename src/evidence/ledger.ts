@@ -75,16 +75,25 @@ function summonDeadlineMs(): number {
 /**
  * A check run before each git call. For a remote repository it throws HistoryError once the
  * deadline has passed, so the remaining git calls are not started; otherwise it does nothing.
+ * `passed()` says whether the deadline has passed without throwing; the GitHub enrichment uses
+ * it to skip a request once the deadline is gone (ward-hardening R12.7).
  */
-function deadlineGuard(remote: boolean): (step: string) => void {
-  if (!remote) return () => undefined;
+function deadlineGuard(remote: boolean): {
+  (step: string): void;
+  passed: () => boolean;
+} {
+  if (!remote) return Object.assign(() => undefined, { passed: () => false });
   const ms = summonDeadlineMs();
   const deadline = Date.now() + ms;
-  return (step) => {
-    if (Date.now() >= deadline) {
-      throw new HistoryError(`The summon deadline of ${ms} ms passed before ${step}`);
-    }
-  };
+  const passed = (): boolean => Date.now() >= deadline;
+  return Object.assign(
+    (step: string): void => {
+      if (passed()) {
+        throw new HistoryError(`The summon deadline of ${ms} ms passed before ${step}`);
+      }
+    },
+    { passed },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -294,9 +303,11 @@ export async function buildLedger(
         `${commit.author}\n${commit.subject}\n${commit.body}`,
       );
 
-      // GitHub PR/issue enrichment (R6)
+      // GitHub PR/issue enrichment (R6). ward-hardening R12.6, R12.7: skipped once the summon
+      // deadline has passed, and each request is bounded by GITHUB_TIMEOUT_MS, so a hung API
+      // holds the clone at most the deadline plus that timeout.
       let pr: EvidenceItem['pr'];
-      if (ghInfo && refs.length > 0 && input.githubToken) {
+      if (ghInfo && refs.length > 0 && input.githubToken && !beforeGit.passed()) {
         // Try the first ref; non-fatal on failure
         const firstRef = refs[0];
         if (firstRef !== undefined) {

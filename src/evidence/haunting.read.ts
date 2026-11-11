@@ -37,8 +37,9 @@ export async function readHauntingMap(
       lsTreeNames(repo, t),
     ]);
     const { commits, skipped } = parseNameLog(log);
-    if (skipped > 0)
-      console.warn('[seance:map] skipped malformed commit records', { skipped });
+    // haunting-map R12.1 (inquisitor second pass, 2026-11-11): a skipped record is a real
+    // commit the map would leave out, so no partial map is drawn
+    if (skipped > 0) return failed('MAP_SKIPPED', `skipped ${skipped} commit record(s)`);
     const map = computeHauntingMap(commits, parseLsTree(tree));
     if (map === null) return { kind: 'note', note: MAP_NOTE_EMPTY };
     const parsed = HauntingMapSchema.safeParse(map);

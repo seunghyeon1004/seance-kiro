@@ -192,3 +192,61 @@ describe('fetchGitHubRef SSRF → undefined (never rethrows)', () => {
     expect(result).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// inquisitor second pass (2026-11-11) — ward-hardening R12.6
+// ---------------------------------------------------------------------------
+
+describe('fetchGitHubRef — a hung GitHub API (R12.6)', () => {
+  afterEach(() => {
+    delete process.env['GITHUB_TIMEOUT_MS'];
+  });
+
+  it('a fetch that never settles gives undefined after GITHUB_TIMEOUT_MS, and the signal is aborted', async () => {
+    process.env['GITHUB_TIMEOUT_MS'] = '80';
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, init?: RequestInit) => {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>(() => undefined);
+      }),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const t0 = Date.now();
+    const out = await fetchGitHubRef('owner', 'repo', '#1', 'tok');
+    const took = Date.now() - t0;
+    warn.mockRestore();
+    expect(out).toBeUndefined();
+    expect(took).toBeGreaterThanOrEqual(70);
+    expect(took).toBeLessThan(80 + 400);
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it('a body that never finishes is bounded by the same timeout', async () => {
+    process.env['GITHUB_TIMEOUT_MS'] = '80';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            headers: { get: () => null },
+            json: () => new Promise(() => undefined),
+          }) as unknown as Response,
+      ),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const t0 = Date.now();
+    const out = await fetchGitHubRef('owner', 'repo', '#1', 'tok');
+    warn.mockRestore();
+    expect(out).toBeUndefined();
+    expect(Date.now() - t0).toBeLessThan(80 + 400);
+  });
+
+  it('the default timeout is 5000 ms', async () => {
+    const { GITHUB_TIMEOUT_DEFAULT_MS } = await import('../../src/evidence/github.js');
+    expect(GITHUB_TIMEOUT_DEFAULT_MS).toBe(5_000);
+  });
+});

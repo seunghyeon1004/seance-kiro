@@ -166,7 +166,7 @@ describe('POST /api/ask', () => {
     // T3: report field is a ward report Markdown string
     expect(typeof body.report).toBe('string');
     expect(body.report).toMatch(/^# Ward report/);
-    expect(body.report).toMatch(/\*\*\d+ of \d+ claims verified\*\*/);
+    expect(body.report).toMatch(/\*\*\d+ of \d+ claims passed the ward\*\*/);
   });
 
   it('returns 404 + SESSION_NOT_FOUND for an unknown sessionId', async () => {
@@ -357,11 +357,11 @@ function assertMixedBody(body: AnswerBody): void {
   expect(body.score).toBeCloseTo(2 / 5);
 
   // The report count line uses verified of verified + rejected
-  expect(body.report).toContain('**2 of 4 claims verified**');
+  expect(body.report).toContain('**2 of 4 claims passed the ward**');
 
   // ward-hardening T3 — the limit line follows the count line, and silence has its own section
   const reportLines = body.report.split('\n');
-  const countAt = reportLines.indexOf('**2 of 4 claims verified**');
+  const countAt = reportLines.indexOf('**2 of 4 claims passed the ward**');
   expect(reportLines[countAt + 1]).toBe(
     'The ward checked each citation and quote, not the wording of the claims.',
   );
@@ -441,7 +441,7 @@ describe('ask and ward responses (ward-hardening T1)', () => {
     expect(body.verified).toHaveLength(0);
     expect(body.rejected).toHaveLength(1);
     expect(body.tally).toEqual({ verified: 0, checked: 1, silent: 0 });
-    expect(body.report).toContain('**0 of 1 claims verified**');
+    expect(body.report).toContain('**0 of 1 claims passed the ward**');
   });
 
   it('/api/ward refuses an answer with zero claims', async () => {

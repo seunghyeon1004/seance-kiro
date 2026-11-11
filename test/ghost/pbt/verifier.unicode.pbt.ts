@@ -22,6 +22,7 @@ import { verify } from '../../../src/ghost/verifier.js';
 import { HUNK_UI_CHARS } from '../../../src/ghost/schema.js';
 import type { EvidenceItem } from '../../../src/ghost/schema.js';
 import { verify as verify20261111 } from './verifier-2026-11-11.js';
+import { verify as verifyR11_4 } from './verifier-r11-4.js';
 
 const SEED = process.env['FAST_CHECK_SEED']
   ? parseInt(process.env['FAST_CHECK_SEED'], 10)
@@ -62,6 +63,24 @@ function strip(s: string): string {
 }
 
 const norm = (s: string): string => strip(strip(s).normalize('NFKC'));
+
+/** R12.1 oracle: the whole Default_Ignorable_Code_Point class (static property, u flag). */
+const DI_RE = /^\p{Default_Ignorable_Code_Point}$/u;
+function stripDI(s: string): string {
+  let out = '';
+  for (const ch of s) if (!DI_RE.test(ch)) out += ch;
+  return out;
+}
+const normDI = (s: string): string => stripDI(stripDI(s).normalize('NFKC'));
+const ALL_DI: readonly string[] = (() => {
+  const out: string[] = [];
+  for (let cp = 0; cp <= 0x10ffff; cp++) {
+    if (cp >= 0xd800 && cp <= 0xdfff) continue;
+    const ch = String.fromCodePoint(cp);
+    if (DI_RE.test(ch)) out.push(ch);
+  }
+  return out;
+})();
 
 type Field = 'subject' | 'body' | 'hunk';
 const FIELDS: readonly Field[] = ['subject', 'body', 'hunk'];
@@ -110,7 +129,19 @@ function namedAuthors(text: string, authors: readonly string[]): string[] {
 // Arbitraries
 // ---------------------------------------------------------------------------
 
-const TRICKS = ['\u200B', '\u00AD', '\uFEFF', '\u2060', '\u{E0041}', '\uFE0F', '\u202E'];
+const TRICKS = [
+  '\u200B',
+  '\u00AD',
+  '\uFEFF',
+  '\u2060',
+  '\u{E0041}',
+  '\uFE0F',
+  '\u202E',
+  // R12.1: outside the R11.4 list, inside the property
+  '\u{1BCA0}',
+  '\u{1D173}',
+  '\uFFF0',
+];
 const AUTHORS = ['Alice', 'Bob', 'Jos\u00e9', 'Mal\u200Blory', 'Ａnn', 'Ann'] as const;
 const SHA_POOL = ['abc1234', 'def5678', '0123abc', 'fedcba9', '1111111'] as const;
 const WORDS = [
@@ -123,11 +154,15 @@ const WORDS = [
   '2021',
   '２０２３',
   '20\u200B22',
+  '20\u{1D173}23',
+  '20\u200B24\u{1BCA0}5',
   'Alice',
   'alice',
   'A\u200Blice',
+  'A\u{1BCA0}lice',
   'Bob',
   'B\u00ADob',
+  'B\u200Bob\u{1BCA0}by',
   'Jos\u00e9',
   'Jose\u0301',
   'Mallory',
@@ -321,4 +356,114 @@ describe('CP13 — quotes stay raw (R11.5)', () => {
       }
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// inquisitor second pass (2026-11-11) — ward-hardening R12.1–R12.3
+// ---------------------------------------------------------------------------
+
+describe('CP14 — only stricter than the R11.4 verifier (R12.3)', () => {
+  test.prop([caseArb], fcParams)(
+    'every claim the frozen R11.4 verifier rejects is rejected by the current one',
+    ({ ledger, claims }) => {
+      const before = verifyR11_4(ledger, { claims });
+      const now = verify(ledger, { claims });
+      const beforeRejected = new Set(before.rejected.map((r) => r.index));
+      for (const v of now.verified) expect(beforeRejected.has(v.index)).toBe(false);
+      for (const s of now.silent) expect(beforeRejected.has(s.index)).toBe(false);
+    },
+  );
+
+  it('the generators reach claims only the R12.1 form rejects', () => {
+    const cases = fc.sample(caseArb, {
+      numRuns: 500,
+      ...(SEED !== undefined ? { seed: SEED } : {}),
+    });
+    let newlyRejected = 0;
+    for (const { ledger, claims } of cases) {
+      newlyRejected +=
+        verifyR11_4(ledger, { claims }).verified.length -
+        verify(ledger, { claims }).verified.length;
+    }
+    expect(newlyRejected).toBeGreaterThan(0);
+  });
+});
+
+describe('CP15 — the property form: years and authors (R12.1)', () => {
+  test.prop([caseArb], fcParams)(
+    'every year and ledger author in the property form of a verified claim is supported',
+    ({ ledger, claims }) => {
+      const authors = [...new Set(ledger.map((i) => normDI(i.author)))];
+      for (const v of verify(ledger, { claims }).verified) {
+        const cited = citedItems(ledger, claims[v.index]!);
+        const t = normDI(v.claim.text);
+        for (const y of yearsIn(t)) {
+          const ok = cited.some(
+            (it) =>
+              it.date.slice(0, 4) === y ||
+              FIELDS.some((f) => yearsIn(normDI(fieldText(it, f))).includes(y)),
+          );
+          expect(ok, `year ${y} in ${JSON.stringify(v.claim.text)}`).toBe(true);
+        }
+        for (const a of namedAuthors(t, authors)) {
+          const ok = cited.some(
+            (it) =>
+              normDI(it.author) === a ||
+              FIELDS.some((f) => wholeWordAt(normDI(fieldText(it, f)), a).length > 0),
+          );
+          expect(ok, `author ${a} in ${JSON.stringify(v.claim.text)}`).toBe(true);
+        }
+      }
+    },
+  );
+});
+
+describe('CP16 — any default-ignorable code point inside a name or a year (R12.1)', () => {
+  const alice: EvidenceItem = {
+    id: 'E1',
+    sha: 'def5678' + '0'.repeat(33),
+    shortSha: 'def5678',
+    author: 'Alice',
+    email: 'a@example.com',
+    date: '2024-01-01T00:00:00.000Z',
+    subject: 'feat: the queue',
+    body: '',
+    hunk: '',
+    files: [],
+    refs: [],
+    suspiciousMessage: false,
+  };
+  const bob: EvidenceItem = {
+    ...alice,
+    id: 'E2',
+    sha: 'abc1234' + '0'.repeat(33),
+    shortSha: 'abc1234',
+    author: 'Bob',
+    date: '2020-03-01T00:00:00.000Z',
+    subject: 'fix: supported phrase',
+  };
+  test.prop(
+    [
+      fc.constantFrom(...ALL_DI),
+      fc.integer({ min: 1, max: 4 }),
+      fc.integer({ min: 1, max: 3 }),
+      fc.boolean(),
+    ],
+    fcParams,
+  )('is caught when only Bob’s 2020 commit is cited', (ch, at, yearAt, asYear) => {
+    const text = asYear
+      ? `Bob wrote this in ${'2024'.slice(0, yearAt)}${ch}${'2024'.slice(yearAt)}.`
+      : `${'Alice'.slice(0, at)}${ch}${'Alice'.slice(at)} wrote this.`;
+    const r = verify([alice, bob], {
+      claims: [
+        {
+          kind: 'memory',
+          text,
+          citations: [{ sha7: 'abc1234', quote: 'supported phrase' }],
+        },
+      ],
+    });
+    expect(r.verified).toHaveLength(0);
+    expect(r.rejected[0]?.reason).toContain(asYear ? 'the year 2024' : 'names Alice');
+  });
 });

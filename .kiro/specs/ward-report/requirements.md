@@ -15,7 +15,7 @@ A pure, deterministic Markdown renderer for a `VerifierResult`, plus (later) a c
 
 **R1.1** When the system receives a `VerifierResult`, it shall return a Markdown string produced by `renderWardReport(result, meta)` in `src/ghost/report.ts`.
 
-**R1.2** The first line shall be `# Ward report` and the report shall contain the line `**N of M claims verified**`, where N is `result.verified.length` and M is `result.verified.length + result.rejected.length`.
+**R1.2** The first line shall be `# Ward report` and the report shall contain the line `**N of M claims verified**`, where N is `result.verified.length` and M is `result.verified.length + result.rejected.length`. _Superseded by R2.1 (inquisitor second pass, 2026-11-11): the line now reads `**N of M claims passed the ward**`. N and M are unchanged._
 
 **R1.3** If `meta.file` and `meta.lines` are provided, the report shall contain a line naming the file and the line range.
 
@@ -36,3 +36,11 @@ A pure, deterministic Markdown renderer for a `VerifierResult`, plus (later) a c
 ## Out of scope
 
 HTML or PDF export, persisting reports on the server, signing reports.
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+The second pass found that the count line `**N of M claims verified**` reads as if each sentence had been checked, when the ward checks only citations, quotes and the named years and ledger authors (`docs/kiro-evidence/inquisitor-second-pass-session.txt`, wording list).
+
+**R2.1** The count line shall read `**N of M claims passed the ward**`, with N and M as in R1.2. This supersedes the wording of R1.2. The limit line stays directly after it (`ward-hardening` R2.4), and what the ward accepts does not change (`ward-hardening` R12.9).
+
+**R2.2** `escapeMd` shall also turn U+061C, U+200E and U+200F into visible `\u061C`, `\u200E`, `\u200F` text, as R11.9 of `ward-hardening` does for the embedding, override and isolate controls (`ward-hardening` R12.10).

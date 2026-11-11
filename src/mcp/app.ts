@@ -70,7 +70,7 @@ export function createSeanceMcpServer(deps: Partial<ToolDeps> = {}): McpServer {
   server.registerTool(
     'seance_verify',
     {
-      title: 'Verify claims with the ward',
+      title: 'Check claim citations with the ward',
       description: VERIFY_DESCRIPTION,
       inputSchema: VerifyInputShape,
       outputSchema: VerifyOutputShape,

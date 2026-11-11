@@ -204,3 +204,24 @@ The decisions behind each group of requirements:
 - Persisting ledgers across server restarts.
 - Exorcism scores and refactor plans over MCP.
 - Checking that a claim's wording follows from its quotes.
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+Input: `docs/kiro-evidence/inquisitor-second-pass-session.txt`. Its HIGH finding: `resolveLocalRepo` accepts a local partial clone, and `blame`, `log -L` and `show` then fetch a missing object from the promisor remote in `.git/config`, so the server reaches the network despite R1.5. Its MEDIUM finding: the tool title and description call a claim "verified" when the ward checked its citations, not its sentence.
+
+Decisions:
+
+- **The entry turns lazy fetch off for the whole process.** `src/mcp/server.ts` sets `GIT_NO_LAZY_FETCH=1` and `GIT_TERMINAL_PROMPT=0` in `process.env` before the dynamic import, so every git subprocess inherits them. `runGit` is not changed, because the web server needs lazy fetch for its own blob-less clones. A summon whose history needs a missing object fails with the fixed git sentence. Only the entry enforces this; a program that builds the server with `createSeanceMcpServer()` itself must set the variables (stated limit).
+- **Words, not fields.** The output keeps `verified`, `rejected` and `silent`, since the tools are a public API. The title and description say what an entry in `verified` proves.
+
+### R13 Inquisitor second pass (2026-11-11)
+
+**R13.1** No git subprocess of the MCP server process shall fetch a missing object from a promisor remote. With a local partial clone over `file://` whose missing blob the summoned line needs, `seance_summon` shall return `GIT_ERROR` and the clone's count of missing objects shall not change; `seance_haunting_map` shall not change it either.
+
+**R13.2** `src/mcp/server.ts` shall set `process.env.GIT_NO_LAZY_FETCH = '1'` and `process.env.GIT_TERMINAL_PROMPT = '0'` before its first dynamic import, and shall keep `./console.js` (which imports nothing) as its only static import. The web server shall not set them.
+
+**R13.3** The title of `seance_verify` shall be "Check claim citations with the ward". The tool name, argument names and output field names shall not change.
+
+**R13.4** The description of `seance_verify` shall say that an entry in `verified` means only that its citations and quotes were found and the years and ledger authors it names are supported by the cited commits, and that it does not mean the sentence follows from the quote. It shall not contain "claim is verified" or "verified claims".
+
+**R13.5** The archaeologist prompt of design.md §6.1 shall end with the count line "N of M claims passed the ward" (`ward-report` R2.1). The human copies it into `.kiro/agents/archaeologist.json`; until then `test/mcp/config.test.ts` checks the old line in that file.

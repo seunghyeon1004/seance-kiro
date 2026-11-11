@@ -121,9 +121,9 @@ The decisions behind each group of requirements:
 
 ### R7 Exorcism plan (decision G; finding C5)
 
-**R7.1** A plan step with zero verified claims shall not appear in `plan.steps`. It shall appear in `plan.dropped` with `kind: "step"`, its description as `title`, the reason "The ward verified none of the claims behind this step." and its rejected claims.
+**R7.1** A plan step with zero verified claims shall not appear in `plan.steps`. It shall appear in `plan.dropped` with `kind: "step"`, its description as `title`, the reason "The ward verified none of the claims behind this step." and its rejected claims. _The reason's wording is superseded by R12.8 (2026-11-11): "None of the claims behind this step passed the ward."_
 
-**R7.2** A do-not-touch entry with zero verified claims shall not appear in `plan.doNotTouchList`. It shall appear in `plan.dropped` with `kind: "doNotTouch"`, its line range as `title`, the reason "The ward verified none of the claims behind this entry." and its rejected claims.
+**R7.2** A do-not-touch entry with zero verified claims shall not appear in `plan.doNotTouchList`. It shall appear in `plan.dropped` with `kind: "doNotTouch"`, its line range as `title`, the reason "The ward verified none of the claims behind this entry." and its rejected claims. _The reason's wording is superseded by R12.8 (2026-11-11): "None of the claims behind this entry passed the ward."_
 
 **R7.3** Each plan claim shall be checked on its own, as R1.8 requires. One malformed claim shall reject that claim only, not the whole plan.
 
@@ -226,7 +226,7 @@ Decisions:
 
 **R11.3** R11.1 and R11.2 shall not change what the verifier accepts. A claim whose sentence is unrelated to a correctly cited quote is still verified, and is shown under "Citations verified" with the R2.4 and R2.3 limits next to it.
 
-**R11.4** For year detection (R3.1) and ledger-author detection (R3.2) only, the verifier shall also compare the detection form of the claim text, of every ledger author name and of every cited field. The detection form is the text with these characters removed, then NFKC applied, then the same characters removed again: U+00AD, U+034F, U+061C, U+115F, U+1160, U+17B4, U+17B5, U+180B–U+180F, U+200B–U+200F, U+202A–U+202E, U+2060–U+206F, U+3164, U+FE00–U+FE0F, U+FEFF, U+FFA0 and U+E0000–U+E0FFF. A year or ledger author named in the detection form of a claim shall be supported in the same way as R3.1 and R3.2 require, using the detection forms of the cited items' fields and authors. These checks shall be added to the R3.1 and R3.2 checks on the raw text, not replace them. Full-width digits therefore name a year, and a zero-width character inside a name no longer hides it. No regular expression shall be built from ledger or claim text.
+**R11.4** For year detection (R3.1) and ledger-author detection (R3.2) only, the verifier shall also compare the detection form of the claim text, of every ledger author name and of every cited field. The detection form is the text with these characters removed, then NFKC applied, then the same characters removed again: U+00AD, U+034F, U+061C, U+115F, U+1160, U+17B4, U+17B5, U+180B–U+180F, U+200B–U+200F, U+202A–U+202E, U+2060–U+206F, U+3164, U+FE00–U+FE0F, U+FEFF, U+FFA0 and U+E0000–U+E0FFF. _Extended by R12.1 (2026-11-11): a second detection form removes every Default_Ignorable_Code_Point; this R11.4 form is still checked (R12.3)._ A year or ledger author named in the detection form of a claim shall be supported in the same way as R3.1 and R3.2 require, using the detection forms of the cited items' fields and authors. These checks shall be added to the R3.1 and R3.2 checks on the raw text, not replace them. Full-width digits therefore name a year, and a zero-width character inside a name no longer hides it. No regular expression shall be built from ledger or claim text.
 
 **R11.5** Quote verification (R1.5) shall stay raw and case-sensitive. A quote that matches a field only in detection form shall be rejected.
 
@@ -245,3 +245,36 @@ Decisions:
 **R11.12** For a remote repository only, after the ledger's git calls and after the haunting-map read has settled, `buildLedger` shall measure the clone size once more. Above `CLONE_MAX_MB` it shall throw `CloneError`, so the summon returns 422 `CLONE_ERROR` with the R10.2 message, and the clone is deleted and the slot released. A failed size probe shall pass, as the check right after the clone does.
 
 **R11.13** `buildLedger` shall cut each item's `author` and `email` to 256 characters, as it cuts `subject` and `body`. `isSuspicious` shall still read the full author.
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+Input: the inquisitor's second pass, `docs/kiro-evidence/inquisitor-second-pass-session.txt`. This spec takes its MEDIUM "invisible controls outside `IGNORABLE_RANGES`", its MEDIUM "the summon deadline excludes GitHub enrichment", the plan and report wording from its wording list, and its SUSPECTED "copied Markdown still permits some bidi influence". `seance-mcp` takes the HIGH (lazy fetch) and the MCP wording; `first-seance` takes the retries and the page wording; `haunting-map` takes the LOW (a skipped record). Not changed: `X-Forwarded-For` (open risk, design.md §14), an MCP-wide deadline, full-SHA recording identity, case folding and homoglyphs.
+
+Decisions:
+
+- **The whole class, from the property, not a list.** The detection form uses the static Unicode property `\p{Default_Ignorable_Code_Point}`. It is a fixed pattern, never built from ledger or claim text. On Node 20 (Unicode 15.1) and Node 24 (Unicode 16) it covers every code point of the R11.4 list and adds U+FFF0–U+FFF8, U+1BCA0–U+1BCA3 and U+1D173–U+1D17A.
+- **The R11.4 form stays as one more pass, so the ward only becomes stricter.** Removing more characters can glue a name or a year to its neighbours. With the ledger author `Bob`, the claim text `B\u200Bob\u{1BCA0}by` names Bob in the R11.4 form (U+1BCA0 is a word boundary there) but reads `Bobby` in the property form. `20\u200B24\u{1BCA0}5` names 2024 in the R11.4 form and nothing in the property form. A verifier that only swapped the list for the property verified both claims, which the current ward rejects; this was checked by running both on those inputs. So the R11.4 list is kept, frozen and only for that pass, and the property form is added as a third pass. Every pass only adds reasons.
+- **Bounded enrichment.** A GitHub request has its own timeout and is not started once the summon deadline has passed, so a hung API holds the clone and its slot at most the deadline plus that timeout (plus the git call already running, as R11.10 says).
+- **Wording.** The plan's drop reasons and the report's count line say that the claims passed the ward, not that the ward verified something.
+
+### R12 Inquisitor second pass (2026-11-11)
+
+**R12.1** The year and author checks shall also run on a second detection form: every Default_Ignorable_Code_Point removed (the static property `\p{Default_Ignorable_Code_Point}` with the `u` flag), then NFKC applied, then the same class removed again. `detectionText` shall return this form. The R11.4 form and the raw pass shall still run. Quotes shall stay raw (R11.5). No regular expression shall be built from ledger or claim text.
+
+**R12.2** With the ledger authors `Alice` (2024) and `Bob` (2020), the claim "A\u{1BCA0}lice wrote this in 20\u{1D173}24." citing only Bob's commit with a valid quote shall be rejected with both the Alice reason and the 2024 reason. Any Default_Ignorable_Code_Point inside a named ledger author or a year shall not hide it.
+
+**R12.3** For any ledger and any answer, a claim that the verifier before R12.1 (frozen in `test/ghost/pbt/verifier-r11-4.ts`) rejects shall not be verified by the current verifier. R11.7 and R1.10 shall still hold.
+
+**R12.4** The stated limits of R11.6 shall stay: matching is case-sensitive, and letters that only look alike across scripts (a Cyrillic `А` in `Alice`) are not detected. Visible characters inside a name (U+00A0, combining marks, U+2800) are not removed; they change how the name looks.
+
+**R12.5** Every claim of every shipped recording shall land in the same bucket, with the same reason, under the current verifier as under the R11.4 verifier.
+
+**R12.6** `fetchGitHubRef` shall bound each request, headers and body, by `GITHUB_TIMEOUT_MS` (default 5,000 ms; a missing, non-numeric or non-positive value gives the default). The fetch shall get an `AbortSignal`, and the call shall be raced against the same timer, so a fetch that ignores the signal cannot hold it either. A timeout shall return `undefined`, as every other failure does.
+
+**R12.7** `buildLedger` shall not start a GitHub request once the summon deadline of R11.10 has passed. A remote summon with a hung GitHub API shall therefore end, delete the clone and release its slot within the deadline plus `GITHUB_TIMEOUT_MS`, plus the git call already running.
+
+**R12.8** The plan's drop reasons (R7.1, R7.2) shall read "None of the claims behind this step passed the ward." and "None of the claims behind this entry passed the ward."
+
+**R12.9** The report's count line shall read `**N of M claims passed the ward**` (`ward-report` R2.1, superseding `ward-report` R1.2). R12.8 and R12.9 shall not change what the verifier or the plan accepts.
+
+**R12.10** `escapeMd` shall also replace U+061C, U+200E and U+200F with the visible text `\u061C`, `\u200E` and `\u200F` (four upper-case hex digits), as R11.9 does for the other bidi controls.

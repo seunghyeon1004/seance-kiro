@@ -16,7 +16,7 @@ Applies to everything under `test/`. Run with `npm test` (`vitest --run`); never
 ## Never weaken to pass
 
 - Never loosen a Zod schema, the verifier or a limit to make a test pass. Fix the code or the test.
-- A new verifier rule comes with a fast-check property in `test/ghost/pbt/` showing it never verifies a claim that `verifier-2026-11-11.ts` or `legacy-verifier.ts` rejects. Never edit those frozen copies.
+- A new verifier rule comes with a fast-check property in `test/ghost/pbt/` showing it never verifies a claim that `verifier-2026-11-11.ts`, `verifier-r11-4.ts` or `legacy-verifier.ts` rejects. Never edit those frozen copies.
 
 ## Fixtures and recordings
 

@@ -79,11 +79,12 @@ describe('CP4 — shouldRetry retries only a proxy 502/503/504 page; a network f
     expect(shouldRetry()(status, { ...extra, code })).toBe(false);
   });
 
-  // first-seance R14.4 (inquisitor review, 2026-11-11): a rejected fetch may hide a request the
-  // server already ran, so the model-calling POSTs are never sent again after one
-  const retriesNetworkFailure = (): ((path: string, method: string) => boolean) =>
+  // first-seance R14.4, R16.1 (inquisitor reviews, 2026-11-11): a rejected fetch or a proxy
+  // error page may hide a request the server already ran, so the model-calling POSTs are never
+  // sent again automatically, whatever the failure
+  const mayRetry = (): ((path: string, method: string) => boolean) =>
     new Function(
-      `${extractConst('NO_REPLAY_PATHS')}\n${extractFunction('retriesNetworkFailure')}; return retriesNetworkFailure;`,
+      `${extractConst('NO_REPLAY_PATHS')}\n${extractFunction('mayRetry')}; return mayRetry;`,
     )() as (path: string, method: string) => boolean;
 
   const MODEL_POSTS = ['/api/ask', '/api/exorcise'];
@@ -102,16 +103,18 @@ describe('CP4 — shouldRetry retries only a proxy 502/503/504 page; a network f
   test.prop([pathArb, fc.constantFrom('GET', 'POST')], params)(
     'false exactly for a POST to /api/ask or /api/exorcise',
     (path, method) => {
-      expect(retriesNetworkFailure()(path, method)).toBe(
+      expect(mayRetry()(path, method)).toBe(
         !(method === 'POST' && MODEL_POSTS.includes(path)),
       );
     },
   );
 
-  it('api() asks retriesNetworkFailure before retrying a rejected fetch', () => {
+  it('api() asks mayRetry before retrying a rejected fetch or a proxy page (R14.4, R16.1)', () => {
     const src = extractFunction('api');
-    expect(src).toContain('retriesNetworkFailure(path, init.method)');
+    expect(src).toContain('mayRetry(path, init.method)');
+    expect(src).toContain('!retryable');
     expect(src).toContain('CONNECTION_DROPPED');
+    expect(src).toContain('notAnswered(res.status)');
   });
 });
 

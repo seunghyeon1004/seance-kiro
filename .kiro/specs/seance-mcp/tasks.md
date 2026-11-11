@@ -155,6 +155,20 @@ Covers: N1, N2, N3, N6 (by the cap arithmetic of design.md §3.3), N7, and the t
 
 ---
 
+## T8 — Addendum: inquisitor second pass (2026-11-11)
+
+Each item began with a test that failed for the stated reason before the code changed.
+
+- [x] Write `test/mcp/lazy-fetch.test.ts` (R13.1, R13.2): a real partial clone of the crypt over `file://`, the server over stdio, `seance_summon` on `legacy/tax.js` line 7 expecting `GIT_ERROR` and an unchanged missing-object count, `seance_haunting_map` fetching nothing, a control clone where plain `git blame` does fetch, and the order of the assignments in `server.ts`. It failed with the count going from 4 to 2 and the assignments absent. Set the two variables in `src/mcp/server.ts`.
+- [x] Write the failing title and description test in `test/mcp/app.test.ts` (R13.3, R13.4). Change the title in `app.ts` and `VERIFY_DESCRIPTION` in `tools.ts`; no field name changes.
+- [x] Change the count line expected by `test/mcp/tools.test.ts` and `test/mcp/stdio.test.ts` (`ward-report` R2.1).
+- [x] R13.5: end the §6.1 prompt with "N of M claims passed the ward". Not done by the agent: copying it into `.kiro/agents/archaeologist.json` and then changing the step list in `test/mcp/config.test.ts`; that test still checks the old line, which the agent file still has.
+- [x] Run `npx vitest run test/mcp`: all green.
+
+Covers: R13.1–R13.5.
+
+---
+
 ## Traceability
 
 | Requirement | Task |
@@ -216,6 +230,11 @@ Covers: N1, N2, N3, N6 (by the cap arithmetic of design.md §3.3), N7, and the t
 | R12.1 | T5 |
 | R12.2 | T5 |
 | R12.3 | T5 |
+| R13.1 | T8 |
+| R13.2 | T8 |
+| R13.3 | T8 |
+| R13.4 | T8 |
+| R13.5 | T8 (spec text; the agent file is the human's) |
 | N1 | T3, T6 |
 | N2 | T6 (and every task's diff check) |
 | N3 | T1, T2, T6 |

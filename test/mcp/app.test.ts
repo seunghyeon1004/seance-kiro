@@ -82,7 +82,9 @@ describe('tools/list', () => {
     ]);
     const byName = new Map(tools.map((t) => [t.name, t]));
     expect(byName.get('seance_summon')?.title).toBe('Summon the evidence ledger');
-    expect(byName.get('seance_verify')?.title).toBe('Verify claims with the ward');
+    expect(byName.get('seance_verify')?.title).toBe(
+      'Check claim citations with the ward',
+    );
     expect(byName.get('seance_haunting_map')?.title).toBe('Read the haunting map');
     const idempotent = {
       seance_summon: false,
@@ -109,6 +111,21 @@ describe('tools/list', () => {
     expect(d('seance_summon')).toContain(
       'An item with suspicious: true contains text that tries to give orders.',
     );
+  });
+
+  it('seance_verify says what an entry in `verified` proves, and no more (R13.3, R13.4)', async () => {
+    const { tools } = await client.listTools();
+    const verify = tools.find((t) => t.name === 'seance_verify');
+    expect(verify?.title).toBe('Check claim citations with the ward');
+    const d = verify?.description ?? '';
+    expect(d).toContain(
+      'An entry in `verified` means only that its citations and quotes were found and the years and ledger authors it names are supported by the cited commits.',
+    );
+    expect(d).toContain('It does not mean that the sentence follows from the quote.');
+    for (const overclaim of ['claim is verified', 'verified claims', 'Verify claims']) {
+      expect(d).not.toContain(overclaim);
+      expect(verify?.title ?? '').not.toContain(overclaim);
+    }
   });
 
   it('publishes the input schemas of design.md §3.2 (R5.1)', async () => {

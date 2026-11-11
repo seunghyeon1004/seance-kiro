@@ -248,3 +248,70 @@ describe('POST /api/summon after the deadline (R11.11)', () => {
     expect(clonePool.inUse()).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// inquisitor second pass (2026-11-11): GitHub enrichment and the deadline (R12.6, R12.7)
+// ---------------------------------------------------------------------------
+
+describe('GitHub enrichment under the summon deadline (R12.6, R12.7)', () => {
+  const hungFetch = vi.fn(() => new Promise<Response>(() => undefined));
+  const withToken = { ...REMOTE, githubToken: 'tok' };
+
+  beforeEach(() => {
+    hungFetch.mockClear();
+    vi.stubGlobal('fetch', hungFetch);
+    logL.mockResolvedValue(commits(50, { subject: 'Fix #1' }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env['GITHUB_TIMEOUT_MS'];
+  });
+
+  it('a hung GitHub API: buildLedger settles within the deadline plus GITHUB_TIMEOUT_MS and deletes the clone', async () => {
+    process.env['SUMMON_DEADLINE_MS'] = '100';
+    process.env['GITHUB_TIMEOUT_MS'] = '150';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const t0 = Date.now();
+    const err = await buildLedger(withToken).catch((e: unknown) => e);
+    const took = Date.now() - t0;
+    warn.mockRestore();
+    expect(err).toBeInstanceOf(HistoryError);
+    expect(took).toBeLessThan(100 + 150 + 300);
+    expect(hungFetch).toHaveBeenCalledTimes(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('once the deadline has passed, the enrichment is skipped: no GitHub request starts', async () => {
+    process.env['SUMMON_DEADLINE_MS'] = '50';
+    changedFiles.mockImplementation(async () => {
+      await sleep(80); // the deadline passes during the commit's last git call
+      return [];
+    });
+    const err = await buildLedger(withToken).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HistoryError);
+    expect(hungFetch).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/summon with a hung GitHub API returns HISTORY_ERROR in bounded time and frees the slot', async () => {
+    process.env['SUMMON_DEADLINE_MS'] = '100';
+    process.env['GITHUB_TIMEOUT_MS'] = '150';
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const t0 = Date.now();
+    const res = await createApp({}).fetch(
+      new Request('http://localhost/api/summon', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(withToken),
+      }),
+    );
+    const took = Date.now() - t0;
+    log.mockRestore();
+    warn.mockRestore();
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { code: string }).code).toBe('HISTORY_ERROR');
+    expect(took).toBeLessThan(100 + 150 + 300);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(clonePool.inUse()).toBe(0);
+  });
+});

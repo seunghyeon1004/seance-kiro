@@ -301,9 +301,23 @@ describe('first-run re-audit (F1–F12): markup and copy', () => {
     );
     expect(text(a)).toBe('Source on GitHub');
     expect(a?.getAttribute('rel')).toBe('noopener');
-    const rule1 = doc.querySelector('.rules li');
-    expect(text(rule1)).toBe(
-      'It remembers only commits. Messages, diffs, authors and dates from git history.',
+    const rules = [...doc.querySelectorAll('.rules li')];
+    expect(rules).toHaveLength(3);
+    // first-seance R16.3, R16.4 (inquisitor second pass, 2026-11-11)
+    expect(text(rules[0] ?? null)).toBe(
+      'It is given only commits. Messages, diffs, authors and dates from git history.',
+    );
+    expect(rules[0]?.querySelector('strong')?.textContent).toBe(
+      'It is given only commits.',
+    );
+    expect(text(rules[1] ?? null)).toBe(
+      'Every memory cites a commit. A short hash and the exact words from that commit.',
+    );
+    expect(rules[1]?.querySelector('strong')?.textContent).toBe(
+      'Every memory cites a commit.',
+    );
+    expect(text(rules[2] ?? null)).toBe(
+      'The ward checks both. A hash that does not exist or a quote that is not there is struck out.',
     );
   });
 

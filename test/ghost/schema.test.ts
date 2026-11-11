@@ -581,7 +581,7 @@ describe('VerifiedAnswerResponseSchema', () => {
     silent: [{ text: 'quiet', silenceReason: 'why' }],
     tally: { verified: 1, checked: 2, silent: 1 },
     score: 1 / 3,
-    report: '# Ward report\n**1 of 2 claims verified**',
+    report: '# Ward report\n**1 of 2 claims passed the ward**',
   };
 
   it('accepts a valid VerifiedAnswerResponse', () => {
@@ -904,7 +904,7 @@ describe('plan claims: model output vs verified output', () => {
         kind: 'step',
         title: 'Add a comment',
         modelText: 'Keeps the reason',
-        dropReason: 'The ward verified none of the claims behind this step.',
+        dropReason: 'None of the claims behind this step passed the ward.',
         rejectedClaims: [
           { text: 't', kind: 'memory', reason: 'r', citesSuspicious: false },
         ],

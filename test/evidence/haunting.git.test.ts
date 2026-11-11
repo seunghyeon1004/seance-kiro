@@ -437,3 +437,47 @@ describe('a file name holding the record separator and a fake header (R10.2)', (
     expect(evil?.totalTouches).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// inquisitor second pass (2026-11-11) — haunting-map R12.1
+// ---------------------------------------------------------------------------
+
+describe('R12.1 — a skipped commit record gives the note, never a partial map (real git)', () => {
+  let US_DIR = '';
+
+  beforeAll(() => {
+    US_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'seance-map-us-'));
+    git(US_DIR, ['init', '-q', '-b', 'main']);
+    git(US_DIR, ['config', 'commit.gpgsign', 'false']);
+    fs.writeFileSync(path.join(US_DIR, 'other.ts'), 'export {};\n');
+    git(US_DIR, ['add', '-A']);
+    git(US_DIR, ['commit', '-q', '-m', 'other'], TOM('2019-01-01T00:00:00Z'));
+    fs.writeFileSync(path.join(US_DIR, 'auth.ts'), 'export const auth = 1;\n');
+    git(US_DIR, ['add', '-A']);
+    // a real commit whose author name holds U+001F, the map format's field separator
+    git(US_DIR, ['commit', '-q', '-m', 'auth'], {
+      name: 'Mallory\u001fMaintainer',
+      email: 'mallory@x.example',
+      date: '2020-01-01T00:00:00Z',
+    });
+  });
+
+  afterAll(() => {
+    if (US_DIR) fs.rmSync(US_DIR, { recursive: true, force: true });
+  });
+
+  it('git kept U+001F in the author name', () => {
+    expect(git(US_DIR, ['log', '-1', '--format=%an'])).toContain(
+      'Mallory\u001fMaintainer',
+    );
+  });
+
+  it('readHauntingMap returns the fixed "could not be drawn" note', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const out = await readHauntingMap(US_DIR);
+    warn.mockRestore();
+    error.mockRestore();
+    expect(out).toEqual({ kind: 'note', note: MAP_NOTE_FAILED });
+  });
+});

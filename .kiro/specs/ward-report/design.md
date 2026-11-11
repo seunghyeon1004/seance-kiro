@@ -42,3 +42,7 @@ export function renderWardReport(result: VerifierResult, meta?: WardReportMeta):
 ## Note: inquisitor review (2026-11-11)
 
 `ward-hardening` R11.1 renames the heading of the verified section to `## Citations verified`, because the ward proves each citation and quote, not the claim's sentence. The count line `**N of M claims verified**` and the limit line after it (`ward-hardening` R2.4) are unchanged, and so is what the ward accepts. `ward-hardening` R11.9 adds a third step to `escapeMd`: the bidi controls U+202A–U+202E and U+2066–U+2069 become the visible text `\u202E` and so on. Tests: `test/ghost/report.test.ts`, P5 in `test/ghost/pbt/report.pbt.ts`.
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+R1.2 is superseded by R2.1: `renderWardReport` writes `**N of M claims passed the ward**`. N and M are computed as before, and silence claims stay out of both. `escapeMd` step 3 now matches `[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]` and writes each as `\u` plus four upper-case hex digits (`padStart(4, '0')`, so U+061C reads `\u061C`), R2.2. A zero-width space is not a bidi mark and is left as it was. The examples above that show the old count line describe the first pass. Tests: `test/ghost/report.test.ts`, P1 and P5 in `test/ghost/pbt/report.pbt.ts`, and every test that quotes the count line (`test/server/ask.test.ts`, `test/mcp/tools.test.ts`, `test/mcp/stdio.test.ts`, `test/ghost/schema.test.ts`).

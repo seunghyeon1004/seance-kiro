@@ -294,7 +294,7 @@ describe('POST /api/exorcise', () => {
         kind: 'step',
         title: 'Make a change',
         modelText: 'For testing rejection',
-        dropReason: 'The ward verified none of the claims behind this step.',
+        dropReason: 'None of the claims behind this step passed the ward.',
         rejectedClaims: [
           {
             text: 'This is a claim with a bad SHA.',

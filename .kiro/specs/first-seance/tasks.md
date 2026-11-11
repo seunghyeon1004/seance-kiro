@@ -389,3 +389,13 @@ Inputs: `docs/kiro-evidence/reaudit-layout-session.txt` and `docs/kiro-evidence/
 - [ ] Human, in a real browser (by reading only so far): at 768 and 390 px the hero candle fits its box and does not cross the header; at 390 and 320 px the header has at most one second row with the candle button on the right; at 1280 px "The line in question" is in view after a summon; the counter stays in view while scrolling the talk column; guide steps show 1, 2 and 3; a "Do not touch" entry has one rule and no nested card; a speculation claim's hashes are upright.
 
 Covers: R15.1–R15.27.
+
+## T13 — Addendum: inquisitor second pass (2026-11-11)
+
+Each item began with a test that failed for the stated reason before the code changed.
+
+- [x] Replace the flow 4b test that expected a retried proxy 502 on `/api/ask` with one whose proxy forwards and then returns an HTML 502, and add the same for `/api/exorcise` with a 503 and a still-retried 502 on `/api/ward` (`test/e2e/wake.test.ts`). Rename the CP4 property to `mayRetry` and check that `api()` uses it and `notAnswered` (`test/ui/pbt/first-seance.pbt.ts`). They failed with four attempts each. Implement `mayRetry` and `notAnswered` in `public/app.js` (R16.1, R16.2).
+- [x] Change the copy expectations in `test/ui/first-seance.test.ts` (lede, step 3), `test/ui/polish.test.ts` (all three rules), `test/ui/pbt/ui.pbt.ts`, `test/e2e/possessed.test.ts` and `test/e2e/polish.test.ts` (the scripted status), see them fail, then change `public/index.html` and `scriptedStatus` (R16.3–R16.7). Update the copy tables in design.md.
+- [x] Run `npx vitest run test/ui test/e2e`: all green.
+
+Covers: R16.1–R16.7.

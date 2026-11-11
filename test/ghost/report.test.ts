@@ -123,7 +123,7 @@ describe('renderWardReport', () => {
       score: 0.5,
     });
     const report = renderWardReport(result);
-    expect(report).toContain('**1 of 2 claims verified**');
+    expect(report).toContain('**1 of 2 claims passed the ward**');
   });
 
   // -------------------------------------------------------------------------
@@ -167,7 +167,7 @@ describe('renderWardReport', () => {
       score: 0,
     });
     const report = renderWardReport(result);
-    expect(report).toContain('**0 of 0 claims verified**');
+    expect(report).toContain('**0 of 0 claims passed the ward**');
     expect(report).not.toContain('## Citations verified');
   });
 
@@ -310,7 +310,7 @@ describe('renderWardReport (ward-hardening T3)', () => {
       silent: [silentClaim('Silent', 'Who asked?')],
     });
     const lines = renderWardReport(result).split('\n');
-    const i = lines.indexOf('**1 of 2 claims verified**');
+    const i = lines.indexOf('**1 of 2 claims passed the ward**');
     expect(i).toBeGreaterThan(0);
     expect(lines[i + 1]).toBe(LIMIT_LINE);
   });
@@ -320,7 +320,7 @@ describe('renderWardReport (ward-hardening T3)', () => {
     expect(lines.slice(0, 4)).toEqual([
       '# Ward report',
       'File: a.js',
-      '**0 of 0 claims verified**',
+      '**0 of 0 claims passed the ward**',
       LIMIT_LINE,
     ]);
   });
@@ -330,7 +330,7 @@ describe('renderWardReport (ward-hardening T3)', () => {
       verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
       silent: [silentClaim('One', 'Q1?'), silentClaim('Two', 'Q2?', 1)],
     });
-    expect(renderWardReport(result)).toContain('**1 of 1 claims verified**');
+    expect(renderWardReport(result)).toContain('**1 of 1 claims passed the ward**');
   });
 
   it('lists silence claims under their own heading, escaped (R4.6)', () => {
@@ -381,7 +381,14 @@ describe('bidi controls become visible escapes (R11.9)', () => {
     );
     // other characters, and a literal backslash-u typed by the author, stay distinguishable
     expect(escapeMd('\\u202E')).toBe('\\\\u202E');
-    expect(escapeMd('\u200F\u061C')).toBe('\u200F\u061C');
+  });
+
+  it('ward-hardening R12.10: U+061C, U+200E and U+200F become visible escapes too', () => {
+    expect(escapeMd('\u200F\u061C')).toBe('\\u200F\\u061C');
+    expect(escapeMd('a\u200Eb\u200Fc\u061Cd')).toBe('a\\u200Eb\\u200Fc\\u061Cd');
+    expect(escapeMd('\\u200F')).toBe('\\\\u200F');
+    // a zero-width space is not a bidi mark and is left alone
+    expect(escapeMd('a\u200Bb')).toBe('a\u200Bb');
   });
 
   it('a report built from claims, quotes, reasons and the file name holds no bidi control', () => {

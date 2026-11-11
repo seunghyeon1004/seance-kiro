@@ -18,7 +18,7 @@ What happened when it ran on 2026-11-11 (`docs/kiro-evidence/seance-mcp-session.
 
 A read-only adversarial reviewer, added on 2026-11-11 and set to run on `gpt-5.6-sol`, a different model family from the one that wrote the code. Its one question: after a change, can anything reach the user marked verified without a deterministic check having found its evidence? It has `read` and a shell limited to `git diff/log/show/status/ls-files`, `npx vitest run` and `npm test`. Two hooks: `agentSpawn` prints the files changed since the security audit, and `stop` logs how many files under `src`, `public`, `test`, `scripts` and `recordings` are modified, which should be 0 for a reviewer.
 
-Its first run (`docs/kiro-evidence/inquisitor-review-session.txt`) confirmed eight findings in that day's work, among them that the "Verified" label overstated what the ward proves and that a file name could forge commits on the haunting map. Both hooks fired, and the stop hook logged `changed-files=0`. Its shell calls were denied in non-interactive V3, so it read files only and ran no test. The fixes are in `docs/kiro-evidence/inquisitor-fixes-session.txt`.
+Its first run (`docs/kiro-evidence/inquisitor-review-session.txt`) confirmed eight findings in that day's work, among them that the "Verified" label overstated what the ward proves and that a file name could forge commits on the haunting map. Both hooks fired, and the stop hook logged `changed-files=0`. Its shell calls were denied in non-interactive V3, so it read files only and ran no test. The fixes are in `docs/kiro-evidence/inquisitor-fixes-session.txt`. A second pass with `--trust-all-tools`, so its shell worked (`inquisitor-second-pass-session.txt`), marked each earlier finding closed, partly closed or open, ran the adversarial suites, and confirmed six new findings, the most serious that the MCP server could reach the network through a local partial clone. Those were fixed too (`inquisitor-second-fixes-session.txt`). Still open by decision: `X-Forwarded-For`, homoglyphs and lower-cased names in the author check, and a whole-run deadline for the MCP server.
 
 ---
 
@@ -32,7 +32,7 @@ A builder agent: failing test first, then the smallest change. It was written fo
 
 Each hook appends a line to `docs/kiro-evidence/warden-hook-fires.log`. In the run that fixed the inverted line range bug it logged two `postToolUse fs_write` entries (typecheck exit 0) and one `stop` entry (287 tests passed).
 
-On 2026-11-11 the V3 engine upgraded this file to its own agent format by itself (the old file is kept as `warden.json.bak`). Since then all three hooks fire in non-interactive V3 runs, `agentSpawn` included: that day the log shows `agentSpawn` 16 times, `postToolUse` 849 times and `stop` 15 times. Every implementation session of the four new specs ran through this agent, so Kiro saw a typecheck result after each file it wrote.
+On 2026-11-11 the V3 engine upgraded this file to its own agent format by itself (the old file is kept as `warden.json.bak`). Since then all three hooks fire in non-interactive V3 runs, `agentSpawn` included: that day the log shows `agentSpawn` 17 times, `postToolUse` 926 times and `stop` 16 times. Every implementation session of the four new specs ran through this agent, so Kiro saw a typecheck result after each file it wrote.
 
 Gotcha we hit: with `--agent warden`, `--trust-tools` on the command line did not widen the agent's own `allowedTools`. With only `fs_read` allowed, every write was denied, and Kiro's final summary still reported test results that never ran. Both runs are in `docs/kiro-evidence/warden-hooks-session.txt`.
 
@@ -112,14 +112,14 @@ Everything above was built on the free plan's 50 credits with small models. On 2
 
 | Spec | What it is | Task items |
 | --- | --- | --- |
-| `ward-hardening` | Kiro's security audit found that the ward verified less than the page said. Now a quote is mandatory and must be found in one field of the cited commit; a year or a ledger author named in a claim must be supported by a cited commit; silence claims are reported apart and never verified; an ambiguous short hash is refused; the rules travel in the model's `system` parameter and commit text is escaped; plan steps with no verified claim are struck. A hostile sample repository, `possessed`, and tests in which a scripted model obeys every injected order prove it. Limits on summon, ward, request bodies, clones and sessions. | 74 of 74 |
-| `first-seance` | From Kiro's first-run audit: a three-step guide with one-click questions and one-click false claims, the line in question shown above the crypt, a retry while the free host wakes, model failures as plain sentences, recorded answers for the sample questions when the model is down (always re-checked by the live ward), GitHub links as people paste them, and a scripted "possessed ghost" that shows the ward refusing a fully obedient model. Five jsdom flows run the page unmodified against the real server. | 95 of 98 |
-| `haunting-map` | Which files are haunted by which departed author, computed from two git calls with no model, and "Summon here" on any tile. | 45 of 46 |
-| `seance-mcp` | Séance's ledger and ward as an MCP server, so another agent's claims can be checked the same way. Kiro's `archaeologist` agent uses it. | 42 of 42 |
+| `ward-hardening` | Kiro's security audit found that the ward verified less than the page said. Now a quote is mandatory and must be found in one field of the cited commit; a year or a ledger author named in a claim must be supported by a cited commit; silence claims are reported apart and never verified; an ambiguous short hash is refused; the rules travel in the model's `system` parameter and commit text is escaped; plan steps with no verified claim are struck. A hostile sample repository, `possessed`, and tests in which a scripted model obeys every injected order prove it. Limits on summon, ward, request bodies, clones and sessions. | 81 of 81 |
+| `first-seance` | From Kiro's first-run audit: a three-step guide with one-click questions and one-click false claims, the line in question shown above the crypt, a retry while the free host wakes, model failures as plain sentences, recorded answers for the sample questions when the model is down (always re-checked by the live ward), GitHub links as people paste them, and a scripted "possessed ghost" that shows the ward refusing a fully obedient model. Five jsdom flows run the page unmodified against the real server. | 98 of 101 |
+| `haunting-map` | Which files are haunted by which departed author, computed from two git calls with no model, and "Summon here" on any tile. | 46 of 47 |
+| `seance-mcp` | Séance's ledger and ward as an MCP server, so another agent's claims can be checked the same way. Kiro's `archaeologist` agent uses it. | 47 of 47 |
 
-Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); seven of the inquisitor's eight findings were fixed with an addendum in each affected spec (the eighth, `X-Forwarded-For`, is a documented open risk); and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
+Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); seven of the inquisitor's eight first-pass findings were fixed with an addendum in each affected spec (the eighth, `X-Forwarded-For`, is a documented open risk), and so were the findings of its second pass; and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
 
-All ten specs together: 564 of 568 task items ticked. The four open items are three checks that need a person looking at the page in a browser, and one traceability item that depends on one of them. 1,382 tests.
+All ten specs together: 581 of 585 task items ticked. The four open items are three checks that need a person looking at the page in a browser, and one traceability item that depends on one of them. 1,420 tests.
 
 ### Where Kiro was right when the instructions were wrong
 
@@ -149,7 +149,7 @@ All ten specs together: 564 of 568 task items ticked. The four open items are th
 
 ### Credits
 
-Read with `/usage`. The meter is shared with another session on the same account, so the figure is the account total: 2,014 of 4,000 bonus credits when this round ended. The step-by-step readings are in `docs/kiro-evidence/README.md`.
+Read with `/usage`. The meter is shared with another session on the same account, so the figure is the account total: 2,479 of 4,000 bonus credits when this round ended. The step-by-step readings are in `docs/kiro-evidence/README.md`.
 
 ## Powers — Context7
 

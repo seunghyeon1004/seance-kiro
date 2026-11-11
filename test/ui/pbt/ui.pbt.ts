@@ -423,7 +423,7 @@ describe('tally and counter texts (R4.3)', () => {
             ? ' 1 silence claim was not checked.'
             : ` ${s} silence claims were not checked.`;
       expect(ui.scriptedStatus(t)).toBe(
-        `The ward verified ${v} of ${v + extra} claims from the possessed ghost.${note}`,
+        `${v} of ${v + extra} claims from the possessed ghost passed the ward.${note}`,
       );
     },
   );

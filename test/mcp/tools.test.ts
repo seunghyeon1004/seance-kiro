@@ -283,7 +283,7 @@ describe('verifyTool', () => {
       lines: { start: 7, end: 7 },
     });
     expect(result.report).toBe(expected);
-    expect(result.report).toContain('**1 of 2 claims verified**');
+    expect(result.report).toContain('**1 of 2 claims passed the ward**');
   });
 
   it('the ward strikes a missing quote, a long quote and too many citations; silence is silent (R5.1, R5.6)', async () => {

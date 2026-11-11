@@ -31,7 +31,8 @@ export interface WardReportMeta {
  * 1. Replace \r\n, \r, \n with a single space.
  * 2. Backslash-escape: \ ` ~ * _ [ ] < > |
  * 3. ward-hardening R11.9: replace the bidi embedding, override and isolate controls
- *    U+202A–U+202E and U+2066–U+2069 with the visible text `\u202E` (and so on), so a
+ *    U+202A–U+202E and U+2066–U+2069, and (R12.10) the marks U+061C, U+200E and U+200F,
+ *    with the visible text `\u202E` (and so on), so a
  *    pasted report cannot be visually reordered. Done last, so the backslash it adds is
  *    not escaped again; a literal `\u202E` typed by an author still reads `\\u202E`.
  *
@@ -46,10 +47,11 @@ export function escapeMd(text: string): string {
   // double-escaping the escapes we add)
   const escaped = noNewlines.replace(/[\\`~*_[\]<>|]/g, (ch) => `\\${ch}`);
 
-  // Step 3: bidi controls become visible escapes
+  // Step 3: bidi controls and marks become visible escapes (R11.9; U+061C, U+200E and U+200F
+  // since ward-hardening R12.10)
   return escaped.replace(
-    /[\u202A-\u202E\u2066-\u2069]/g,
-    (ch) => `\\u${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+    /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g,
+    (ch) => `\\u${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`,
   );
 }
 
@@ -115,7 +117,9 @@ export function renderWardReport(result: VerifierResult, meta?: WardReportMeta):
   // R1.2 — count line; silence claims are not counted (ward-hardening R4.3)
   const n = result.verified.length;
   const m = result.verified.length + result.rejected.length;
-  lines.push(`**${n} of ${m} claims verified**`);
+  // ward-report R1.2, superseded by ward-hardening R12.9 (inquisitor second pass, 2026-11-11):
+  // the claims passed the ward; the sentence is not what was checked
+  lines.push(`**${n} of ${m} claims passed the ward**`);
 
   // ward-hardening R2.4 — limit line directly after the count line
   lines.push(WARD_LIMIT_LINE);

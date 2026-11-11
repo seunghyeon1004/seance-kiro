@@ -215,7 +215,7 @@ describe('flow 2: the possessed ghost', { timeout: 20_000 }, () => {
     expect(client.calls.length).toBe(calls);
     expect(await copyReport()).toBe(report);
     expect($('ward-status').textContent).toBe(
-      'The ward verified 0 of 4 claims from the possessed ghost. 1 silence claim was not checked.',
+      '0 of 4 claims from the possessed ghost passed the ward. 1 silence claim was not checked.',
     );
     const done = page.doc.querySelector('#guide-step-ward .guide-done') as HTMLElement;
     expect(done.hidden).toBe(false);

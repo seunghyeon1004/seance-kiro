@@ -150,12 +150,20 @@ export const SUMMON_DESCRIPTION =
   `${UNTRUSTED_SENTENCE} An item with suspicious: true contains text that tries to give orders. ` +
   'Use the returned ledgerId with seance_verify.';
 
+/**
+ * seance-mcp R13.3, R13.4 (inquisitor second pass, 2026-11-11): the description says what an
+ * entry in `verified` proves (its citations, its quotes, its named years and ledger authors)
+ * and that it does not prove the sentence. The field names do not change.
+ */
 export const VERIFY_DESCRIPTION =
-  'Check claims about the code against a ledger built by seance_summon, with the deterministic Séance ward. ' +
-  'A memory or speculation claim is verified only if each citation names the sha7 of exactly one ledger item and carries a quote ' +
+  'Check the citations of claims about the code against a ledger built by seance_summon, with the deterministic Séance ward. ' +
+  'In a memory or speculation claim, each citation must name the sha7 of exactly one ledger item and carry a quote ' +
   'of 8 to 500 characters copied exactly from one field of that item (subject, body or hunk), and every year and ledger author ' +
-  'the claim names is supported by a cited item. A silence claim has no citations and a silenceReason, and is never verified. ' +
-  `Returns the verified claims with the words the ward found, the struck claims with the reason, and a Markdown report. ${UNTRUSTED_SENTENCE}`;
+  'the claim names must be supported by a cited item. ' +
+  'An entry in `verified` means only that its citations and quotes were found and the years and ledger authors it names are supported by the cited commits. ' +
+  'It does not mean that the sentence follows from the quote. ' +
+  'A silence claim has no citations and a silenceReason; it is not checked and never appears in `verified`. ' +
+  `Returns \`verified\` with the words the ward found, \`rejected\` with the reason, \`silent\`, and a Markdown report. ${UNTRUSTED_SENTENCE}`;
 
 export const HAUNTING_DESCRIPTION =
   'Return the Séance haunting map of a local git repository: for each file, the departed author who changed it most ' +

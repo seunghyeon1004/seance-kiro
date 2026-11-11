@@ -245,7 +245,7 @@ describe('buildPlan', () => {
         kind: 'step',
         title: 'Remove the wait',
         modelText: 'why Remove the wait',
-        dropReason: 'The ward verified none of the claims behind this step.',
+        dropReason: 'None of the claims behind this step passed the ward.',
         rejectedClaims: [
           {
             text: BAD_SHA_CLAIM.text,
@@ -286,13 +286,13 @@ describe('buildPlan', () => {
         'doNotTouch',
         'Lines 10–20',
         'Workaround',
-        'The ward verified none of the claims behind this entry.',
+        'None of the claims behind this entry passed the ward.',
       ],
       [
         'doNotTouch',
         'Line 5',
         'One line',
-        'The ward verified none of the claims behind this entry.',
+        'None of the claims behind this entry passed the ward.',
       ],
     ]);
     expect(result.dropped[0]?.rejectedClaims).toHaveLength(1);

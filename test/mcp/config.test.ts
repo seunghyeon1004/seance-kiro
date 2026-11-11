@@ -112,7 +112,7 @@ describe('.kiro/agents/archaeologist.json (R10.1–R10.4)', () => {
       'State each verified claim as fact, followed by [sha7] and its quote',
       'struck by the ward:',
       'the record is silent (not checked)',
-      'N of M claims verified',
+      'N of M claims passed the ward',
     ];
     const at = steps.map((s) => prompt.indexOf(s));
     for (const [i, pos] of at.entries()) {

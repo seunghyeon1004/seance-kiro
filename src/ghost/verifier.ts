@@ -15,6 +15,10 @@
  * ward-hardening R11.4 (inquisitor review, 2026-11-11): the year and author checks run
  * twice, on the raw text and on its detection form (NFKC, default-ignorables removed).
  * The second pass only adds reasons. Quotes are always compared raw.
+ *
+ * ward-hardening R12.1–R12.3 (inquisitor second pass, 2026-11-11): the detection form removes
+ * every Default_Ignorable_Code_Point (the static Unicode property). The R11.4 form is checked
+ * too, so no claim that the R11.4 ward rejected can pass. Every pass only adds reasons.
  */
 
 import {
@@ -86,11 +90,13 @@ const FIELD_ORDER: readonly QuoteField[] = ['subject', 'body', 'hunk'];
 const YEAR_RE = /(?<![0-9])(?:19[7-9][0-9]|20[0-9][0-9])(?![0-9])/g;
 
 /**
- * Default-ignorable characters removed before year and author detection (ward-hardening
- * R11.4), as inclusive code point ranges. Nothing from the ledger or the claim is compiled
- * into a pattern; the text is walked one code point at a time.
+ * The hand-kept default-ignorable list of ward-hardening R11.4, as inclusive code point ranges.
+ * Since R12.1 (inquisitor second pass) it no longer defines the ignorables: the property below
+ * does. It is kept, frozen, for one pass only, so the ward stays exactly as strict as it was
+ * (R12.3): removing more characters can glue a name or a year to its neighbours ("B\u200Bob
+ * \u{1BCA0}by" becomes "Bobby"), so the R11.4 form is still checked as well. Never extend it.
  */
-const IGNORABLE_RANGES: ReadonlyArray<readonly [number, number]> = [
+const R11_4_IGNORABLE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x00ad, 0x00ad],
   [0x034f, 0x034f],
   [0x061c, 0x061c],
@@ -107,42 +113,70 @@ const IGNORABLE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0xe0000, 0xe0fff],
 ];
 
-function isIgnorable(cp: number): boolean {
-  for (const [lo, hi] of IGNORABLE_RANGES) if (cp >= lo && cp <= hi) return true;
+/**
+ * R12.1: every Default_Ignorable_Code_Point. A fixed pattern on a static Unicode property;
+ * nothing from the ledger or the claim is compiled into it. Node 20 (Unicode 15.1) covers
+ * every code point of the R11.4 list (test/ghost/verifier.unicode.test.ts checks it).
+ */
+const DEFAULT_IGNORABLE_RE = /^\p{Default_Ignorable_Code_Point}$/u;
+
+function isR11_4Ignorable(ch: string): boolean {
+  const cp = ch.codePointAt(0) ?? 0;
+  for (const [lo, hi] of R11_4_IGNORABLE_RANGES) if (cp >= lo && cp <= hi) return true;
   return false;
 }
 
-function stripIgnorables(s: string): string {
+function isDefaultIgnorable(ch: string): boolean {
+  return DEFAULT_IGNORABLE_RE.test(ch);
+}
+
+function stripWith(s: string, ignorable: (ch: string) => boolean): string {
   let out = '';
-  for (const ch of s) if (!isIgnorable(ch.codePointAt(0) ?? 0)) out += ch;
+  for (const ch of s) if (!ignorable(ch)) out += ch;
   return out;
 }
 
+function formWith(ignorable: (ch: string) => boolean): (s: string) => string {
+  return (s) => stripWith(stripWith(s, ignorable).normalize('NFKC'), ignorable);
+}
+
 /**
- * The text that year and author detection reads (R11.4): default-ignorable characters
- * removed, NFKC applied, and the ignorables NFKC may produce (U+FFA0 and U+3164 become
+ * The text that year and author detection reads (R11.4, R12.1): every default-ignorable code
+ * point removed, NFKC applied, and the ignorables NFKC may produce (U+FFA0 and U+3164 become
  * U+1160) removed again. Case is kept. Quotes are never compared in this form (R11.5).
  */
-export function detectionText(s: string): string {
-  return stripIgnorables(stripIgnorables(s).normalize('NFKC'));
+export const detectionText: (s: string) => string = formWith(isDefaultIgnorable);
+
+/** The R11.4 detection form, checked as well so the ward only becomes stricter (R12.3). */
+const r11_4DetectionText: (s: string) => string = formWith(isR11_4Ignorable);
+
+/** The detection forms the year and author checks run on after the raw pass, in order. */
+const DETECTION_FORMS: ReadonlyArray<(s: string) => string> = [
+  r11_4DetectionText,
+  detectionText,
+];
+
+/** One detection form of an item: its quote fields, the years in them and its author. */
+interface FormView {
+  readonly fields: Readonly<Record<QuoteField, string>>;
+  readonly years: ReadonlySet<string>;
+  readonly author: string;
 }
 
 interface IndexedItem {
   readonly item: EvidenceItem;
   readonly fields: Readonly<Record<QuoteField, string>>;
   readonly years: ReadonlySet<string>;
-  /** R11.4: the same fields, the years in them and the author, in detection form. */
-  readonly normFields: Readonly<Record<QuoteField, string>>;
-  readonly normYears: ReadonlySet<string>;
-  readonly normAuthor: string;
+  /** R11.4, R12.1: the item in each of DETECTION_FORMS, in the same order. */
+  readonly forms: readonly FormView[];
 }
 
 interface LedgerIndex {
   readonly bySha: ReadonlyMap<string, readonly IndexedItem[]>;
   /** Distinct authors, longest first, then by UTF-16 code unit order. */
   readonly authors: readonly string[];
-  /** R11.4: distinct authors in detection form, in the same order. */
-  readonly normAuthors: readonly string[];
+  /** R11.4, R12.1: distinct authors in each detection form, in the same order. */
+  readonly formAuthors: readonly (readonly string[])[];
 }
 
 function longestFirst(a: string, b: string): number {
@@ -153,7 +187,7 @@ function longestFirst(a: string, b: string): number {
 function buildIndex(ledger: ReadonlyArray<EvidenceItem>): LedgerIndex {
   const bySha = new Map<string, IndexedItem[]>();
   const authorSet = new Set<string>();
-  const normAuthorSet = new Set<string>();
+  const formAuthorSets = DETECTION_FORMS.map(() => new Set<string>());
 
   for (const item of ledger) {
     const fields: Record<QuoteField, string> = {
@@ -161,30 +195,32 @@ function buildIndex(ledger: ReadonlyArray<EvidenceItem>): LedgerIndex {
       body: item.body,
       hunk: item.hunk.slice(0, HUNK_UI_CHARS),
     };
-    const normFields: Record<QuoteField, string> = {
-      subject: detectionText(fields.subject),
-      body: detectionText(fields.body),
-      hunk: detectionText(fields.hunk),
-    };
     const years = new Set<string>();
-    const normYears = new Set<string>();
-    for (const f of FIELD_ORDER) {
-      for (const y of yearsIn(fields[f])) years.add(y);
-      for (const y of yearsIn(normFields[f])) normYears.add(y);
-    }
-    const normAuthor = detectionText(item.author);
-    const entry: IndexedItem = { item, fields, years, normFields, normYears, normAuthor };
+    for (const f of FIELD_ORDER) for (const y of yearsIn(fields[f])) years.add(y);
+    const forms = DETECTION_FORMS.map((form, k): FormView => {
+      const formFields: Record<QuoteField, string> = {
+        subject: form(fields.subject),
+        body: form(fields.body),
+        hunk: form(fields.hunk),
+      };
+      const formYears = new Set<string>();
+      for (const f of FIELD_ORDER)
+        for (const y of yearsIn(formFields[f])) formYears.add(y);
+      const author = form(item.author);
+      formAuthorSets[k]?.add(author);
+      return { fields: formFields, years: formYears, author };
+    });
+    const entry: IndexedItem = { item, fields, years, forms };
     const list = bySha.get(item.shortSha);
     if (list === undefined) bySha.set(item.shortSha, [entry]);
     else list.push(entry);
     authorSet.add(item.author);
-    normAuthorSet.add(normAuthor);
   }
 
   const authors = [...authorSet].sort(longestFirst);
-  const normAuthors = [...normAuthorSet].sort(longestFirst);
+  const formAuthors = formAuthorSets.map((s) => [...s].sort(longestFirst));
 
-  return { bySha, authors, normAuthors };
+  return { bySha, authors, formAuthors };
 }
 
 function yearsIn(s: string): string[] {
@@ -340,36 +376,42 @@ function checkClaim(raw: unknown, i: number, index: LedgerIndex): Outcome {
     }
   }
 
-  // Step 7b — the same two checks again on the detection form of the claim and the
-  // ledger (R11.4). They only add reasons, so the ward only becomes stricter (R11.7).
-  const normText = detectionText(shape.text);
-  const seenNormYears = new Set<string>();
-  for (const y of yearsIn(normText)) {
-    if (seenNormYears.has(y)) continue;
-    seenNormYears.add(y);
-    const supported = cited.some(
-      (e) => e.item.date.slice(0, 4) === y || e.normYears.has(y),
-    );
-    if (!supported) {
-      pushOnce(
-        reasons,
-        `The claim names the year ${y}, but no cited commit is dated ${y} or mentions it.`,
+  // Step 7b — the same two checks again on each detection form of the claim and the ledger:
+  // the R11.4 form, then the full default-ignorable form (R11.4, R12.1). They only add
+  // reasons, so the ward only becomes stricter (R11.7, R12.3).
+  DETECTION_FORMS.forEach((form, k) => {
+    const formText = form(shape.text);
+    const seenFormYears = new Set<string>();
+    for (const y of yearsIn(formText)) {
+      if (seenFormYears.has(y)) continue;
+      seenFormYears.add(y);
+      const supported = cited.some(
+        (e) => e.item.date.slice(0, 4) === y || (e.forms[k]?.years.has(y) ?? false),
       );
+      if (!supported) {
+        pushOnce(
+          reasons,
+          `The claim names the year ${y}, but no cited commit is dated ${y} or mentions it.`,
+        );
+      }
     }
-  }
-  for (const name of namedAuthors(normText, index.normAuthors)) {
-    const supported = cited.some(
-      (e) =>
-        e.normAuthor === name ||
-        FIELD_ORDER.some((f) => containsWholeWord(e.normFields[f], name)),
-    );
-    if (!supported) {
-      pushOnce(
-        reasons,
-        `The claim names ${name}, but no cited commit is by ${name} or mentions them.`,
-      );
+    for (const name of namedAuthors(formText, index.formAuthors[k] ?? [])) {
+      const supported = cited.some((e) => {
+        const view = e.forms[k];
+        return (
+          view !== undefined &&
+          (view.author === name ||
+            FIELD_ORDER.some((f) => containsWholeWord(view.fields[f], name)))
+        );
+      });
+      if (!supported) {
+        pushOnce(
+          reasons,
+          `The claim names ${name}, but no cited commit is by ${name} or mentions them.`,
+        );
+      }
     }
-  }
+  });
 
   // Step 8 — strict guard
   if (reasons.length === 0) {

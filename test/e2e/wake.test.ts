@@ -182,6 +182,9 @@ describe('flow 4: the sleepy host', { timeout: 30_000 }, () => {
 
 const DROPPED =
   'The connection dropped. The ghost may still have answered; ask again in a moment.';
+/** first-seance R16.1 (inquisitor second pass, 2026-11-11). */
+const NOT_ANSWERED = (status: number): string =>
+  `The server did not answer (${status}). The ghost may still have answered; ask again in a moment.`;
 
 const attemptsAt = (p: Page, path: string): number =>
   p.requests.filter((r) => r.path === path).length;
@@ -256,23 +259,67 @@ describe(
       expect(p.$('exorcise-status').textContent).not.toBe(WAKE_TEXT);
     });
 
-    it('/api/ask: a proxy 502 page is still retried, because it never reached the server', async () => {
+    it('/api/ask: the proxy forwards, then returns an HTML 502; one attempt, one model call, the failure named (R16.1)', async () => {
+      const client = new CryptClient();
+      let tries = 0;
+      page = await openSeance(client, async (req) => {
+        if (req.path !== '/api/ask') return undefined;
+        tries += 1;
+        await req.forward(); // the server runs the ask, model call included
+        return new Response('<html>502</html>', {
+          status: 502,
+          headers: { 'content-type': 'text/html' },
+        });
+      });
+      const p = page;
+      const before = client.calls.length;
+      p.click(firstChip(p));
+      for (let i = 0; i < 40 && notices(p).length === 0; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        await settle();
+      }
+      expect(tries).toBe(1);
+      expect(attemptsAt(p, '/api/ask')).toBe(1);
+      expect(client.calls.length - before).toBe(1);
+      expect(notices(p)).toEqual([NOT_ANSWERED(502)]);
+      expect(p.$('ask-status').textContent).not.toBe(WAKE_TEXT);
+    });
+
+    it('/api/exorcise: an HTML 503 after forwarding is not retried either (R16.1)', async () => {
+      const client = new CryptClient();
+      let tries = 0;
+      page = await openSeance(client, async (req) => {
+        if (req.path !== '/api/exorcise') return undefined;
+        tries += 1;
+        await req.forward();
+        return new Response('<html>503</html>', { status: 503 });
+      });
+      const p = page;
+      const before = client.calls.length;
+      p.click(p.$('exorcise-btn'));
+      for (let i = 0; i < 40 && exorciseErrors(p).length === 0; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        await settle();
+      }
+      expect(tries).toBe(1);
+      expect(client.calls.length - before).toBe(1);
+      expect(exorciseErrors(p)).toEqual([NOT_ANSWERED(503)]);
+      expect(p.$('exorcise-status').textContent).not.toBe(WAKE_TEXT);
+    });
+
+    it('/api/ward still retries a proxy 502 page (R16.1 leaves the routes that call no model alone)', async () => {
       const client = new CryptClient();
       page = await openSeance(client, (req) =>
-        req.path === '/api/ask' && req.attempt === 1
+        req.path === '/api/ward' && req.attempt === 1
           ? new Response('<html>502</html>', { status: 502 })
           : undefined,
       );
       const p = page;
-      p.click(firstChip(p));
+      p.click(p.doc.querySelector('[data-preset]') as ReturnType<Page['$']>);
       await vi.advanceTimersByTimeAsync(0);
-      await p.until(
-        () => p.$('ask-status').textContent === WAKE_TEXT,
-        'the wake-up text',
-      );
+      await settle();
       await vi.advanceTimersByTimeAsync(2_000);
-      await p.until(() => p.turns().length === 1, 'the answer');
-      expect(attemptsAt(p, '/api/ask')).toBe(2);
+      await p.until(() => attemptsAt(p, '/api/ward') === 2, 'the retry');
       expect(notices(p)).toEqual([]);
     });
   },

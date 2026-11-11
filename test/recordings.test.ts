@@ -20,6 +20,7 @@ import { buildLedger } from '../src/evidence/ledger.js';
 import { verifyPlanClaims } from '../src/exorcism/plan.js';
 import { MODEL_ID } from '../src/ghost/llm.js';
 import { verify } from '../src/ghost/verifier.js';
+import { verify as verifyR11_4 } from './ghost/pbt/verifier-r11-4.js';
 import {
   RecordingSchema,
   SAMPLE_NAMES,
@@ -105,6 +106,25 @@ describe('shipped recordings (T9)', () => {
         } else {
           const plan = verifyPlanClaims(ledger, rec.plan);
           expect(plan.steps.length).toBeGreaterThanOrEqual(1);
+        }
+      });
+
+      it('ward-hardening R12.5: every claim lands in the same bucket, with the same reason, as under the R11.4 ward', () => {
+        const rec = loadRecording(t, SHIPPED);
+        if (rec === null) throw new Error(`recording ${key} is missing or invalid`);
+        const items = ledgers[t.sample].items;
+        const claimSets =
+          rec.kind === 'ask'
+            ? [rec.answer.claims]
+            : [
+                ...rec.plan.steps.map((s) => s.claims),
+                ...rec.plan.doNotTouchList.map((d) => d.claims),
+              ];
+        expect(claimSets.length).toBeGreaterThan(0);
+        for (const claims of claimSets) {
+          const now = verify(items, { claims });
+          const before = verifyR11_4(items, { claims });
+          expect(now).toEqual(before);
         }
       });
     });

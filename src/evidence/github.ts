@@ -15,6 +15,18 @@ import { SsrfError } from '../errors.js';
 
 const ALLOWED_HOST = 'api.github.com';
 
+/** ward-hardening R12.6: one GitHub request (headers and body) never takes longer than this. */
+export const GITHUB_TIMEOUT_DEFAULT_MS = 5_000;
+
+/** GITHUB_TIMEOUT_MS, read per call; a missing or invalid value gives the default. */
+function githubTimeoutMs(): number {
+  const n = Number(process.env['GITHUB_TIMEOUT_MS']);
+  return Number.isFinite(n) && n > 0 ? n : GITHUB_TIMEOUT_DEFAULT_MS;
+}
+
+/** Thrown inside fetchGitHubRef when the timeout fires; never leaves the module. */
+class GitHubTimeout extends Error {}
+
 // ---------------------------------------------------------------------------
 // Zod schema for a minimal GitHub issue/PR response (R6.4)
 // ---------------------------------------------------------------------------
@@ -77,13 +89,47 @@ function buildApiUrl(owner: string, repo: string, refNumber: string): URL {
  *
  * - Returns `{ title, body }` on success.
  * - Returns `undefined` on any failure (network error, rate-limit, missing
- *   token, non-GitHub repo, Zod parse failure) — never rethrows.
+ *   token, non-GitHub repo, Zod parse failure, timeout) — never rethrows.
+ * - ward-hardening R12.6: the request and its body are bounded by GITHUB_TIMEOUT_MS (5000 ms by
+ *   default). The fetch gets an AbortSignal, and the whole call is raced against the same
+ *   timer, so even a fetch that ignores the signal cannot hold the summon.
  */
 export async function fetchGitHubRef(
   owner: string,
   repo: string,
   ref: string,
   token?: string,
+): Promise<{ title: string; body: string } | undefined> {
+  const ms = githubTimeoutMs();
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new GitHubTimeout(`GitHub request for ${ref} timed out after ${ms} ms`));
+    }, ms);
+  });
+  try {
+    return await Promise.race([
+      fetchGitHubRefOnce(owner, repo, ref, token, controller.signal),
+      timeout,
+    ]);
+  } catch (err) {
+    console.warn(
+      `[seance:github] ${err instanceof GitHubTimeout ? err.message : `Request for ${ref} failed: ${String(err)}`}`,
+    );
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchGitHubRefOnce(
+  owner: string,
+  repo: string,
+  ref: string,
+  token: string | undefined,
+  signal: AbortSignal,
 ): Promise<{ title: string; body: string } | undefined> {
   let url: URL;
   try {
@@ -110,6 +156,7 @@ export async function fetchGitHubRef(
       headers,
       // Do not follow redirects to other origins (SSRF R6.3)
       redirect: 'error',
+      signal,
     });
   } catch (err) {
     console.warn(

@@ -31,8 +31,9 @@ import type {
 
 /** design.md §4.2 P1 — a silence claim is not part of a plan. */
 const P1 = 'A plan claim must cite the ledger. Silence claims are not part of a plan.';
-const STEP_DROP_REASON = 'The ward verified none of the claims behind this step.';
-const ENTRY_DROP_REASON = 'The ward verified none of the claims behind this entry.';
+/** ward-hardening R12.8 (inquisitor second pass, 2026-11-11): the claims passed, not the step. */
+const STEP_DROP_REASON = 'None of the claims behind this step passed the ward.';
+const ENTRY_DROP_REASON = 'None of the claims behind this entry passed the ward.';
 
 // ---------------------------------------------------------------------------
 // buildPlanPrompt — pure, deterministic

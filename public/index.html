@@ -36,8 +36,8 @@
             <h1 id="h-hero">Ask the one who wrote it.</h1>
             <p class="lede">
               Pick a line in a sample or a public GitHub repository, and its author's
-              ghost answers from the commits. Every claim is checked against the commits,
-              and invented ones are struck out.
+              ghost answers from the commits. Every claim must quote the commits, and a
+              citation that is not there is struck out.
             </p>
 
             <form id="summon-form" class="summon" novalidate>
@@ -226,8 +226,8 @@
                     Run the exorcism <span class="guide-done" hidden>done</span>
                   </p>
                   <p class="help">
-                    A haunting score and a refactor plan. Steps the ward cannot back are
-                    struck out. This can take a minute.
+                    A haunting score and a refactor plan. Steps with no claim that passed
+                    the ward are struck out. This can take a minute.
                   </p>
                   <button class="btn small ghost" id="exorcise-btn" type="button">
                     Start the exorcism
@@ -378,11 +378,11 @@
           <h2 id="h-how">Three rules the ghost cannot break</h2>
           <ol class="rules">
             <li>
-              <strong>It remembers only commits.</strong> Messages, diffs, authors and
+              <strong>It is given only commits.</strong> Messages, diffs, authors and
               dates from git history.
             </li>
             <li>
-              <strong>Every claim cites a commit.</strong> A short hash and the exact
+              <strong>Every memory cites a commit.</strong> A short hash and the exact
               words from that commit.
             </li>
             <li>

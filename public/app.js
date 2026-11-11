@@ -91,15 +91,19 @@ const proxyFail = (status) =>
   `The server did not answer (${status}). It may still be waking up; try again in a minute.`;
 const CONNECTION_DROPPED =
   'The connection dropped. The ghost may still have answered; ask again in a moment.';
+/** first-seance R16.1: a proxy page on a model-calling POST, which is never sent again. */
+const notAnswered = (status) =>
+  `The server did not answer (${status}). The ghost may still have answered; ask again in a moment.`;
 
-/** The model-calling routes: their POSTs are never sent again after a rejected fetch (R14.4). */
+/** The model-calling routes: their POSTs are never sent again automatically (R14.4, R16.1). */
 const NO_REPLAY_PATHS = ['/api/ask', '/api/exorcise'];
 
 /**
- * A rejected fetch (a network failure) may hide a request the server already accepted, so it is
- * retried only where repeating it cannot call the model twice (first-seance R14.4).
+ * A rejected fetch or a proxy's 502/503/504 page may hide a request the server already ran, so
+ * a request is retried only where repeating it cannot call the model twice (first-seance R14.4,
+ * R16.1). The health check, summon, ward and possess requests keep their retries.
  */
-function retriesNetworkFailure(path, method) {
+function mayRetry(path, method) {
   return !(method === 'POST' && NO_REPLAY_PATHS.includes(path));
 }
 
@@ -136,6 +140,7 @@ async function api(path, body, opts = {}) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
         };
+  const retryable = mayRetry(path, init.method);
   for (let attempt = 0; ; attempt++) {
     let res = null;
     try {
@@ -144,7 +149,7 @@ async function api(path, body, opts = {}) {
       res = null;
     }
     // R14.4: after a network failure on /api/ask or /api/exorcise, say so and send nothing more
-    if (res === null && !retriesNetworkFailure(path, init.method)) {
+    if (res === null && !retryable) {
       throw new Error(CONNECTION_DROPPED);
     }
     let data = null;
@@ -156,6 +161,8 @@ async function api(path, body, opts = {}) {
       }
     }
     if (res === null || shouldRetry(res.status, data)) {
+      // R16.1: a proxy page there may come after the server ran the request; send nothing more
+      if (res !== null && !retryable) throw new Error(notAnswered(res.status));
       if (attempt < RETRY_DELAYS_MS.length) {
         if (opts.status) $(opts.status).textContent = WAKE_TEXT;
         await wait(RETRY_DELAYS_MS[attempt]);
@@ -1362,9 +1369,9 @@ async function plant(claim, preset = null) {
 
 // ---- The possessed ghost (R13.7–R13.11) ---------------------------------------------------
 
-/** #ward-status after a scripted verdict, from the response's tally (R13.10, R15.19). */
+/** #ward-status after a scripted verdict, from the response's tally (R13.10, R15.19, R16.5). */
 function scriptedStatus(t) {
-  return `The ward verified ${t.verified} of ${t.checked} claims from the possessed ghost.${silenceNote(t.silent)}`;
+  return `${t.verified} of ${t.checked} claims from the possessed ghost passed the ward.${silenceNote(t.silent)}`;
 }
 
 /** The one possess path: scripted claims through the live ward, no model (R13.8–R13.11). */

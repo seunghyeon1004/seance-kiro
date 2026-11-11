@@ -284,3 +284,17 @@ Each item began with a test that failed for the stated reason before the code ch
 - [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R11.1–R11.13.
+
+## T11 — Addendum: inquisitor second pass (2026-11-11)
+
+Each item began with a test that failed for the stated reason before the code changed.
+
+- [x] Freeze the verifier as of R11.4 as `test/ghost/pbt/verifier-r11-4.ts` (only the import paths changed; diffed against `src/ghost/verifier.ts` before the change).
+- [x] Write the failing tests for R12.1–R12.4 in `test/ghost/verifier.unicode.test.ts` (the review's U+1BCA0 and U+1D173 claim; every Default_Ignorable_Code_Point inside `Alice` and inside `2024`; the property covering the R11.4 table; the `Bobby` and `20245` cases; case and Cyrillic stated limits; raw quotes) and CP14–CP16 in `test/ghost/pbt/verifier.unicode.pbt.ts`. They failed on U+FFF0, U+1BCA0 and U+1D173. Add the property form and the per-form loop to step 7b.
+- [x] R12.3, R12.5 and the hard rules: CP10 (frozen 2026-11-11 copy) and CP14 (frozen R11.4 copy) pass; the new recordings test gives deep-equal results under both verifiers for all eight recordings; `--hash-only` prints `464f2680` and `--ghost --hash-only` prints `b0b2564e`. No recording or fixture changed (checksums compared before and after).
+- [x] Write the failing tests for R12.6 and R12.7: `fetchGitHubRef` with a fetch that never settles and with a body that never finishes (`test/evidence/github.test.ts`); `buildLedger` and `POST /api/summon` with a hung GitHub API and 50 `Fix #1` commits, and a deadline that passes during the last git call so no GitHub request starts (`test/evidence/summon-bounds.test.ts`). They timed out. Add the timeout, `passed()` and the skip; document `GITHUB_TIMEOUT_MS` in `.env.example`.
+- [x] Change the tests quoting the drop reasons and the count line (R12.8, R12.9) and the bidi tests (R12.10), see them fail, then change `plan.ts`, `report.ts` and `escapeMd`.
+- [x] Update `.kiro/steering/evidence-rules.md` (the detection forms, the stated limits) and the `ward-report` addendum.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`.
+
+Covers: R12.1–R12.10.

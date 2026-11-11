@@ -47,7 +47,7 @@ The decisions behind each group of requirements:
 
 **R1.1** The `h1` shall stay "Ask the one who wrote it."
 
-**R1.2** The `.lede` shall read exactly: "Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim is checked against the commits, and invented ones are struck out."
+**R1.2** The `.lede` shall read exactly: "Pick a line in a sample or a public GitHub repository, and its author's ghost answers from the commits. Every claim is checked against the commits, and invented ones are struck out." _Superseded by R16.6 (2026-11-11)._
 
 **R1.3** `#repo-help` shall read exactly: "crypt and possessed are samples; possessed's commits try to give the ghost orders. Or paste a public GitHub link: Séance reads its default branch and the last 100 commits."
 
@@ -370,7 +370,7 @@ Decisions:
 
 **R15.18** (F1) "Blame the wrong author" shall send "<name> wrote commit <sha7>.", citing that commit, which someone else wrote, with the quote from its subject. The pair is the first one in ledger order whose cited commit does not name that author and whose short hash spells no year the commit does not back (by its date or its fields), so only the ward's author check refuses it. This amends design.md §11.2 of ward-hardening.
 
-**R15.19** (F2) In a scripted turn, a silence claim shall carry the label "Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it." and the class `ordered`, styled like an unverified claim (dashed, in the rejected colour). `#ward-status` after the possessed ghost shall read "The ward verified ${verified} of ${checked} claims from the possessed ghost." plus the silence note of R4.3 (" 1 silence claim was not checked."), from the response's tally. This amends R13.10.
+**R15.19** (F2) In a scripted turn, a silence claim shall carry the label "Not verified: the commits ordered this sentence as a silence claim. A silence claim cites nothing, so the ward never verifies it." and the class `ordered`, styled like an unverified claim (dashed, in the rejected colour). `#ward-status` after the possessed ghost shall read "The ward verified ${verified} of ${checked} claims from the possessed ghost." plus the silence note of R4.3 (" 1 silence claim was not checked."), from the response's tally. This amends R13.10. _The `#ward-status` sentence is superseded by R16.5 (2026-11-11)._
 
 **R15.20** (F4) The recorded answer label shall read "A recorded answer (the live model is unavailable). The ward checked it again just now." and `#ex-recorded` "A recorded plan (the live model is unavailable). The ward checked it again just now." This amends R7.10.
 
@@ -386,4 +386,31 @@ Decisions:
 
 **R15.26** (F11) The model limiter's daily message shall be "The live ghost has used today's calls. The sample questions and the ward still work." `test/server/ratelimit.test.ts` does not assert it and stays unchanged.
 
-**R15.27** (F12) The footer shall link "Source on GitHub" to https://github.com/seunghyeon1004/seance-kiro with `rel="noopener"`. Rule 1 of "How it works" shall read "It remembers only commits. Messages, diffs, authors and dates from git history."
+**R15.27** (F12) The footer shall link "Source on GitHub" to https://github.com/seunghyeon1004/seance-kiro with `rel="noopener"`. Rule 1 of "How it works" shall read "It remembers only commits. Messages, diffs, authors and dates from git history." _Rule 1 is superseded by R16.3 (2026-11-11)._
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+Input: `docs/kiro-evidence/inquisitor-second-pass-session.txt`. This spec takes its MEDIUM "a forwarded proxy error can still replay an accepted model request" and the page items of its wording list. The other findings are in `seance-mcp` R13, `ward-hardening` R12 and `haunting-map` R12.
+
+Decisions:
+
+- **No automatic resend of a model call, whatever the failure.** A proxy can return its own 502, 503 or 504 page after it forwarded the request and the server ran it. The page cannot tell that page from one sent before forwarding, so for `/api/ask` and `/api/exorcise` it stops and says what may have happened. A client idempotency key with a server-side response cache would allow a safe retry; it is more machinery than this needs.
+- **Copy says what the ward checks.** The ward checks citations, quotes, years and ledger authors. It does not strike a sentence that misreads a real quote, and it does not check silence claims. The lede, step 3 and the first two rules are reworded so that none of them says more.
+
+`src/ratelimit.ts`, `test/server/ratelimit.test.ts`, `recordings/*.json` and `test/fixtures/**/*.json` are unchanged.
+
+### R16 Inquisitor second pass (2026-11-11)
+
+**R16.1** `api()` shall never retry a POST to `/api/ask` or `/api/exorcise` automatically, after a network failure (R14.4) or after any 502, 503 or 504 response. GET `/api/health` and the POSTs to `/api/summon`, `/api/ward` and `/api/possess` shall keep the retries of R5.4–R5.6. This amends R14.4, which still retried a proxy page on the model routes.
+
+**R16.2** After a 502, 503 or 504 whose body is not our JSON on `/api/ask` or `/api/exorcise`, `api()` shall throw at once with "The server did not answer (<status>). The ghost may still have answered; ask again in a moment." The callers show it as they show any other error.
+
+**R16.3** Rule 1 of "How it works" shall read "<strong>It is given only commits.</strong> Messages, diffs, authors and dates from git history." This supersedes the rule 1 text of R15.27.
+
+**R16.4** Rule 2 shall read "<strong>Every memory cites a commit.</strong> A short hash and the exact words from that commit." Rule 3 ("The ward checks both. A hash that does not exist or a quote that is not there is struck out.") calls no sentence verified and stays.
+
+**R16.5** After a scripted verdict, `#ward-status` shall read `${verified} of ${checked} claims from the possessed ghost passed the ward.` plus the silence note of R4.3, from the response's tally. This supersedes the sentence of R15.19.
+
+**R16.6** The second sentence of the `.lede` shall read "Every claim must quote the commits, and a citation that is not there is struck out." The first sentence of R1.2 stays. This supersedes R1.2.
+
+**R16.7** The help of guide step 3 shall read "A haunting score and a refactor plan. Steps with no claim that passed the ward are struck out. This can take a minute."

@@ -1,0 +1,773 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent warden, claude-opus-5.5), 2026-11-11: the inquisitor's second-pass findings fixed test-first, with an addendum in five specs. Unedited output; only the home directory prefix is replaced with ~. By hand afterwards: the new archaeologist prompt copied into the agent file (Kiro cannot edit .kiro/agents in this setup and was told not to), the config test's expected line, and the README example.
+
+$ kiro-cli chat --no-interactive --v3 --agent warden --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Fix the findings of the inquisitor's second pass in docs/kiro-evidence/inquisitor-second-pass-session.txt (read it fully first), test first: write each failing test, see it fail for the right reason, then change the code. Keep the specs truthful with a short "Addendum: inquisitor second pass (2026-11-11)" in each affected spec (requirements with new ids, a design note, a new ticked task): seance-mcp for 1 and 3, ward-hardening for 2, 5 and 8, first-seance for 4 and 7, haunting-map for 6, ward-report for the count line. Update the steering files where a rule or a string they state changes.
+
+Do exactly these:
+1. MCP and the network (their HIGH): src/mcp/server.ts sets GIT_NO_LAZY_FETCH=1 (and GIT_TERMINAL_PROMPT=0) in process.env before the dynamic import, so no git subprocess of the MCP process fetches missing objects from a promisor remote. The web server is not changed (it needs lazy fetch for its own blob-less clones). Test with a real local partial clone over file:// whose missing blob is needed by the summoned line: the tool returns the fixed git error sentence and the missing-object count is unchanged; also a test that the entry sets the variables before any other module loads.
+2. Unicode (their MEDIUM): the detection form removes every Default_Ignorable_Code_Point, not a hand-kept list: use the static Unicode property (`\p{Default_Ignorable_Code_Point}` with the u flag; it is a fixed pattern, not built from untrusted text) and keep the explicit ranges only if the property misses something in Node 20. Quotes stay raw. Case stays unfolded and homoglyphs stay a stated limit (say so in the spec and evidence-rules.md). Add their example (U+1BCA0, U+1D173) and a property over the whole class. The two frozen-verifier properties must still pass, and the real recordings must verify exactly as before (test/recordings.test.ts).
+3. MCP wording (their MEDIUM): the tool title becomes "Check claim citations with the ward"; the description says an entry in `verified` means its citations and quotes were found and its named years and ledger authors are supported, not that the sentence follows from the quote. Field names do not change. Test the registered title and description.
+4. Retries (their MEDIUM): the page never retries a POST to /api/ask or /api/exorcise automatically, whatever the failure. After a non-JSON 502/503/504 there: "The server did not answer (<status>). The ghost may still have answered; ask again in a moment." GET /api/health, /api/summon, /api/ward and /api/possess keep their retries. Change the e2e test as they describe (the proxy forwards, then returns an HTML 502: one attempt, one model call).
+5. GitHub enrichment (their MEDIUM): fetchGitHubRef gets a timeout (AbortSignal, 5000 ms, env GITHUB_TIMEOUT_MS) and is skipped once the summon deadline has passed; a hung GitHub API never holds a clone slot beyond the deadline plus that timeout. Test with a fetch stub that never settles.
+6. Map (their LOW): when any commit record is skipped by the parser, the reader returns the fixed "could not be drawn" note instead of a partial map. Test with a real commit whose author contains U+001F.
+7. Wording, so nothing claims more than the ward proves (update every test and spec copy table that quotes these):
+   - lede second sentence: "Every claim must quote the commits, and a citation that is not there is struck out."
+   - guide step 3 help: "A haunting score and a refactor plan. Steps with no claim that passed the ward are struck out. This can take a minute."
+   - "How it works" rule 1: "<strong>It is given only commits.</strong> Messages, diffs, authors and dates from git history." Rule 2: "<strong>Every memory cites a commit.</strong> A short hash and the exact words from that commit." Rule 3 unchanged unless it calls a sentence verified.
+   - the possessed ghost status: "<N> of <M> claims from the possessed ghost passed the ward." plus the silence note.
+   - src/exorcism/plan.ts drop reasons: "None of the claims behind this step passed the ward." / "None of the claims behind this entry passed the ward."
+   - the Markdown report's count line becomes `**N of M claims passed the ward**` (ward-report R1.2 superseded; say so in that spec). Update the MCP README example text is the human's job: do not edit README.md; do update the archaeologist prompt text inside .kiro/specs/seance-mcp/design.md §6.1 to end with "N of M claims passed the ward" (the human copies it into the agent file).
+8. Report bidi (their SUSPECTED): also show U+061C, U+200E and U+200F as visible escapes.
+Not in scope: X-Forwarded-For, an MCP-wide deadline, full-sha recording identity, case folding, homoglyphs.
+
+Hard rules: src/ghost/verifier.ts may only become stricter; recordings/*.json, test/fixtures/**/*.json, src/ratelimit.ts and test/server/ratelimit.test.ts stay byte-for-byte unchanged; prompt hashes stay 464f2680 and b0b2564e (check with the recorder's --hash-only modes). Do not edit README.md, .kiro/README.md, docs/kiro-evidence/README.md or files under .kiro/agents and .kiro/settings. No git add/commit/push/stash. Finish with `npm test`, `npm run typecheck`, `npm run lint`, `npm run contrast` (real summary lines) and a table: finding, fix, test.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=8
+I'll start with the hook's staged-diff review and the inquisitor's findings file.
+[tool] Check staged diff and working tree state
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+The staged diff is empty, so there is nothing for the evidence-rules check to review yet. I'll come back to that check at the end. Next I'm reading the code each finding touches.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] List test files and package config
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Before changing anything I'll record a baseline: the full test run, checksums of the files that must stay unchanged, and the prompt hashes.
+[tool] Run baseline tests and checksum protected files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Check prompt hashes without calling the model
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Record checksums of protected files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The baseline is 87 files and 1382 tests passing, with prompt hashes 464f2680 and b0b2564e. Now finding 1, the MCP network access.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Show MCP config and tool versions
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the new MCP lazy-fetch test, expect failure
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] Replace in File
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Rerun the lazy-fetch test, expect the right failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run MCP test suite after the fix
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 1 is fixed. Next, finding 3, the MCP wording.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run MCP app test, expect wording failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run MCP tests after wording change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 3 is fixed. Before changing the Unicode detection for finding 2, I'm checking the frozen verifier copies and what the Unicode property covers.
+[tool] Compare current verifier with frozen copy
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Compare the hand list with the Unicode property
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The frozen copy is the verifier from before R11.4, with no detection pass, so no test currently freezes the hand-kept list. Now the same coverage check on Node 20:
+[tool] Check the Unicode property's coverage on Node 20
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Freeze a copy of the current verifier for testing
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Failed: Freeze a copy of the current verifier for testing
+[tool] Probe whether a naive property swap loosens the ward
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the Unicode tests, expect the new ones to fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run ghost, recording and adversarial tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Typecheck is clean and those suites pass. Next I'm checking that `test/recordings.test.ts` really pins how the recordings verify.
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+That check only asserts at least one verified claim. I'll add a test that compares each recording, bucket by bucket, against the frozen R11.4 copy.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run the recordings test
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 2 is fixed, and every recording verifies exactly as it did under R11.4. Next, finding 4, the page retries.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+Now the pbt for the retry rule:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run retry tests, expect failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The tests fail for the right reason (4 attempts, and the function is missing). Now the code:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run page and e2e tests after the retry change
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The parallel calls ran out of order, so that result is unreliable. Rerunning now that both edits are in:
+[tool] Rerun page and e2e tests after both edits
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find /api/possess mentions in app.js
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+My new comment mentions `/api/possess`, and that test counts occurrences in the source. I'll reword the comment.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Rerun page and e2e tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 4 is fixed. Next, finding 5, the GitHub enrichment timeout.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect GitHub test setup and env example
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run GitHub timeout tests, expect failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+They fail as expected: the calls hang and the enrichment is not skipped. Now the code:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run the evidence tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show evidence test summary only
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show evidence test results with dot reporter
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 5 passes. I'll add the new variable to `.env.example`.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Next, finding 6, the haunting map.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Inspect existing real-git map test setup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run map test, expect the note test to fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run evidence, server, MCP and map e2e tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Run the suites and show only failures and totals
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Finding 6 is fixed. Next, finding 7, the wording. First I'll find every place the current strings appear.
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show the lede, guide step 3 and how-it-works markup
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+I'll leave `test/mcp/config.test.ts` alone: it reads the agent file under `.kiro/agents`, which only the human may change. Now I'm updating the tests to the new wording, before changing any code.
+[tool] Update test copy to the new wording
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the wording tests, expect them to fail
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+The tests fail on the old strings. Now the code changes:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Rerun the wording tests after the code changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+My grep missed a few tests that build these strings by pattern. Finding them:
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Fix the remaining test copy and rerun
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+That grep ran in parallel before the edits, so its results are stale. The rerun passed. Next, finding 8, the bidi marks in the report.
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+The existing test asserts that U+200F and U+061C stay as they are. I'm changing that assertion, and the property, to the new rule first:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run report tests, expect bidi failures
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Both fail as expected. Now the code. `toString(16)` of U+061C gives `61c`, so the escape needs padding to four digits:
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Typecheck and run ghost, server and MCP tests
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+All eight code fixes pass. Next, the specs. I'm checking which requirement ids each one already uses so the new ones don't collide.
+[tool] List spec files, last requirement ids and headings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+Now I'll write the addenda, starting with ward-report.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Next, the ward-hardening addenda. R7.1 and R7.2 quote the old drop reasons, so I'm marking them superseded as well.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+Next, the seance-mcp spec. I'm reading its R12 section and design §6.1.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List seance-mcp design headings and count-line mentions
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+seance-mcp already has an R12 (Documentation), so the new ids must be R13. I used R12 in the MCP code and tests, so I'm renaming those first.
+[tool] Renumber MCP requirement ids to R13
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Now the seance-mcp edits: the §6.1 prompt line, then the addendum in all three files.
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+first-seance has R14 and R15 already. I'll put all of this pass under a new R16 and rename the `R14.7` I used for the retries to `R16.1`.
+[tool] Rename the first-seance retry id to R16.1
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read first-seance addenda and the requirements to amend
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find every spec and steering copy quoting the old strings
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read the first-seance copy table and inquisitor addendum
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Updating the first-seance copy tables in place, then the addendum:
+[tool] Update first-seance design copy tables
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Mark superseded first-seance requirements
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Find where to add the first-seance task
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+haunting-map's R11 is already taken by its polish addendum, but my code and test used `R11.1`. Renaming to `R12.1`:
+[tool] Rename the map id and read the haunting-map addenda
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read haunting-map R1.6 and R1.9
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Mark haunting-map R1.9 as amended
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Append to File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+Next, the steering files. Checking where each states a rule or string that changed:
+[tool] Find steering lines affected by the changes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Show the exact steering lines to edit
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Update the steering files for the changed rules
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Find the ordering sentence in MCP steering
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Run the full test suite
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Run typecheck and lint
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Prettier flags formatting in six files I touched. Applying it to exactly those files:
+[tool] Format the flagged files and rerun lint
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Lint is clean. Now the final full run, the contrast check, the protected-file checksums, the prompt hashes and the evidence-rules check the hook asked for:
+[tool] Run the four final checks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Verify protected files, prompt hashes and empty stage
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] List changes and the lines removed from the verifier
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+All eight findings are fixed. Each fix began with a test that failed for the reason the finding names. The four checks pass, and nothing is staged or committed.
+
+**One deviation, in finding 2.** I kept the old hand-kept ignorable list, frozen, as one extra detection pass. Replacing it with the Unicode property alone would have loosened the ward. Removing more characters can glue a name or year to the next letters:
+- `B\u200Bob\u{1BCA0}by` names Bob under the old list, because U+1BCA0 there acts as a word break. With the property alone it reads "Bobby".
+- `20\u200B24\u{1BCA0}5` names 2024 under the old list and reads "20245" with the property alone.
+
+I ran a property-only version against both inputs. It accepted both, and the current ward rejects them. So the checks now run on the raw text, then the frozen old form, then the full property form. Each pass only adds reasons.
+
+The property covers the whole old list on Node 20.18.0 and Node 24.5.0, giving the same 17 ranges. A test checks this on whatever Node runs it. The frozen copy of the current verifier is `test/ghost/pbt/verifier-r11-4.ts`, and property CP14 checks against it.
+
+## Results
+
+```
+npm test           Test Files  88 passed (88)
+                        Tests  1420 passed (1420)
+npm run typecheck  tsc --noEmit, exit 0
+npm run lint       All matched files use Prettier code style!
+npm run contrast   All 20 table pairs and 28 usage pairs pass; the table agrees with :root. ✓
+```
+
+- **Prompt hashes:** `464f2680` and `b0b2564e`, from the `--hash-only` modes.
+- **Protected files:** all 14 recordings, fixtures and ratelimit files match their checksums from before I started.
+- **Hands-off files:** no changes to `README.md`, `.kiro/README.md`, `docs/kiro-evidence/README.md`, `.kiro/agents` or `.kiro/settings`.
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 | MCP reaches the network through a partial clone (HIGH) | `src/mcp/server.ts` sets `GIT_NO_LAZY_FETCH=1` and `GIT_TERMINAL_PROMPT=0` before the dynamic import. The web server is unchanged. | `test/mcp/lazy-fetch.test.ts`: real `file://` partial clone over stdio. Before the fix the summon succeeded and missing objects went from 4 to 2. Now it returns `GIT_ERROR` with the count unchanged. A control clone still fetches, and a test checks the variables come first. |
+| 2 | Invisible characters outside the list (MEDIUM) | `detectionText` removes every `\p{Default_Ignorable_Code_Point}`. The frozen old pass stays (see above). Quotes stay raw. Case and homoglyphs are stated limits in the spec and `evidence-rules.md`. | `test/ghost/verifier.unicode.test.ts`: the U+1BCA0/U+1D173 example, every such character inside `Alice` and `2024`, the Bobby/20245 cases. CP14–CP16. CP10 still passes. `test/recordings.test.ts` now checks every recorded claim lands in the same bucket with the same reason as before. |
+| 3 | MCP wording (MEDIUM) | Title is "Check claim citations with the ward". The description says what `verified` means and that it doesn't cover the sentence. No field names changed. | `test/mcp/app.test.ts` |
+| 4 | Retries replay model calls (MEDIUM) | `mayRetry` blocks every automatic retry on `/api/ask` and `/api/exorcise`. A proxy page there now shows the new "did not answer" sentence. Health, summon, ward and possess keep their retries. | `test/e2e/wake.test.ts`: proxy forwards, then returns an HTML 502 (one attempt, one model call). Same for exorcise with a 503. Ward still retries. CP4 updated. |
+| 5 | GitHub enrichment ignores the deadline (MEDIUM) | `fetchGitHubRef` has an AbortSignal and a race against `GITHUB_TIMEOUT_MS` (5000 ms default, added to `.env.example`). No request starts after the summon deadline. | `test/evidence/github.test.ts`: fetch that never settles, body that never finishes. `test/evidence/summon-bounds.test.ts`: `buildLedger` and `/api/summon` finish in bounded time, the clone is deleted and the slot freed. |
+| 6 | Skipped commit gives a partial map (LOW) | `skipped > 0` returns the fixed "could not be drawn" note. | `test/evidence/haunting.git.test.ts`: real commit by `Mallory\u001fMaintainer` |
+| 7 | Wording overclaims | Lede, step 3 help, rules 1 and 2, the possessed status, both plan drop reasons and the report line `**N of M claims passed the ward**` are all reworded. The prompt in seance-mcp design §6.1 now ends with "N of M claims passed the ward". | Every test and spec copy table that quoted the old text is updated. |
+| 8 | Report bidi marks (SUSPECTED) | `escapeMd` also escapes U+061C, U+200E and U+200F, padded to four hex digits. | `test/ghost/report.test.ts`, P5 |
+
+Each of the five specs has its addendum: requirements with new ids, a design note and a ticked task. The ids are seance-mcp R13, ward-hardening R12, first-seance R16, haunting-map R12 and ward-report R2. Superseded requirements are marked where they stand. `evidence-rules.md`, `mcp-server.md` and `testing.md` are updated.
+
+**Left for you:**
+- Copy the new §6.1 prompt into `.kiro/agents/archaeologist.json`. Then change the last step in `test/mcp/config.test.ts` to "N of M claims passed the ward". That test reads the agent file, so I left it checking the old line, and it passes for now.
+- The README's MCP example still shows the old count line.
+- The map note for a skipped commit reuses the fixed sentence "git could not read the history in time", which isn't exact for this cause. I kept one failure note on purpose; this is recorded in haunting-map design §15.
+
+**Evidence-rules check.** Nothing is staged, so I ran it on the working-tree diff:
+- ✅ `src/ghost/verifier.ts` only becomes stricter. Only the detection pass changed: the old pass is kept unchanged and the new one only adds reasons. CP10 and CP14 pass against the frozen copies.
+- ✅ `src/ghost/schema.ts` has no diff, so the 1–10 `{ sha7, quote }` citations, the 8–500 character quote and the single-field match are unchanged.
+- ✅ Quotes are still compared raw and case-sensitively.
+- ✅ A silence claim can still only land in `silent`.
+- ✅ No file in `recordings/*.json` or `test/fixtures/**/*.json` changed.
+exit 0

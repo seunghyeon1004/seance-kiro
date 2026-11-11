@@ -566,7 +566,7 @@ Workflow:
 3. Draft your claims. A memory claim cites 1 to 10 items by sha7, each with a quote of 8 to 500 characters copied exactly, case and spacing included, from one field of that item: its subject, its body or its hunk. Name a year or an author only when a cited item supports it. Label inference as kind "speculation", still cited and quoted. When the ledger cannot answer part of the question, write a silence claim with no citations and a silenceReason that names the question.
 4. Call seance_verify with the ledgerId and all your claims in one call. You may correct struck claims and call it again; present only the last result.
 5. Answer from the ward's result only. State each verified claim as fact, followed by [sha7] and its quote. Show each struck claim struck through, ~~like this~~, followed by "struck by the ward:" and the ward's reason. Show silence claims as "the record is silent (not checked)". Never restate a struck claim as fact, and add no fact the ward did not verify.
-6. End with the ward report's count line, "N of M claims verified".
+6. End with the ward report's count line, "N of M claims passed the ward".
 
 To find files whose knowledge left with departed authors, call seance_haunting_map.
 
@@ -685,3 +685,38 @@ No existing test changes. The new script and config entries do not affect the we
 - **Uncommitted edits.** `git log -L` reads line numbers at `HEAD`, while the agent may be looking at a working tree with uncommitted changes. Line numbers can then point at different code. The ledger is about committed history only.
 - **Kiro run-time approval is unverified** (§6.2). T5 is the check.
 - **SDK wording.** Input validation messages (R7.4) are the SDK's and may change with a new SDK version. Tests assert only their prefix and the absence of a stack line.
+
+## 11. Addendum: inquisitor second pass (2026-11-11)
+
+Requirements R13.1–R13.5.
+
+- **No lazy fetch (R13.1, R13.2).** §4.6 becomes:
+
+  ```ts
+  import { installStderrConsole } from './console.js';
+
+  process.env['GIT_NO_LAZY_FETCH'] = '1';
+  process.env['GIT_TERMINAL_PROMPT'] = '0';
+  installStderrConsole();
+  try {
+    const { startStdioServer } = await import('./app.js');
+    …
+  ```
+
+  `runGit` passes `extendEnv: true`, so every git child of this process inherits both variables. With `GIT_NO_LAZY_FETCH=1`, git treats a missing promisor object as missing: `blame` exits non-zero, `buildLedger` throws `GitError`, and `toToolMessage` returns `MESSAGES.GIT_ERROR`. The map reads (`log --name-only`, `ls-tree`) never need a blob (`haunting-map` R1.3), so `seance_haunting_map` still draws the map. `src/server.ts` and `src/evidence/git.ts` are unchanged. The test `test/mcp/lazy-fetch.test.ts` builds the crypt, clones it twice with `--filter=blob:none` over `file://`, starts `npx -y tsx src/mcp/server.ts` with `getDefaultEnvironment()`, and counts missing objects with `git rev-list --objects --missing=print HEAD`. Before the change the summon succeeded and the count went from 4 to 2. The control runs plain `git blame` in the second clone and sees the count drop. A second test reads `server.ts` and checks the order of the assignments and the first `await import(`.
+- **Stated limit.** Only the entry sets the variables. `createSeanceMcpServer()` used inside another program inherits that program's environment.
+- **Wording (R13.3, R13.4).** `app.ts` registers the title "Check claim citations with the ward". `VERIFY_DESCRIPTION` in `tools.ts` (replacing the text of §3.5):
+
+  ```ts
+  'Check the citations of claims about the code against a ledger built by seance_summon, with the deterministic Séance ward. ' +
+  'In a memory or speculation claim, each citation must name the sha7 of exactly one ledger item and carry a quote ' +
+  'of 8 to 500 characters copied exactly from one field of that item (subject, body or hunk), and every year and ledger author ' +
+  'the claim names must be supported by a cited item. ' +
+  'An entry in `verified` means only that its citations and quotes were found and the years and ledger authors it names are supported by the cited commits. ' +
+  'It does not mean that the sentence follows from the quote. ' +
+  'A silence claim has no citations and a silenceReason; it is not checked and never appears in `verified`. ' +
+  `Returns \`verified\` with the words the ward found, \`rejected\` with the reason, \`silent\`, and a Markdown report. ${UNTRUSTED_SENTENCE}`
+  ```
+
+  The report in the §3.3 example and in §9.2 step 6 now has the count line `**1 of 2 claims passed the ward**` (`ward-report` R2.1); the examples above show the earlier text.
+- **Prompt (R13.5).** §6.1 ends with "N of M claims passed the ward". `.kiro/agents/` is not edited by an agent.

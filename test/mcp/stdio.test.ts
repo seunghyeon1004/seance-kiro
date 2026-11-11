@@ -143,7 +143,7 @@ describe('the seance server over stdio', () => {
     expect(v.rejected[0]?.index).toBe(1);
     expect(v.rejected[0]?.reason).toBe(REASONS.F9('e9a5c9c'));
     expect(v.tally).toEqual({ verified: 1, checked: 2, silent: 0 });
-    expect(v.report).toContain('**1 of 2 claims verified**');
+    expect(v.report).toContain('**1 of 2 claims passed the ward**');
   }, 60_000);
 
   it('a silence claim sent with no citations key lands in silent (R5.8)', async () => {

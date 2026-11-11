@@ -52,7 +52,7 @@ The decisions behind each group of requirements:
 
 **R1.8** A failure of the ledger itself (for example `HistoryError`, `GitError` or `CloneError`) shall produce the same error response as today. The reader shall have settled before the clone is deleted, whether the ledger succeeded or failed.
 
-**R1.9** Each commit record from `git log` shall be parsed and validated with a Zod schema. A record that fails validation shall be skipped and counted in a log line, and shall not make the reader fail.
+**R1.9** Each commit record from `git log` shall be parsed and validated with a Zod schema. A record that fails validation shall be skipped and counted in a log line, and shall not make the reader fail. _Amended by R12.1 (2026-11-11): one skipped record makes the reader return the R1.6 note instead of a map._
 
 ### R2 Definitions (decision B)
 
@@ -234,3 +234,13 @@ Decisions: on this page "the ghost" is the persona that speaks, so the map count
 **R11.6** The section shall have `margin-top: var(--space-2xl)`. `#map-note` shall be shown in a neutral style (rule border, paper-2 background), and an empty `#map-status` shall take no space (first-seance R15.12).
 
 **R11.7** A ghost's name next to fixed copy shall be its own `<bdi>`: in "Haunted by <name>" (group headings and tiles) and the legend's `.map-name` (first-seance R15.17). Suspicious names are still never printed (R8.2).
+
+## Addendum: inquisitor second pass (2026-11-11)
+
+Input: the LOW finding of `docs/kiro-evidence/inquisitor-second-pass-session.txt`. Since R10 a path can no longer forge a commit, but author and email are still separated by US. A US inside either gives the header five fields, `parseNameLog` counts the record in `skipped`, and the reader drew the map from the other commits. A file such a commit touched could then be attributed to another author or shown as "Tended by the living".
+
+Decision: until the identity fields have an unambiguous encoding, a map with a missing commit is not drawn. The fixed note says the map could not be drawn, and the séance is not affected (R1.6).
+
+### R12 Inquisitor second pass (2026-11-11)
+
+**R12.1** When `parseNameLog` reports `skipped > 0`, `readHauntingMap` shall return the R1.6 note ("The haunting map could not be drawn: git could not read the history in time. The séance is not affected.") and no map, and shall log the count to the server log only. This amends R1.9. A test shall show it with a real commit whose author name contains U+001F.
