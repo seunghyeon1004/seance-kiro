@@ -607,10 +607,20 @@ function pointPlanchette(sha) {
 function focusCommit(sha) {
   const row = $(`ledger-item-${sha}`);
   if (!row) return;
-  row.scrollIntoView({
-    behavior: reduceMotion.matches ? 'auto' : 'smooth',
-    block: 'nearest',
-  });
+  // Scroll the ledger's own box first. Scrolling the page for a row inside the stuck crypt
+  // makes it jump: the page's scroll-padding counts the row as hidden and the crypt does not move.
+  const list = $('ledger');
+  const lr = list.getBoundingClientRect();
+  const rr = row.getBoundingClientRect();
+  if (rr.top < lr.top) list.scrollTop -= lr.top - rr.top;
+  else if (rr.bottom > lr.bottom) list.scrollTop += rr.bottom - lr.bottom;
+  // Move the page only when the row is off screen (narrow layouts, where the crypt is not stuck)
+  const now = row.getBoundingClientRect();
+  if (now.bottom <= 0 || now.top >= window.innerHeight)
+    row.scrollIntoView({
+      behavior: reduceMotion.matches ? 'auto' : 'smooth',
+      block: 'nearest',
+    });
   row.focus({ preventScroll: true });
   state.lastCited = sha;
   requestAnimationFrame(() => pointPlanchette(sha));

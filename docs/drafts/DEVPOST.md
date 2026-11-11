@@ -153,4 +153,4 @@ What followed, all through Kiro CLI 3.2.0 on `claude-opus-5.5`, mostly in the V3
 
 What Kiro got right that we did not: it stopped and asked instead of skipping tests; it broke the verifier on purpose to prove the adversarial tests could fail; it found that a parser fix we suggested was still ambiguous and wrote a sound one. What went wrong: one session was cut off by a throttle; the V3 engine denies shell and MCP calls in non-interactive runs unless everything is trusted; Kiro cannot edit its own settings directory; and the new page was only looked at in a browser once, at the very end (headless Chromium, by hand), which the docs say plainly.
 
-Numbers: ten specs, 581 of 585 task items ticked (three of the open ones need a browser), 1,420 tests, about 2,500 of the 4,000 bonus credits (the meter is shared with another session on the account).
+Numbers: ten specs, 585 of 585 task items ticked, 1,420 tests, about 2,500 of the 4,000 bonus credits (the meter is shared with another session on the account).
