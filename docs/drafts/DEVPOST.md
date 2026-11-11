@@ -1,11 +1,11 @@
-# Séance: Devpost write-up (draft)
+# Séance: Devpost write-up
+
+Current as of 2026-11-11 (repository commit `f45b4ed`, live site deployed). Paste each section into the matching Devpost field. The gallery list is at the end.
 
 **Category:** Costume Contest
 **Live demo:** https://seance-kiro.onrender.com
 **Code:** https://github.com/seunghyeon1004/seance-kiro
 **Tagline:** Ask the one who wrote it. A ghost that can only say what git remembers.
-
-> **Draft status (2026-11-11).** This write-up describes the entry as submitted on 2026-11-09. Since then the ward was hardened after Kiro's own security audit, and a guided first séance, recorded answers, a hostile sample repository, the haunting map and an MCP server were added through four more Kiro specs (ten specs, 1,420 tests). The section "Update: the 4,000-credit round" at the end summarises that; the text above it still needs the same pass before it is pasted into Devpost. The current state is in `README.md` and `.kiro/README.md`.
 
 ## Inspiration
 
@@ -13,144 +13,147 @@ Every codebase has a line nobody dares to touch. `git blame` gives you a name an
 
 ## What it does
 
-- **The crypt.** Point Séance at a file and line range. It builds an evidence ledger from `git blame --porcelain` and `git log -L` (following renames): each commit's message, author, date, diff hunk and `#123` references, plus pull request text for public GitHub repos when a token is given. No AI is involved in this step.
-- **The ghost.** Claude answers in the first person, from the ledger only. Each claim is typed `memory`, `speculation` or `silence`, and every claim carries `[sha7]` citations with exact quotes.
-- **The ward.** A deterministic verifier checks every citation and quote against the ledger. A hash that is not there, or a quote that is not in the cited commit, is struck through on screen with the reason. The page shows the count, for example "4 of 4 claims verified".
-- **Plant a false memory.** Send your own claim straight to the ward. Invent a hash or misquote a real commit, and watch it refuse.
+- **The crypt.** Point Séance at a file and line range. It builds an evidence ledger from `git blame --porcelain` and `git log -L` (following renames): each commit's message, author, date, diff hunk and `#123` references. No AI is involved in this step. The page shows the line you asked about above it.
+- **The ghost.** Claude answers in the first person, from the ledger only. Each claim is typed `memory`, `speculation` or `silence`. A memory or speculation must cite a commit and quote its exact words.
+- **The ward.** A deterministic verifier, not a model. For each claim it checks that the cited hash names exactly one commit in the ledger, that the quote is literally in that commit's subject, message or diff, and that any year or ledger author the claim names is supported by a cited commit. Under each claim that passes, the page shows the words the ward found. A claim that fails stays on screen, struck through, with the reason. A silence claim cites nothing, so it is shown apart and never counted. The page keeps count, for example "4 of 4 claims passed the ward".
+- **Try it in three clicks.** After a summon, a guide offers ready questions, three false claims to send straight to the ward (invent a citation, misquote a real commit, blame the wrong author), and the exorcism.
+- **A possessed repository.** A second bundled sample whose commits attack the ward with prompt injection: an order to answer without quotes, an author name written as a rule, a forged evidence block, a false statement dressed as silence, a wrong author and year. A real model resists those, so "Let a possessed ghost answer" plays a scripted ghost that obeys every order (no model is called), and you watch the ward refuse it: 0 of 4 claims pass.
+- **The exorcism.** A haunting score from six measured signals: age, churn, authors gone, TODO and HACK markers, missing tests, and nesting. Then a refactor plan: characterization tests first, small steps, and a cited do-not-touch list for lines whose history shows a deliberate workaround. The plan's claims go through the same ward, and a step with no claim that passed is struck from the plan.
+- **The haunting map.** Which files are haunted by which departed author, computed from two git calls and no model. Every number is a count of commits, every tile names the commit it rests on, and "Summon here" opens the séance on that file.
+- **When the model is down.** For the sample questions the repository ships answers recorded from real model calls. If the live model is unavailable, the page shows the recording, labelled as recorded, after the live ward has checked it again.
 - **Copy ward report.** Export the verdict as Markdown, struck claims and reasons included, to paste into a pull request.
-- **The exorcism.** A haunting score from six measured signals: age, churn, authors gone, TODO and HACK markers, missing tests, and nesting. Then a refactor plan: characterization tests first, then small steps, plus a cited do-not-touch list for lines whose history shows a deliberate workaround. The plan goes through the same ward.
+- **For other agents.** The ledger and the ward also run as an MCP server, so a coding agent can have its own claims about a repository checked the same way.
 
 On the bundled sample, `git blame` on line 7 of `legacy/tax.js` points at a 2024 variable rename. The ledger finds the 2020 commit that explains the three second wait: the vendor returns 429 within 3 seconds.
 
+What the ward proves, and what it does not: it proves each citation and each quote. It does not prove that the ghost's sentence means the same thing as the quote, so the page shows both and labels a claim "Citations verified", not "true".
+
 ## How we built it
 
-TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The UI is plain HTML, CSS and JS with a candle, fog and a planchette; it respects `prefers-reduced-motion` and is keyboard usable, with a skip link. The server sends a strict Content-Security-Policy. As submitted there were 418 tests (1,420 after the 2026-11-11 round), including fast-check property tests for the ledger, the verifier, the score, the plan prompt and the ward report, plus an integration test that runs real git on a generated repository.
+TypeScript on Node 20 with Hono and zod, and the Anthropic SDK for the ghost and the planner. Git is called through execa, with no shell. The rules reach the model in the `system` parameter; commit text goes in the user turn, escaped, as data. The UI is plain HTML, CSS and JS with a candle, fog and a planchette. It respects `prefers-reduced-motion`, has a button that stills the candles, and is keyboard usable. The server sends a strict Content-Security-Policy and limits every route that does work.
+
+There are 1,420 tests: unit tests, fast-check property tests (the verifier is compared against two frozen earlier copies of itself, so it can only get stricter), real git on generated repositories, adversarial tests in which a scripted model obeys every injected order, and jsdom tests that run the page's script unmodified against the real server.
 
 ## How Kiro was used
 
-Everything is in the repo: `.kiro/` (steering, specs, agents, hooks, MCP settings) and `docs/kiro-evidence/` (unedited session output for every claim below). We used the **Kiro CLI** (3.0 and 3.1, both its V2 and V3 engines) and **Kiro Crew**. We did not use the IDE or Kiro Web, so anything IDE-only is marked as unproven.
+Everything is in the repo: `.kiro/` (steering, specs, agents, hooks, MCP settings) and `docs/kiro-evidence/` (unedited session output for the claims below; `.kiro/README.md` says what Kiro did, what was done by hand, and where Kiro was wrong). We used the **Kiro CLI** (3.0, 3.1 and 3.2, both its V2 and V3 engines) and **Kiro Crew**. We did not use the IDE or Kiro Web, so anything IDE-only is marked as unproven.
 
-### Kiro CLI vs Crew (and V2 vs V3)
-
-- **CLI, V2 engine (the default).** It was the workhorse: spec tasks, fixes and MCP. Non-interactive runs with `--trust-tools` were predictable.
-- **CLI, V3 engine (`--v3`).** It is the only one that sees Kiro Powers (`/powers`, the `kiro_powers` tool), and it loads workspace prompt hooks. It uses different tool ids (`run_command`, `kiro_powers` instead of `execute_bash`), so our first V3 run was denied every tool until we found the ids.
-- **Kiro Crew.** A local gateway that runs subagents in parallel. `kiro-cli crew -y` installed it, and it signs in through the Kiro CLI. We used it for two independent tasks at once; see below.
+The work came in two rounds. The first, on the free plan's 50 credits with small models, built and submitted the app. The second, on 2026-11-11 with the hackathon's bonus credits and `claude-opus-5.5`, began by pointing Kiro at its own submission.
 
 ### Spec-driven development
 
-There are six specs in `.kiro/specs/`:
+There are ten specs in `.kiro/specs/`, each with EARS-style requirements with IDs, a design with module signatures and the invariants to property-test, and ordered tasks that name their files and tests. All 585 task items are ticked. Commit messages reference the task they implement (`ward-hardening T1`, `haunting-map T5-T6`).
 
-- `evidence-ledger`
-- `ghost-verifier`
-- `exorcism-plan`
-- `spooky-ui`
-- `ward-report`
-- `model-rate-limit`
+- First round: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`.
+- Second round, written by Kiro in V3 spec mode (`--v3 --mode spec`) from its own audits: `ward-hardening`, `first-seance`, `haunting-map`, `seance-mcp`.
 
-Each has EARS-style requirements with IDs (for example R9.2 "start <= end"), a design with module signatures and the invariants to property-test, and ordered tasks. Every task names its files and its tests. Commit messages reference the task they implement (`evidence-ledger T1-T5`, `ward-report T3`).
+The requirement IDs paid off twice. Early on, a review pass found that `/api/summon` accepted `endLine < startLine`, against R9.2, so the fix had a target and a test. Later, when a spec said "only stricter", that became a property test against a frozen copy of the old verifier.
 
-Kiro implemented the ledger, the ghost and verifier, and the exorcism planner from their specs. Later it implemented all three tasks of `ward-report`: the renderer, the property tests, the API field and the copy button. It ticked the boxes itself. Last, before the public deploy, the warden agent implemented `model-rate-limit`: 10 model calls per 10 minutes per IP plus a daily cap, returning an in-character 429. We added two things by hand: pruning of expired IPs, and a socket-address fallback.
+Compared with vibe coding, the spec kept each session small: one task, named files, named tests. It also gave us something to check Kiro's summaries against. Twice in review a ticked item turned out not to be true, and it was reopened.
 
-The spec paid off at the end. A review pass by our archaeologist agent found a gap between the code and requirement R9.2: `/api/summon` accepted `endLine < startLine` and returned 200. Because the requirement had an ID, the fix had a clear target and a test.
+### Audits that became specs
 
-Compared with vibe coding, the spec kept each session small: one task, named files, named tests. It also gave us something to check Kiro's summaries against.
+Before building anything new in the second round, Kiro ran three read-only audits of the submitted app (only file reads trusted): security, accessibility and mobile layout, and a judge's first three minutes.
 
-One honest limit: mocked tests passed while the real thing was broken (`git log -L` rejects `--follow`). Only running real git exposed it, so we added a real-git integration test. The free credits also ran out mid-build. On 2026-11-06 Kiro's batch run of the `spooky-ui` spec stopped on the free plan's monthly limit, so the page and a few fixes were written by hand, and those commits do not claim Kiro. On 2026-11-09, with credits available again, Kiro went back to it in three steps. First, it audited `public/` against all 52 requirements (27 met, 20 partial, 5 missing; `docs/kiro-evidence/spooky-ui-audit.md`). Second, the warden agent fixed the gaps that change nothing on screen, and added `test/ui/spooky-ui.test.ts`. The fixes: `aria-busy` while loading; an opacity substitute for the flicker under reduced motion; a candle flicker whose half-period runs from 4 s down to a 333 ms floor (at most 1.5 cycles a second); a "séance has ended" path for expired sessions; an inline error for an empty repository field; atomic tally announcements; and claim bubbles as `article` elements. One Kiro change was reverted in review: moving `--confidence` to the root element, which `.candle`'s own value shadows. Third, Kiro ticked only the 4 task items it could verify at that point. The other 84 described a module layout (`public/js/*`, three CSS files) that the hand-written UI never had. It did not implement hiding rejected claims in production (R3.7, R7.7), because showing them struck through is the product's point. Severity labels, step badges and collapsible steps were left for later at first, so the demo captures would stay valid. Then, after a user decision to match the spec fully (the demo video is re-rendered), the warden agent added the visible parts it had left out: a severity label next to the haunting score (Restless, Troubled, Haunted, Possessed), Reversible ✓ / Irreversible ⚠ badges on refactor steps, steps and do-not-touch entries as keyboard-collapsible `details` (open by default), a running "N of M claims verified this séance" counter, a "Performing exorcism…" status, and a contrast check (`scripts/contrast.mjs`, `npm run contrast`, 11 token pairs, all at least 4.5:1). That session also ended on a throttle. By hand: prettier, and a CSS fix where the list number overlapped the disclosure triangle. Kiro then rewrote `tasks.md` to describe the real files (one `app.js`, flat CSS) instead of the module split. In review I reopened four ticks that were reasoned rather than tested, fixed one wrong id, and corrected its reason for R3.7/R7.7. That left 116 verified and 4 open. The last four were property tests for the planchette angle, the fog opacity and the claims counter, plus the fast-check setup. Kiro's credits were spent by then, so I wrote them by hand in `test/ui/pbt/ui.pbt.ts`. All 120 are now verified. The module split was not done: it would put a working UI at risk near the deadline.
+The security audit's first line was "The ward's promise does not hold", and it was right. A quote was optional, so a claim citing any real commit, with no quote, counted as verified. A "silence" claim could carry any sentence and was counted too. The author and date check that our steering file described had never been written. Commit text went into the prompt unescaped. That audit became the `ward-hardening` spec. The first-run audit became `first-seance`. The accessibility findings were fixed test-first.
+
+After the work, the accessibility and first-run audits were repeated on the result, and their findings were fixed as well.
 
 ### Steering docs
 
-There are four steering files:
+There are six steering files: `product.md`, `tech.md`, `evidence-rules.md`, `ui-spooky.md` (included only for `public/**`), and two written by Kiro at the end of the second round from what had gone wrong: `testing.md` (for `test/**`) and `mcp-server.md` (for `src/mcp/**`).
 
-- `product.md`
-- `tech.md` (strict TypeScript, no shell in git calls, test layout)
-- `evidence-rules.md`
-- `ui-spooky.md`
-
-`ui-spooky.md` is only included for `public/**` (`inclusion: fileMatch`).
-
-The one that made the biggest difference was `evidence-rules.md`. It states the verifier's invariants once:
-
-- every claim cites a sha in the ledger
-- quotes are literal substrings
-- the score is verified / total
-- the verifier stays pure
-
-Every later session respected them, and our two custom agents load it as a resource. The fileMatch strategy kept UI copy rules out of backend sessions.
+The one that made the biggest difference was `evidence-rules.md`. It states the verifier's invariants once: every memory cites a commit with an exact quote, quotes are literal, silence is never verified, the verifier is pure and only gets stricter. Every later session respected them, and all three custom agents load it. Kiro also rewrote the other steering files against the code and reported one place where the code did not match a new rule.
 
 ### Custom agents
 
-- **`archaeologist`** (`.kiro/agents/archaeologist.json`) is a read-only agent. Its shell is limited to `git log`, `git blame`, `git show` and `git diff`, it cites a sha for every claim, and it treats commit text as untrusted. We used it in the V3 engine for a review pass over `src/`, and it found the R9.2 defect above.
-  - Caveat: in non-interactive V3 its git calls were denied, so it could not cite a commit for its finding. We confirmed the defect by hand: the request returned 200.
-- **`warden`** (`.kiro/agents/warden.json`) is a builder agent: failing test first, then the smallest fix. It fixed the defect and added the test (commit `1d4ada1`).
-  - Lesson learned: with `--agent`, the agent's own `allowedTools` wins over `--trust-tools`. In the first run every write was denied, and Kiro's summary still reported test results that never ran. We kept that transcript, and we now check tool output, not summaries.
+- **`warden`** is a builder: failing test first, then the smallest change. It implemented all four second-round specs.
+- **`inquisitor`** is a read-only adversarial reviewer set to a different model family (`gpt-5.6-sol`) from the one that wrote the code. It attacked the result twice and confirmed fourteen findings. Thirteen are fixed. The one left open (the rate limit trusts the leftmost `X-Forwarded-For` entry) is documented, because the hosting proxy chain could not be verified.
+- **`archaeologist`** answers questions about history. It now calls Séance's own MCP server, drafts its claims with exact quotes, sends them to the ward, and states only what passed. On the default engine it answered a real question with five of five claims verified.
 
 ### Agent hooks
 
-- **CLI agent hooks in `warden.json`, proven firing.** These automate our "never leave it red" rule. `docs/kiro-evidence/warden-hook-fires.log` shows two `postToolUse fs_write` firings (typecheck exit 0) and one `stop` firing (287 tests passed).
-  - `postToolUse` with matcher `fs_write` runs `tsc --noEmit` after every file write and feeds the result back to the agent.
-  - `stop` runs the full vitest suite.
-  - `agentSpawn` did not fire in non-interactive runs, so we do not claim it.
-- **Prompt hook `/review-evidence`** (`.kiro/hooks/evidence-review.json`, `UserPromptSubmit`). It reviews the staged diff against `evidence-rules.md` and refuses changes that weaken the verifier without a spec task ID. It fired in a CLI 3.0 session on a real staged diff.
-  - In CLI 3.1 V3 it also fired on prompts that did not match its matcher, which we documented.
-- **Save hooks** (`ghost-tests.json`, `sloplint.json`, `PostFileSave`). They are written for the IDE. We never saw them fire from the CLI, and the repo says so.
+- **`warden`'s CLI hooks, proven firing.** `postToolUse` runs `tsc --noEmit` after every file write and feeds the result back to the agent; `stop` runs the full suite; `agentSpawn` prints the repository state. Each appends to `docs/kiro-evidence/warden-hook-fires.log`. On 2026-11-11 that log shows 926 typechecks.
+- **`inquisitor`'s hooks.** `agentSpawn` lists the files under review; `stop` logs how many files were modified, which should be 0 for a reviewer, and was, both times.
+- **Prompt hook `/review-evidence`.** It reviews a staged diff against `evidence-rules.md`. In the V3 engine it fires at the start of every session, whatever the prompt, which we documented.
+- **Save hooks** (`PostFileSave`) are written for the IDE. We never saw them fire from the CLI, and the repo says so.
 
 ### MCP
 
-There are two workspace servers in `.kiro/settings/mcp.json`:
+Three workspace servers in `.kiro/settings/mcp.json`:
 
-- **git** (`mcp-server-git`). Agents read history through it (`@git/git_log`) instead of free-form shell, which matters for an app whose whole point is that git is the source of truth.
-- **filesystem**, scoped to the repo root. It originally pointed at `uvx mcp-server-filesystem@latest`, a package that does not exist, so it never started. Kiro diagnosed this, switched it to `@modelcontextprotocol/server-filesystem` pinned at 2.0.1, and a second session called `@filesystem/list_directory` and `@filesystem/read_text_file` (commit `b5e677f`).
+- **git** (`mcp-server-git`), so agents read history as data.
+- **filesystem**, scoped to the repo root. Its first config pointed at a package that does not exist; Kiro diagnosed and fixed it.
+- **seance**, the product itself: `seance_summon`, `seance_verify` and `seance_haunting_map` over stdio, built on the official SDK, with no model inside and local repositories only. It was added with `kiro-cli mcp add`. The archaeologist's first run with every tool trusted exposed a real defect in it (a silence claim was refused), which was then fixed test-first.
 
 ### Kiro powers
 
-We installed the **Context7** power (`kiro-cli powers install context7`) to check the Hono `secureHeaders` options against current docs. The V3 engine listed it and activated its POWER.md. In non-interactive CLI 3.1, however, its MCP server never connected (`MCP server 'power-context7-context7' is not connected`), so no Context7 docs were fetched. Kiro checked the option format against the installed Hono type definitions instead, and the CSP change shipped with a test. We report this as tried, partly working, not as a success.
+We installed the **Context7** power and tried it on CLI 3.1 and again on 3.2. Both times the V3 engine activated it, and both times its MCP server was not connected in a non-interactive session, so no documentation was fetched. Kiro stopped rather than answer from memory. We report this as tried, not as a success.
 
 ### Kiro Crew
 
-We installed Crew 0.12.0 through `kiro-cli crew -y` and ran a local gateway. `kirocrew spawn run` started two subagents at once:
+Crew 0.12.0 ran two subagents in parallel on a local gateway: one wrote property tests for the plan prompt, the other added a skip link. They touched disjoint files and the suite passed afterwards.
 
-- One wrote `test/exorcism/pbt/plan.pbt.ts`, six properties on the plan prompt.
-- The other added the skip link and its focus style.
+### Kiro CLI engines compared
 
-The second queued briefly because the machine was low on memory, then both finished. They touched disjoint files, and the result passed the full suite (commit `5dcd8f2`).
+- **V2 (the default for non-interactive runs).** Predictable with `--trust-tools`. It honours an agent's `allowedTools` for MCP tools.
+- **V3.** The only engine with spec mode and Powers, and the one that upgraded our agent files to its own format, after which all three warden hooks fire. In non-interactive runs it denies shell and MCP calls unless `--trust-all-tools` is passed, whatever the agent file allows, and it will not let an agent edit `.kiro/settings/`.
+
+### Where Kiro was right, and where it was wrong
+
+Right: when a task list asked for two skipped tests and three more had to fail, it stopped and asked instead of skipping them. It broke the verifier on purpose, one check at a time, to prove the adversarial tests could fail. When we suggested a parser fix, it showed the fix was still ambiguous and wrote a sound one. It left unticked what it could not verify.
+
+Wrong or blocked: one summary in the first round reported tests that never ran. It once loosened a schema to fix a bug and once mocked the thing a test was meant to prove; both were caught in review. Sessions were cut off by a throttle three times. Its audits were done by reading, so the new page was only checked in a real browser at the very end (headless Chromium, by hand); that check passed, but it should have come first.
+
+### Done by hand
+
+Recording the fixtures and the recorded answers with a real model key (Kiro never called the model), reading every diff, running the app locally against the real model before each push, a handful of wording fixes, the final browser check and screenshots, and the documentation.
 
 ### Credits
 
-This all ran on the free plan. The 2026-11-09 work (Powers, Crew, the ward-report and model-rate-limit specs, both custom agents, the MCP fix, the spooky-ui audit and completion, the exorcism-plan task check, its API tests and plan fixtures) went from 3.37 to 48.58 of 50 credits on `/usage`.
+The first round used 48.58 of the free plan's 50 credits. The second round drew on the 4,000 bonus credits. That meter is shared with other work on the same account, so our share can only be estimated: about 1,900 to 2,000 credits.
 
 ## Challenges
 
-- Keeping the ghost honest. The model is asked for structured claims, and anything that fails the schema or the ward is shown, not hidden.
-- Real git differs from mocked git (see the `--follow` story).
-- Kiro's summaries are not evidence. Once, the summary reported tests that never ran, so every claim in this write-up points at a log file.
+- Keeping the ghost honest. The model is asked for structured claims, and anything that fails the ward is shown, not hidden. Then we learned the ward itself was too lenient, and had to rebuild it under the rule that it may only get stricter.
+- Prompt injection through git history. Commit messages and even author names are attacker-controlled text. We assume the model can be fully compromised and let only the deterministic ward decide what is shown as verified.
+- Real git differs from mocked git. An early `--follow` bug passed every mocked test and returned an empty ledger on a real repository.
+- Kiro's summaries are not evidence. Every claim in this write-up points at a log file.
 
 ## What we learned
 
-Specs with requirement IDs make AI output checkable. Hooks that run the typecheck and tests turn "Kiro says it passes" into a log line. And the most useful steering file was the one that stated invariants, not style.
+Specs with requirement IDs make AI output checkable. Hooks that run the typecheck and the tests turn "Kiro says it passes" into a log line. The most useful steering file was the one that stated invariants, not style. And the most useful session of all was the one where we asked Kiro to attack what it had built: the audit found a hole in the one feature the product stands on.
 
 ## What's next
 
-- Blame across forks.
-- Following moved code into other files.
-- A GitHub App that posts the ward report on pull requests that touch "haunted" lines.
+- Blame across forks, and following moved code into other files.
+- A GitHub App that posts the ward report on pull requests that touch haunted lines.
+- Closing the open risks we documented: the rate-limit key behind a proxy, look-alike characters in author names.
 
 ## Built with
 
-TypeScript, Node.js, Hono, zod, Anthropic Claude, execa, fast-check, vitest, Kiro CLI, Kiro Crew, MCP (git, filesystem)
+TypeScript, Node.js, Hono, zod, Anthropic Claude, execa, fast-check, vitest, jsdom, Model Context Protocol SDK, Kiro CLI, Kiro Crew, MCP (git, filesystem, seance)
 
-## Update: the 4,000-credit round (2026-11-11)
+---
 
-When the hackathon's bonus credits arrived we pointed Kiro at its own submission first. Three read-only audits (security, accessibility, a judge's first run) set the plan, and the security one was humbling: the ward verified less than the page promised. A quote was optional, a "silence" claim could carry any sentence, and the author and date check our steering file described had never been written.
+## Gallery images to replace
 
-What followed, all through Kiro CLI 3.2.0 on `claude-opus-5.5`, mostly in the V3 engine:
+All files are in `docs/screens/` of the repository, captured on 2026-11-11 from the final page (headless Chromium, 1280x800, real model key). Remove every image that is on the Devpost page now; each shows the old interface.
 
-- **Four specs written by Kiro in V3 spec mode** from those audits, then implemented test-first by our `warden` agent, whose hooks typecheck after every file write and run the suite when it stops: `ward-hardening`, `first-seance`, `haunting-map`, `seance-mcp`.
-- **The ward now does what it says.** A quote is mandatory and must be found in one field of the cited commit; years and ledger authors named in a claim must be supported; silence is shown apart and never counted. A hostile sample repository, `possessed`, attacks the ward with prompt injection, and the tests assume the worst: a scripted model that obeys every injected order still gets nothing verified. The page lets you watch that with one click.
-- **A judge's first three minutes.** One-click questions, one-click false claims, the line in question on screen, a retry while the free host wakes, and recorded answers (from real model calls, re-checked by the live ward) when the model is unavailable.
-- **The haunting map.** Which files are haunted by which departed author, from two git calls and no model.
-- **Séance as an MCP server.** Our `archaeologist` Kiro agent now sends its own claims to the ward before stating them. A real run with all tools trusted found a bug in our server.
-- **A second opinion.** A new read-only agent, `inquisitor`, on a different model family, re-attacked the result twice. The first pass confirmed eight findings (seven fixed; `X-Forwarded-For` is a documented open risk), the second six more, all fixed. The accessibility and first-run audits were then repeated on the finished page.
+| Order | File                         | Caption                                                                  | Replaces                     |
+| ----- | ---------------------------- | ------------------------------------------------------------------------ | ---------------------------- |
+| 1     | `1280-1-landing.png`         | Ask the one who wrote it.                                                | the old landing image        |
+| 2     | `1280-8-guide.png`           | After a summon: the line in question, the crypt, and a three-click guide | new                          |
+| 3     | `1280-2-ghost-answer.png`    | The ghost answers; under each claim, the words the ward found            | the old ghost answer image   |
+| 4     | `1280-3-ward-refuses.png`    | A planted false memory, refused with the reason                          | the old "ward refuses" image |
+| 5     | `1280-4-possessed-ghost.png` | A ghost that obeys the possessed commits: every claim refused            | the old misquote image       |
+| 6     | `1280-7-haunting-map.png`    | The haunting map: which files are haunted by departed authors            | new                          |
+| 7     | `1280-5-exorcism.png`        | The exorcism: a haunting score of 57, labelled Haunted                   | the old exorcism image       |
+| 8     | `1280-6-plan.png`            | A tests-first refactor plan, each step backed by cited claims            | the old plan image           |
+| 9     | `390-1-landing.png`          | On a phone                                                               | the old mobile image         |
 
-What Kiro got right that we did not: it stopped and asked instead of skipping tests; it broke the verifier on purpose to prove the adversarial tests could fail; it found that a parser fix we suggested was still ambiguous and wrote a sound one. What went wrong: one session was cut off by a throttle; the V3 engine denies shell and MCP calls in non-interactive runs unless everything is trusted; Kiro cannot edit its own settings directory; and the new page was only looked at in a browser once, at the very end (headless Chromium, by hand), which the docs say plainly.
+Also on the Devpost page:
 
-Numbers: ten specs, 585 of 585 task items ticked, 1,420 tests, about 2,500 of the 4,000 bonus credits (the meter is shared with another session on the account).
+- **Video:** the current one (`https://youtu.be/a0ROnILb8rw`) shows the old interface and old numbers. Replace the link when the new render from package v3 is uploaded.
+- **Blog link:** the URL stays the same; the post body is updated from the v3 blog package.
+- **Numbers to check anywhere they appear:** 10 specs (was 6), 585 of 585 task items (was 308), 1,420 tests (was 418), three custom agents (was two), three MCP servers (was two), Kiro CLI 3.2. The tallies on the page now read "passed the ward", not "claims verified".
