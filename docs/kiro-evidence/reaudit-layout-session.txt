@@ -1,0 +1,223 @@
+# Kiro CLI 3.2.0 (V2 engine, claude-opus-5.5, read-only: --trust-tools=fs_read), 2026-11-11: a layout and accessibility re-audit of the final page by reading the HTML, CSS and JS at five viewport sizes, because nobody could open the page in a browser. Unedited output; only the home directory prefix is replaced with ~. Pixel figures are the model's estimates. The findings were fixed in the polish session.
+
+$ kiro-cli chat --no-interactive --model claude-opus-5.5 --trust-tools=fs_read "$(cat prompt)"
+--- prompt ---
+Read-only layout and accessibility re-audit of the page as it is now. Do not modify any file. Nobody has been able to open this page in a browser since it was heavily changed today (a guide, "The line in question", a haunting map, new labels, a candle toggle, many CSS rules appended at the end of public/styles.css), so your job is to find, by reading the HTML, CSS and JS carefully, what will look or behave wrong in a real browser. Read .kiro/steering/ui-spooky.md, public/index.html, public/tokens.css, public/base.css, public/styles.css (all of it, in order: later rules override earlier ones) and public/app.js (the DOM it builds: classes, nesting, where things are appended).
+
+Work through these viewports as if rendering by hand: 1280x800, 1024x768, 768x1024, 390x844, 320x568. For each, walk the page top to bottom in these states: (a) first load, (b) after a summon of the crypt, (c) after one answer, one planted claim and the possessed-ghost turn, (d) after the exorcism, (e) the haunting map with long paths and a long author name, (f) error states (field errors, #summon-err, #model-note, #map-err).
+
+Look specifically for:
+1. Cascade accidents: a later appended rule overriding an earlier one unintentionally (the big `grid-template-columns: minmax(0, 1fr)` list near the end; `.btn` width rules in the 40rem media query vs `.btn.small`; `.status:empty { position: absolute }`; `overflow-wrap` lists; rules inside media queries that are now overridden because the new rules come later with equal specificity).
+2. The header: three flex children now (wordmark, nav, candle button) with space-between; what happens at 390 and 320 px; does the button wrap or overflow; `[hidden]` vs display rules.
+3. The hero at 1280x800: add up the vertical space (header, h1 at its clamp size, the 3-line lede at 52ch, the form rows with labels, help text, token details, button row, #model-note when shown) and say whether the Summon button is above the fold; say what to cut if not.
+4. The séance grid: `.seance-in` two columns, `.seance-col` as a flex column holding #source and the sticky `.crypt`; is the crypt still sticky and does it overlap #source while scrolling; `.ledger` max-height with the source panel above it; the planchette (absolute, in .crypt, which is `position: sticky` on wide screens and `relative` on narrow ones) overlapping the crypt heading or the new #crypt-shallow line.
+5. The talk column order: counter, #ward-limit, the guide (with its 40 px buttons), the log, the ask form, the plant details. After several turns the guide is far above the newest answer: is anything pushed off or confusing; where does focus/scroll go.
+6. Claims: label + text + warn label + cite buttons + "The words the ward found" list + the per-answer limit sentence: spacing, nested borders (card inside a card is forbidden by ui-spooky.md), italic speculation leaking into labels, `q` elements adding quotation marks in monospace.
+7. The map: tiles grid `repeat(auto-fill, minmax(min(100%, 16rem), 1fr))`, the ::before fog layer with `z-index: -1` inside `isolation: isolate` (is the text above it; does the tile background hide the fog), the legend, the collapsed "Tended by the living" details, "You are here", buttons full-width on phones.
+8. Anything that can produce horizontal scroll at 320 px (fixed paddings, the container gutter, pre blocks, the signals grid, long button labels such as "Let a possessed ghost answer" and "Blame the wrong author").
+9. Focus order and focus visibility for the new controls; anything `position: absolute` that could be clipped or cover a control; touch targets under 24 px.
+10. Dead or contradictory CSS, ids referenced in JS but missing in HTML (and the reverse), duplicate ids.
+
+For every finding give: severity (broken / ugly / minor), viewport and state, selector with file and line, what the user sees, and the exact fix. Separate CONFIRMED (follows from the rules you read; show the rule chain) from SUSPECTED (depends on browser behaviour). If a part is sound, say so in one line. Finish with a ranked list of the fixes most worth doing, and a short checklist a human with a browser should run.
+
+--- output ---
+[tool] Running: wc -l .kiro/steering/ui-spooky.md public/index.html public/tokens.css public/base.css public/styles.css public/app.js; git log --oneline -15; git status --short
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: wc -l .kiro/steering/ui-spooky.md public/index.html public/tokens.css public/base.css public/styles.css public/app.js; git log --oneline -15; git status --short
+[tool] Reading ui-spooky.md:1, index.html:1, tokens.css:1, base.css:1
+[tool] status: Completed
+[tool] Reading styles.css:1-700
+[tool] status: Completed
+[tool] Reading styles.css:701-1500
+[tool] status: Completed
+[tool] Searching for '.' in public
+[tool] status: Completed
+[tool] Reading app.js:1-800
+[tool] status: Completed
+[tool] Reading app.js:801-1600
+[tool] status: Completed
+[tool] Searching for '^(\S.*\{|@media.*| \.[a-z].*\{)$' in styles.css
+[tool] status: Completed
+[tool] Searching for '(\{$|^@media)' in styles.css
+[tool] status: Completed
+[tool] Searching for '^(\.token|\.actions|\.status|\.btn|\.candle|\.seance|\.cr...' in styles.css
+[tool] Searching for '^(\.lab|\.found|#ledger|\.claim,|\.claim \.txt|#summon-el...' in styles.css
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^@media' in styles.css
+[tool] Searching for '^\.(btn|status|actions|candle|crypt|planchette|seance)[ ....' in styles.css
+[tool] Searching for '^\.(ledger|talk|log|turn|claim|cites|cite|notice|ask|plan...' in styles.css
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^(\.lab|\.found|#ledger|#summon-elapsed|\.source|\.guide|...' in styles.css
+[tool] Searching for '^(\.haunting-map|\.map|\.glyph|\.dropped|\.exorcism|\.ex-...' in styles.css
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^(\.guide-steps > li > \.btn|\.lab\.recorded|\.turn-q\.pl...' in styles.css
+[tool] Searching for '^\.(map|glyph|lab\.here)[^{]*\{' in styles.css
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^(\.wax|\.wick|\.flame) \{|#plant-btn|^ \.(crypt|btn|can...' in styles.css
+[tool] Searching for 'id="(candles-btn|summon-btn|map-status|map-err|map-note|v...' in index.html
+[tool] Searching for 'h\.scrollIntoView|row\.scrollIntoView|turn\.scrollIntoVie...' in app.js
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+I read all six files and changed nothing. Pixel figures assume a 16 px root and system fonts, so treat them as estimates within a line or two.
+
+**Overall:** the 1280x800 hero passes the fold rule. The worst problems are the hero candle on narrow screens, errors that appear far from the button that caused them, the summon scroll hiding "The line in question", and guide steps with no numbers.
+
+## CONFIRMED (they follow from the rules as written)
+
+**C1. Broken: the hero candle overflows its box at 768, 390 and 320 px (every state).**
+- **Cause:** `styles.css:872` shrinks `.candle` to 3rem × 7.5rem (120 px). `.wax` (`:290`, 10.5rem) and `.wick` (`:302`, 1.6rem) are not scaled, so 193.6 px of content sits in a 120 px grid with `align-content: end` (`:270`).
+- **What the user sees:** the content spills about 74 px upward (that direction is S-level, see S1). The flame (absolute, `top: 4%`) lands on the middle of the wax. The wick and the top 20 px of wax paint into the header, because `main` and `.bar` both have `z-index: 1` (`:41`) and `main` comes later.
+  - At 390 and 320, the dark 3 px wick crosses the letters "St" of the wrapped "Still the candles" button, and the wax covers its bottom edge and the header rule.
+  - At 768, the wick cuts through the "Séance" wordmark.
+- **Fix:** in the 60rem block, add `.candle .wax { height: 4.9rem } .candle .wick { height: 0.75rem }` and `.candle-stage { pointer-events: none; }`.
+
+**C2. Ugly: the guide steps lose their numbers (all viewports, states b–d).**
+- **Cause:** `.guide-steps > li { display: grid }` (`:1102`). The `li` is no longer `list-item`, so no markers are drawn, but `padding-inline-start: 24px` (`:1096`) remains.
+- **What the user sees:** "Try it in three clicks" sits over three unnumbered, indented items.
+- **Fix:** `.guide-steps { list-style: none; padding-inline-start: 0; counter-reset: g } .guide-steps > li { counter-increment: g } .guide-title::before { content: counter(g) ". " }`.
+
+**C3. Ugly: `.field.wide` overrides `.actions` and `.token` (above 640 px).**
+- **Cause:** `.field.wide { grid-column: span 2 }` (`:133`, specificity 0,2,0) beats `.token { grid-column: 1/-1 }` (`:193`) and `.actions { grid-column: span 4 }` (`:208`), both 0,1,0.
+- **What the user sees:** the token disclosure sits in columns 3–4 next to From/To line, and its summary text is 8 px lower than those labels because of its padding. The Summon row is half width (338 px at 1280, 294 at 1024). "Found N commits…" and the 80-character "Cloning from GitHub…" text wrap under the button into 2–3 lines.
+- **Fix:** `.summon .actions, .summon .token { grid-column: 1 / -1; }`. This adds about 50 px, and the fold still passes (see the hero section).
+
+**C4. Ugly: after a summon, "The line in question" is scrolled off the top (1280 and 1024).**
+- **Cause:** `app.js:401` scrolls `#h-guide` to the top, and `scroll-padding-top: 96px` (base.css) puts it at y=96. The guide heading is about 236 px below the top of `#seance` (talk head 74, counter 17, `#ward-limit` 43, gaps, guide padding).
+- **What the user sees:** `#seance` starts at y ≈ −140. The source heading and `#source-meta` are above the viewport, and about 13 px of the code box shows.
+- **Fix:** above 60rem, scroll `$('seance')` with `block: 'start'` and keep `h.focus({ preventScroll: true })`. The guide heading then lands at y ≈ 330. Below 60rem, keep the current target.
+
+**C5. Ugly: the verified counter scrolls out of view after the first answer (all viewports, state c).**
+- **Rule broken:** ui-spooky.md says the "N of M claims verified" counter is always visible while a séance is active.
+- **Cause:** `#verified-counter` (index.html:175, `styles.css:805`) is a plain paragraph at the top of `.talk`.
+- **Fix:** `.verified-counter { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--color-paper); padding-block: var(--space-xs) } .verified-counter:empty { position: static; }`.
+
+**C6. Broken for sighted users: errors appear far from the control that failed (state f, after a few turns).**
+- **Guide buttons:** exorcise, plant and possess errors are appended at the end of `#log` (`app.js:1221`, `1260`, `1455`), and the status next to the button is cleared. The buttons sit in the guide above the log, so after a few turns nothing changes on screen near the button. Only screen readers hear the alert.
+- **Map:** `#map-status` and `#map-err` come after every tile (index.html:322–323). Clicking "Summon here" on an early tile shows its progress and its error possibly several screens below.
+- **Fix:** move those two map elements to just after `#map-meta`. Write guide errors into an `.err` paragraph placed after `#ward-status` or `#exorcise-status`.
+
+**C7. Ugly, and a rule violation: a card inside a card in the exorcism's "Do not touch" list (state d).**
+- **Cause:** `.dnt li` (`:730`) has a border, background and radius, and contains `.claim` articles, which also have a border and radius (`:524`).
+- **Fix:** `.dnt li { border: 0; border-inline-start: 2px solid var(--color-accent); border-radius: 0; background: none; padding-block: var(--space-xs); }`.
+
+**C8. Ugly: the header with three children (all viewports).**
+- **Cause:** `space-between` (`:64`) puts the nav in the middle of the bar above 640 px. Below 640, wordmark + nav + button is about 441 px against 358 or 288 px available. The button wraps alone to the left of a second row, and `gap: 24px` also becomes the row gap, so the header grows to about 139 px instead of 76. The button does not overflow.
+- **Fix:** `.bar-in { justify-content: flex-start; row-gap: var(--space-xs) } .bar nav { margin-inline-start: auto }`. In the 40rem block, add `#candles-btn { margin-inline-start: auto }`.
+
+**C9. Minor: speculation italic leaks into its children (state c).**
+- **Cause:** `.claim.speculation { font-style: italic }` (`:544`) reaches `.claim .lab` (`:532`, no reset) and the `.cite` buttons, through `button { font: inherit }` in base.css. The hashes render as slanted monospace, and the "Speculation" label is grey italic where ui-spooky.md asks for purple.
+- **Fix:** `.cite { font-style: normal } .claim.speculation .lab { color: var(--color-speculation) }` (8.97:1 contrast).
+
+**C10. Minor: the `q` quotation marks render in monospace.**
+- **Cause:** the `<q class="found-quote">` elements (`app.js:819`) get browser-generated curly quotes in the monospace font. Each mark takes a full monospace cell, so the quote looks padded, and a quote that starts with `"` shows doubled marks.
+- **Fix:** `.found-quote::before, .found-quote::after { font-family: var(--font-body) }`.
+
+**C11. Minor: the map is cramped against the talk column and uses error styling for a neutral note.**
+- `.haunting-map` (`:1249`) has a border-top but no margin-top, so its rule sits directly under the "Plant a false memory" summary. The exorcism has 64 px. Fix: `margin-top: var(--space-2xl)`.
+- `#map-note` uses `.notice` (`:597`), the red error style, for neutral text such as "No file in the latest commit…". Fix: `.haunting-map .notice { border-color: var(--color-rule); background: var(--color-paper-2) }`.
+
+**C12. Minor: empty space reserved in state b.**
+- `.log { min-height: 6rem }` leaves 96 px of blank space before the ask form.
+- The empty counter takes about 33 px.
+- The empty `#map-status` keeps 19.6 + 16 px.
+- **Fix:** `.log:empty { min-height: 0 } .haunting-map .status:empty { position: absolute }`.
+
+**C13. Minor: focus is left behind.**
+- After a chip or preset click, focus stays on that button in the guide while `app.js:940` scrolls to the new turn. The next Tab jumps back up.
+- A cite click moves focus into the ledger, with no way back.
+- **Fix:** give each turn `tabindex="-1"` and focus it with `preventScroll` after the scroll.
+
+**C14. Minor: one undersized target.** `.ledger details summary` is 21.7 px tall. It passes WCAG 2.5.8 through the spacing exception but is fiddly on phones. Fix: `padding-block: var(--space-2xs)`.
+
+**C15. Minor: dead or contradictory CSS.**
+- `.btn[disabled]` (`:244`) and `.btn.ghost[disabled]` (`:1146`): JS only sets `aria-disabled` on `.btn`; only `.cite` gets `disabled`.
+- `.field.grow` (`:136`) duplicates `:633`.
+- `.token` and `.actions` `grid-column`: they always lose (C3).
+- `.ledger li` and `.map-tile` in the `unicode-bidi` list (`:1029–1040`): `unicode-bidi` is not inherited, and their text lives in child blocks, so these entries do nothing.
+- base.css `[data-slot]`, `.figure`, `td.num`, and the `--color-success` token are unused.
+- `data-done` is never styled.
+
+## SUSPECTED (depends on browser behaviour)
+
+- **S1.** The C1 overflow goes up, not down. This assumes Chrome and Firefox treat grid `align-content` overflow as unsafe. If they don't, the wax overlaps the h1 by about 20 px instead.
+- **S2. The plant and token disclosures as grid containers.** Chrome 131+ wraps non-summary children in `::details-content`; older Chrome and Safari ignore grid on `details`. Either way, `gap` does not reach the open plant form, so help text, label, inputs, row, error and button stack with no spacing. `.plant #plant-btn { justify-self }` (`:636`) does nothing, and a closed `details` gets an extra 12 px under its summary. Fix: wrap the content in `<div class="plant-body">` with its own grid and gap.
+- **S3. A cite click jerks the page.** `row.scrollIntoView({ block: 'center' })` (`app.js:569`) can scroll the page even when the row is already visible in the stuck crypt. The crypt stays put and the answer being read moves. Fix: `block: 'nearest'`.
+- **S4. The hidden lit note can lengthen the page.** The `.lit-note` span (`app.js:547`) is positioned absolutely, and its containing block is `.crypt`, not the ledger's scroll box, so `overflow: auto` does not clip it. A lit row deep in a long ledger can add blank scroll height to the page. Fix: `.ledger li { position: relative }`.
+- **S5. Line-number markers cross the source box's left border.** `.source-lines` (`:1066`) has 40 px of left padding. Markers like "1234." need about 50 px at 14 px monospace, and 3-digit ones touch the border. Fix: `padding-inline-start: calc(6ch + var(--space-sm))`.
+- **S6. The planchette can cover part of the first ledger row.** `.planchette` (`:403`) has no `pointer-events: none`. Pointing down, it reaches about 84 px from the crypt top, past where the ledger starts (about 76 px) when `#crypt-shallow` is hidden. It can cover the top-right 8 px of the first row. Fix: `pointer-events: none`.
+- **S7. Unisolated names.** Names inserted as plain text in `#ghost-name`, `.map-who`, `.map-group h3` and `.map-name` are outside the R11.8 isolation list. A name with an unterminated U+202E would reverse the fixed text after it. This matters only if the server leaves bidi controls in. Fix: wrap each name in `<bdi>`.
+
+## The hero at 1280x800
+
+| Part | Running y (px) |
+|---|---|
+| Header | 76 |
+| Hero padding | 116 |
+| h1, 59.2 px, one line (about 630–660 of 692 px; S: a wider fallback font makes 2 lines, +62) | 178 |
+| Gap + lede, 20.5 px × 1.45 × 3 lines | 283 |
+| Gap + form margin | 315 |
+| Repo row (label, input, 4-line help) | 481 |
+| From/To + token row | 568 |
+| **Summon button** | **580–631** |
+| `#model-note` when shown | 686 |
+
+The button is above the fold with about 170 px to spare, or 114 px with the note. 1024x768 comes out at about 615–666, also above the fold.
+
+The hero holds about 83 words, or about 110 with the model note, which is over the steering's "about 80". If you cut, cut the second sentence of `#repo-help` (the default branch and 100 commits). Show it in `#repo-note` only when a GitHub link is entered.
+
+At 390x844, the Summon button sits about 1040 px down: the 139 px header, the 144 px candle stage and a 5-line lede push it there. The fold rule only covers 1280x800. C1 and C8 recover about 60 px. Hiding `.candle-stage` below 40rem recovers 184 more.
+
+## Parts that are sound
+
+- **The `minmax(0, 1fr)` list (`:1172–1200`):** nothing on it needed more than one column.
+- **Media-query rules:** no 60rem or 40rem rule is overridden by a later rule of equal specificity. I checked `.crypt`, `.candle`, `.candle-stage`, `.ledger`, `.btn`, `.claim` and `.signals li`.
+- **`.status:empty { position: absolute }`:** the empty spans are zero-width inside positioned parents and cover nothing. The HTML spans contain no whitespace, so `:empty` matches.
+- **Buttons at 40rem:** `.btn` goes 100% wide and `.btn.small` stays auto, as intended. Only Summon, Ask and Copy go full width. The map's "Summon here" buttons are not full width on phones, but they are 40 px tall.
+- **`[hidden]`:** the `!important` rule beats every display rule.
+- **Sticky crypt:**
+  - `align-self: stretch` on `.seance-col` plus the flex column lets it stick.
+  - It only ever moves down from its normal position, so it never overlaps `#source`.
+  - Stuck, it is about 620–690 px tall, which fits both desktop viewports.
+- **Planchette vs heading:** the 5rem right padding on `.crypt-head` keeps the heading and `#crypt-shallow` clear, rotated or not.
+- **Map fog:** the `::before` layer (`z-index: -1` under `isolation: isolate`) paints above the tile background and below the text. Contrast stays at 5.45:1 or better.
+- **Map grid:** 4, 3, 2, 1 and 1 columns at the five widths, with no overflow. Long paths and long names wrap everywhere.
+- **320 px:** no horizontal overflow found. The longest chip (about 272 px) wraps inside the 264 px guide column. The signals bar keeps about 130 px.
+- **Focus rings:** visible on all the new controls, and none are clipped. The ledger rows draw theirs inside the scroll box.
+- **IDs:** every id that app.js reads exists in index.html, and there are no duplicate static ids. `ledger-item-<sha7>` would only duplicate if two commits shared a short hash.
+
+## Fixes ranked
+
+1. C1: scale the candle's wax and wick below 60rem, and add `pointer-events: none`.
+2. C6: put errors next to their buttons, and move `#map-status` and `#map-err` up.
+3. C4: scroll to `#seance` on wide screens.
+4. C5: make the counter sticky.
+5. C2: restore the guide's step numbers.
+6. C8: fix the header layout.
+7. C3: fix the specificity of `.actions` and `.token`.
+8. C7: remove the card-in-card in "Do not touch".
+9. S2: add a body wrapper inside the plant disclosure.
+10. S3, S4, S6: `block: 'nearest'`, `.ledger li { position: relative }`, planchette `pointer-events: none`.
+11. The rest: C9–C15, S5, S7.
+
+## Checklist for someone with a browser
+
+1. At 768 and 390, look at the hero candle: does the wax or wick poke into the header or cross the candles button or the wordmark?
+2. At 1280, run a crypt summon: is "The line in question" visible after the scroll?
+3. Do the guide steps show 1, 2 and 3?
+4. At 1280, is the token disclosure on its own row, and is the Summon row full width?
+5. At 390 and 320, does the header wrap to two rows? Can you tap the whole candles button?
+6. Ask three chips, then press "Start the exorcism" with the network offline in DevTools: is the error visible without scrolling?
+7. On a long map, fail a "Summon here" (offline): where does the error appear?
+8. With the crypt stuck, click a cite: does the answer column jump?
+9. Open "Plant a false memory" in Chrome and Safari: are the help text, labels and fields spaced?
+10. Is the counter still visible after the first answer?
+11. Check a speculation claim's hash buttons for italic, and a "Do not touch" entry for nested borders.
+12. Turn on reduced motion and the candle toggle: does the flame stop in both cases?
+13. At 320, scroll every state looking for a cut-off right edge. `overflow-x: clip` hides overflow instead of adding a scrollbar.
+exit 0

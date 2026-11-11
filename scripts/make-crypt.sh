@@ -6,6 +6,9 @@ T="${1:-data/crypt}"
 rm -rf "$T"; mkdir -p "$T"; cd "$T"
 git init -q -b main
 git config user.email "crypt@example.invalid"; git config user.name "crypt"
+# Keep the hashes reproducible whatever the global git config says (the recordings and fixtures are keyed by them)
+git config commit.gpgsign false
+git config core.hooksPath "$(pwd)/.git/no-hooks"
 c() { # date author email message...
   local d="$1" a="$2" e="$3"; shift 3
   GIT_AUTHOR_NAME="$a" GIT_AUTHOR_EMAIL="$e" GIT_AUTHOR_DATE="$d" GIT_COMMITTER_NAME="$a" GIT_COMMITTER_EMAIL="$e" GIT_COMMITTER_DATE="$d" \

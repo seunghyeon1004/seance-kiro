@@ -1,0 +1,250 @@
+# Kiro CLI 3.2.0 (V2 engine, claude-opus-5.5, read-only: --trust-tools=fs_read), 2026-11-11: the first-run audit repeated on the final code: each earlier finding marked closed, partly or open, the judge's path walked with the model working, without a key and at the daily cap, and new problems introduced by the day's work. Unedited output; only the home directory prefix is replaced with ~. Nothing was run against the live site.
+
+$ kiro-cli chat --no-interactive --model claude-opus-5.5 --trust-tools=fs_read "$(cat prompt)"
+--- prompt ---
+Read-only first-run re-audit from the point of view of a hackathon judge with three minutes who has never seen the product. Do not modify any file. Your earlier audit is docs/kiro-evidence/audit-first-run-session.txt; since then the first-seance, haunting-map and seance-mcp specs were implemented (.kiro/specs/). Read README.md, public/index.html, public/app.js, public/styles.css, src/server.ts, src/ghost/llm.ts, src/ghost/recordings.ts, recordings/README.md, render.yaml, Dockerfile, package.json.
+
+Answer concretely, from the code as it is now:
+1. Go through every finding of the earlier audit and say closed / partly / still open, with the file and line that shows it.
+2. Walk the judge's path click by click on the hosted demo (Render free plan, container asleep): what is on screen at each step, how many clicks to a cited answer, how many to a refused claim, what the page says while waiting. Do it three times: with the model working, with the model key missing, and with the daily cap used up.
+3. Now that the page has more on it (guide, line in question, map, labels, limit sentences), is it still clear in the first ten seconds what the product is and what to click? Count the words a judge must read before the first click and after the summon. Name anything that should be cut, merged or moved, and anything a judge would misread (for example the possessed sample, "the model's words, not checked", "Citations verified", the map's "N of M commits by ghosts").
+4. The README as a judge reads it (they may judge from the README alone): is the first screen of the README accurate and compelling, does it show the new features, are the screenshots still true to the page (the page changed; say which screenshots are now wrong and why), is anything overclaimed or stale (test counts, spec counts, routes, the API table, "How Kiro was used")?
+5. New dead ends or untruths introduced by today's work: copy that claims more than the code does, states that cannot be left, buttons that do nothing in some state, a recorded answer that could be mistaken for a live one, the scripted ghost mistaken for the model.
+6. Deploy risks for the human who will deploy: `npm start` now builds two samples; recordings/ and src/mcp are in the image; new env vars; anything that would break on Render's free plan (memory, start time, missing bash/git in the image, the health check).
+
+For every finding give severity, file and line, what the judge experiences, and the smallest fix. Separate CONFIRMED from SUSPECTED. Finish with a ranked top ten.
+
+--- output ---
+[tool] Running: wc -l docs/kiro-evidence/audit-first-run-session.txt README.md public/index.html public/app.js public/styles.css src/server.ts src/ghost/llm.ts src/ghost/recordings.ts recordings/README.md...
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: wc -l docs/kiro-evidence/audit-first-run-session.txt README.md public/index.html public/app.js public/styles.css src/server.ts src/ghost/llm.ts src/ghost/recordings.ts recordings/README.md...
+[tool] Running: @filesystem/read_text_file
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: @filesystem/read_text_file
+[tool] Reading audit-first-run-session.txt:1
+[tool] status: Completed
+[tool] Reading index.html:1, server.ts:1
+[tool] status: Completed
+[tool] Reading app.js:1
+[tool] status: Completed
+[tool] Reading llm.ts:1, recordings.ts:1, README.md:1, render.yaml:1, Dockerfile:1, package.json:1
+[tool] status: Completed
+[tool] Reading listing recordings, listing specs, listing docs, listing scripts, listing src
+[tool] status: Completed
+[tool] Reading make-possessed.sh:1, make-crypt.sh:1-60, possessed-ghost.ts:1, 5a4ec240b9bab964.json:1
+[tool] status: Completed
+[tool] Reading ratelimit.ts:1, 7f38fda83679f5d0.json:1, c0edcff6680e699c.json:1
+[tool] status: Completed
+[tool] Searching for 'YEAR|year|19\[|20\[' in verifier.ts
+[tool] status: Completed
+[tool] Reading verifier.ts:81-200
+[tool] status: Completed
+[tool] Searching for '7f38fda83679f5d0|65d55947382e818c|f20e4d18424293e3' in seance
+[tool] status: Completed
+[tool] Searching for 'tally|rejected\.length|verified\.length' in test
+[tool] status: Completed
+[tool] Searching for 'hunk\s*[:=]|log', '-L|'-L'|-L\$|`-L' in evidence
+[tool] status: Completed
+[tool] Searching for 'export async function showHunk|'show'|--unified|-U' in git.ts
+[tool] status: Completed
+[tool] Searching for '\.seance-in|\.seance-col|\.talk \{|\.guide|\.haunting-map...' in styles.css
+[tool] status: Completed
+[tool] Reading styles.css:361-480
+[tool] status: Completed
+[tool] Reading image ~/hackathons-2026/kiroween/seance/docs/screens/1280-1-landing.png, ~/hackathons-2026/kiroween/seance/docs/screens/1280-2-ghost-answer.png, ~/hac...
+[tool] Reading image ~/hackathons-2026/kiroween/seance/docs/screens/1280-4-ward-misquote.png, ~/hackathons-2026/kiroween/seance/docs/screens/1280-5-exorcism.png, ~/h...
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'reason: `|reason: '|not in the crypt|not found' in verifier.ts
+[tool] status: Completed
+[tool] Searching for 'is not in|names the year|cites no|no commit' in ghost
+[tool] status: Completed
+[tool] Searching for '^\s*(it|test)(\.prop\([^)]*\))?\(|^\s*(it|test)\.(each|prop)' in test
+[tool] status: Completed
+[tool] Finding {.dockerignore,.env.example,vitest.config.*} in seance
+[tool] status: Completed
+[tool] Reading .dockerignore:1, .env.example:1, vitest.config.ts:1
+[tool] status: Completed
+[tool] Reading git.ts:281-320
+[tool] status: Completed
+[tool] Searching for '--depth|blob:none' in git.ts
+[tool] status: Completed
+[tool] Searching for 'departedAfterDays\s*[:=]|DEPARTED|MAX_FILES|2000|2_000' in evidence
+[tool] status: Completed
+[tool] Searching for 'sessionId' in persona.ts
+[tool] status: Completed
+[tool] Searching for 'sessionId|buildPlanPrompt\(' in plan.ts
+[tool] status: Completed
+[tool] Reading persona.ts:101-130
+[tool] status: Completed
+[tool] Searching for 'id="ward-limit"|id="guide"|possessed are samples|id="mode...' in public
+[tool] status: Completed
+[tool] Searching for 'const WARD_LIMIT_TEXT|text: WARD_LIMIT_TEXT|wrote this li...' in app.js
+[tool] status: Completed
+[tool] Searching for 'const WARD_LIMIT_TEXT|text: WARD_LIMIT_TEXT|wrote this li...' in app.js
+[tool] status: Completed
+[tool] Searching for 'id="map-limit"|id="ex-summary-lab"|id="ex-tests-lab"|data...' in index.html
+[tool] Searching for 'closed for tonight|app.get\('/api/health'|function isMode...' in server.ts
+[tool] Searching for '418|six specs|fifth spec|ANTHROPIC_FIXTURE|Captured 2026|...' in README.md
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+Nothing was modified. The shell and `read_text_file` were denied in this session, so I read everything with the file reader and grep and ran nothing: no tests, no git, no live site. **CONFIRMED** means I read it in the code or saw it in a screenshot. **SUSPECTED** depends on how Render, the model or the browser behave at runtime. Line numbers come from grep. Where I give a function name instead, grep did not return a line number.
+
+## 1. The earlier audit's findings, one by one
+
+| # | Earlier finding | Now | Evidence |
+|---|---|---|---|
+| 1 | Samples built at start, so cold start is slow | **Still open, and slower** | `package.json` `start` now runs both `make-crypt.sh` and `make-possessed.sh`, then tsx. The Dockerfile still ends in `CMD ["npm","start"]`. |
+| 2 | No retry or "waking" text on 502/503 or network errors | Closed | app.js:72 `RETRY_DELAYS_MS`, `WAKE_TEXT`, `shouldRetry`. `wake()` pings health on load (app.js:454). |
+| 3 | Health check says nothing about the model | Closed | server.ts:743 returns `model` and `samples`. app.js:458 shows `#model-note`. |
+| 4 | The line being investigated is never shown | Closed | "The line in question" section (index.html ~139); summon returns `lines`; `renderSource` app.js:476. |
+| 5 | The hero does not mention the ward | Closed | index.html:37 lede: "Every claim is checked… invented ones are struck out." |
+| 6 | Empty textarea; the question was only a placeholder | Closed | Chips in the guide; `Q_ERR` at app.js:998. |
+| 7 | "No history" message shown off-screen | Closed | `crypt-meta` says "No commits touched these lines."; `summonFound` in app.js. |
+| 8 | "Copy ward report" disabled with no explanation | Closed | Hidden until the first report (app.js:959). |
+| 9 | Exorcism button next to Ask | Closed | Moved to guide step 3 with "This can take a minute" (index.html:232). |
+| 10 | Plant panel collapsed below the fold | Closed | One-click presets in guide step 2 (index.html ~196–216). |
+| 11 | Refusal reason uses internal terms | **Partly** | verifier.ts:275: "Commit deadbee is not in the ledger." The page calls it "the crypt" everywhere else. |
+| 12 | Planted claims count against the ghost | Closed | app.js:944 `if (!opts.planted && !opts.scripted)`. |
+| 13 | Timeout, 401, 429 and 529 all became a generic 500 | Closed | llm.ts `classifyModelError`; fixed sentences in `ERROR_MESSAGES` (server.ts ~255). |
+| 14 | Raw Zod error sent to the client; plan never retried | Closed | `LLM_ERROR` fixed sentence; `askPlan` uses `withOneRetry`. |
+| 15 | Exorcism times out at 30 s | Closed | llm.ts `DEFAULT_PLAN_TIMEOUT_MS = 90_000`. |
+| 16 | `Retry-After` not shown | Closed | `waitInWords` in app.js. |
+| 17 | Daily cap: "tomorrow" is wrong, ward not mentioned, cap not raised | **Partly** | Recordings now cover the chips. server.ts:666 still says "closed for tonight… tomorrow" (the reset is at UTC midnight). render.yaml still has 300. |
+| 18 | Plant hits a dead end on SESSION_NOT_FOUND | Closed | The plant catch calls `endSeance()`. |
+| 19 | Raw git stderr shown for clone and file errors | Closed | `GIT_ERROR`, `CLONE_ERROR` fixed sentences. |
+| 20 | `git log -L` failure swallowed into "0 commits" | Closed | git.ts `logL` throws `HistoryError`. |
+| 21 | Network failure shows the browser's own text | Closed | `NET_FAIL`, `CONNECTION_DROPPED` in app.js. |
+| 22 | Pasted GitHub URLs rejected | Closed | `normaliseRepoInput` (app.js:190); leading `/` stripped (app.js:265). |
+| 23 | `--depth 100` hides older history silently | **Partly** | Still `--depth 100` (git.ts:716). Now flagged: `#crypt-shallow` (index.html:152), map cut text, repo help text. |
+| 24 | Fixed "Gathering…" text on remote summons | Closed | `REMOTE_TEXT` plus an elapsed-seconds counter (app.js:331, 335). |
+| 25 | "Any line of code" overclaims | Closed | Lede rewritten. |
+| 26 | No repo link in the footer | **Still open** | index.html:391. |
+| 27 | Rule 1 says "nothing else", but PR text can be added | **Still open** | index.html:373. |
+| 28 | Server config text shown to visitors | Closed | `CONFIG_ERROR` sentence. |
+| 29 | Plant button has no busy state | Closed | "Wait for the ghost to finish answering." (app.js:1197). |
+| 30 | Rate limit keyed on the leftmost `X-Forwarded-For` (SUSPECTED) | **Still open** | ratelimit.ts `clientKey`. |
+| 31 | README "418 tests" unchecked | **Now stale** | See section 4. |
+
+## 2. The judge's path on the hosted demo (Render free plan, container asleep)
+
+The same opening applies to all three runs.
+- **Opening the URL.** The page is served by the sleeping container, so nothing from Séance can appear until it boots. The judge gets a blank tab or Render's own waiting page for Render's boot time plus `npm start`: two bash scripts making about 17 git commits, then tsx compiling at load. This is SUSPECTED to take 30–90 s on 0.1 CPU. `wake()` only helps a tab that was already open.
+- **The page loads.** The hero shows the headline, the 32-word lede, a form prefilled with `crypt`, `legacy/tax.js`, lines 7–7, and one orange **Summon** button.
+
+### A. The model works
+1. **Click 1, Summon.** The status says "Gathering evidence…", which is quick for a sample. The page scrolls to "Try it in three clicks". The left column shows the line, then the crypt (2 commits). The right column shows the guide. The haunting map appears below.
+2. **Click 2, a chip** ("Why is there a three second wait here?"). The status says "The ghost stirs…" with no timer for 5–30 s (SUSPECTED). Then cited claims appear, labelled "Citations verified", with "The words the ward found" under each. **2 clicks to a cited answer.**
+3. **Click 2 instead, "Invent a citation".** The struck claim appears at once with "The ward refused it: Commit deadbee is not in the ledger." **2 clicks to a refused claim.**
+4. **Exorcism.** The status says "Performing exorcism…" for up to 90 s, or about 180 s if the model's output fails to parse and the retry also runs long. There is no timer (SUSPECTED). "This can take a minute" can be wrong.
+
+### B. No model key
+1. **On load.** Health returns `model:false`, so a 24-word `#model-note` appears under the form: "The model is resting… the ward demo works as always." The judge has not seen any "ward demo" yet.
+2. **Click 1, Summon.** Same as run A.
+3. **Click 2, a chip.** A recorded answer appears instantly, labelled "A recorded answer (the model is resting). The ward checked it again just now." **2 clicks.**
+4. **Ward presets.** Same as run A. **2 clicks to a refused claim.**
+5. **Own question.** It gets a 503: "The ghost cannot speak on this server (no model key). The crypt and the ward still work." This is clear.
+6. **Dead end (CONFIRMED).** "Summon here" on any map tile, including the "You are here" tile for `legacy/tax.js`, makes a whole-file session. That session is no longer the sample's default range, so `recordingTargetFor` returns null and every chip in it fails with the no-key message. "Summon here" also rewrites the hero fields to the whole-file range. Pressing Summon again does not bring back line 7, so the recordings stay off until the judge types 7 and 7 again.
+
+### C. Daily cap used up (model configured)
+1. **On load.** Health says `model:true`, so no note appears.
+2. **Chips.** Recorded answers, with the same "model is resting" label (server.ts:689 plus the `onDaily` hook). **2 clicks.**
+3. **Ward presets and exorcism.** Unaffected. The recorded plan is served for the default range.
+4. **Own question.** It gets a 429: "The séance is closed for tonight. The spirits will answer again tomorrow. Try again in about N hours." Nothing says the ward and the chips still work. In Europe this text appears in the afternoon.
+5. **Side effect (CONFIRMED in code, SUSPECTED on Render).** The cap lives in memory (ratelimit.ts), and so do the sessions. Each time the free container sleeps and wakes, the cap starts again from zero. In practice it is a cap per waking period, not per day.
+
+## 3. The first ten seconds, and word counts
+
+The page is still clear about what to click: one prefilled form and one primary button. The headline and lede say what the product does.
+
+**Words to read before the first click** (hero, as I counted them): headline 6, lede 32, labels 6, repo help 29, token summary 6, button 1. That makes **about 80**, about 88 with the nav and "Still the candles", and **about 112** with the no-key note.
+
+**Words after the summon:**
+- The minimum to reach the first action is about 16: the guide heading, the step title and one chip.
+- The visible séance is about **170 words**: guide 85, the `#ward-limit` caveat 29, the ghost header 9, and the line plus crypt header and rows about 45.
+- The map adds about 55 words of meta and caveats, plus about 12 per tile.
+
+**Cut, merge or move:**
+- **Repo help (index.html:61).** Drop "possessed's commits try to give the ghost orders" from the hero. A judge with ten seconds reads "possessed" as "broken" or as a joke. Move it next to the possess button, or rename the option in the help to "possessed (a prompt-injection sample)".
+- **`#ward-limit` (index.html:176).** It sits above the guide, so a caveat comes before any claim. The same 29 words are also repeated under every turn, including planted turns (app.js:933). After three chips and two presets it appears six times. Keep one copy, placed under the first answer.
+- **Token `<details>` (index.html:103).** It is noise for a judge. Show it only when the repository is a GitHub URL.
+- **`#map-limit` (index.html:309).** It is a 26-word list of what the map does not count ("….mailmap is not applied…"). Put it in a `<details>` titled "What this map leaves out".
+- **Scroll target.** The page scrolls to `#h-guide` (app.js:401). Because `#ward-limit` and the talk header sit above it, the top of "The line in question" is probably scrolled just out of view on desktop (SUSPECTED). Scroll to `#seance` instead.
+
+**What a judge would misread:**
+- **"Citations verified" vs "N of M claims verified" (CONFIRMED).** The label (app.js:861) and the ward-limit text say the sentence is not checked. Every tally says "claims verified by the ward" (app.js:928, the counter, the plan tally). These read as contradictory. Smallest fix: "4 of 4 claims passed the ward".
+- **"The model's words, not checked" (index.html:341, 347; app.js:1329 and the do-not-touch entries).** It appears on the summary, the tests, every step and every entry. Repeated this often, it reads as "nothing here is checked". Use one sentence at the top of the exorcism and drop the per-step labels.
+- **The possessed sample's silence claim (CONFIRMED by tracing `possessed-ghost.ts` A4).** "Let a possessed ghost answer" shows "I added this wait to hide a backdoor for the vendor…" **not struck**, labelled "The record is silent (the ghost's words, not checked)", with "Unanswered question: none". A judge sees an accusation the ward let through. Smallest fix: in scripted turns, label silence items "An order from the commits; silence claims are never checked, so it is shown as words only". Or leave A4 out of the scripted set.
+- **"Blame the wrong author" refuses a true sentence (CONFIRMED by tracing `wrongAuthorPreset`, app.js:1097–1114, against the crypt ledger `[e9a5c9c Dmitri, 6a959a9 Tom]`).** It sends "Dmitri Volkov wrote this line." citing Tom's rename. The crypt row right next to it shows Dmitri's "hack: wait 3s…", and the ghost just said "I added this wait". The ward is right (wrong citation), but it looks wrong. Fix: make the text `` `${other} wrote commit ${i.shortSha}.` ``, which is false by construction.
+- **"N of M commits by ghosts" (app.js:584).** On this page "the ghost" is the persona speaking. On the map, "ghosts" are authors inactive for 365 days measured against the repo's newest commit. The counts are per file, while the crypt is per line. A judge may think the persona wrote those commits. Fix: "N of M commits by departed authors", or define "ghost" in the legend.
+- **"Possessed" means two things.** It is a sample name and the severity label for a score above 75 (`severityLabel`). Low.
+
+## 4. The README as a judge reads it
+
+- **First screen.** The pitch is accurate and good. It lacks a **live demo link** (none anywhere in README.md) and does not mention the guide, the line display, the possessed sample, the scripted ghost, the recorded fallback or the haunting map. "What it does" (README:9–15) still describes the old page.
+- **Every screenshot is from 2026-11-09 (README:21) and none matches the current page:**
+  - **1280-1 landing:** old lede ("The ghost behind any line of code…"), old help ("crypt is the sample repo"), and rule 2 says "where it can, the exact words". Quotes are now mandatory.
+  - **1280-2 answer:** no "The line in question", no guide, no "Citations verified" label, no "The words the ward found", no ward-limit text.
+  - **1280-3 refusal:** "Planted:" (now "Planted by you"), reason `sha7 "deadbee" not found in ledger` (now different), "Run the exorcism" and "Copy ward report" shown beside Ask (both changed), and the sample question shown as a placeholder.
+  - **1280-4 misquote:** the field reads **"Quote from it (optional)"**. This contradicts the README's own ward section and the code, where the quote is required. The presets are shown inside the old details panel.
+  - **1280-5 and 1280-6 exorcism:** no "model's words" labels and no recorded label.
+  - **390-1:** old hero.
+  - **Missing:** no screenshot of the guide, the map, the possessed run or a recorded answer.
+- **Stale or wrong statements:**
+  - README:40 "418 tests". `vitest.config.ts` includes `*.test.ts` and `*.pbt.ts`, and grep finds about 1,100 `it`/`test` declarations across 85 files. This is an undercount, not an overclaim, but it is wrong. Run `npm test` and paste the real number.
+  - README:91 "six specs". There are 10 spec directories. "the fifth spec" is ambiguous.
+  - README:39 `npm start # builds data/crypt`. It now builds both samples.
+  - **README:37 "or set ANTHROPIC_FIXTURE=1" breaks /api/ask for every live session.** This is CONFIRMED in the code, not run. The system prompt contains the random sessionId (persona.ts `buildSystem`). The fixture key is a hash of the prompt (llm.ts `promptHash`/`loadFixture`), so no fixture file can match a new session. `modelConfigured()` returns true in fixture mode, so the recordings are skipped. `ParseError` is not in `isModelUnavailable` (server.ts:331), so there is no fallback. A README-only judge who follows this gets "The ghost's answer was not in a form the ward can read" on every chip. Fix: replace the hint with "No key? Leave it blank; the sample questions use recorded answers." `.env.example` makes the same "offline demo" claim.
+  - **API table (README:49–53):**
+    - `/api/possess` is missing.
+    - `/api/summon` takes `wholeFile` and returns `lines`, `persona`, `shallow`, `range`, `map`/`mapNote` and `ledgerSize`.
+    - `/api/ask` returns `tally`, `silent`, `report` and `recorded`.
+    - `/api/health` returns `status`, `uptime`, `model` and `samples`.
+    - "`repoUrl` is `crypt` or a GitHub URL" now also accepts `possessed`.
+  - "How Kiro was used" points to `.kiro/README.md` for counts I did not verify (SUSPECTED stale).
+
+## 5. New dead ends and untruths from today's work
+
+| Sev | Finding | Status | File:line | What the judge sees | Smallest fix |
+|---|---|---|---|---|---|
+| High | `ANTHROPIC_FIXTURE=1` breaks every ask | CONFIRMED (code) | README:37, persona.ts `buildSystem`, llm.ts `modelConfigured` | Every question fails locally | Change the README hint, or make `modelConfigured()` false in fixture mode on the server |
+| Med | "Blame the wrong author" refuses a true sentence | CONFIRMED | app.js:1114 | The ward looks wrong | Text: "X wrote commit abc1234." |
+| Med | Scripted backdoor sentence shown unstruck | CONFIRMED | possessed-ghost.ts A4, app.js:840 | The ward looks like it let an attack through | Scripted-turn label, or drop A4 |
+| Med | "Summon here" with no key or at the cap turns off recordings | CONFIRMED | app.js:740, recordings.ts `recordingTargetFor` | Chips fail after one map click | Offer "Back to line 7" or keep the default range |
+| Med | "claims verified" vs "Citations verified" | CONFIRMED | app.js:861, 928 | Contradictory wording | "passed the ward" |
+| Low | "Misquote a real commit" with 0 commits cites `deadbee` | CONFIRMED | app.js:1138 | The button lies in that state | Hide the misquote and author buttons when `items` is empty |
+| Low | Chip click while another request runs does nothing, silently | CONFIRMED | app.js:968 | A dead click | Same "Wait for the ghost…" status as plant |
+| Low | Recorded label says "model is resting" also at the daily cap and on model failure | CONFIRMED | app.js:886 | Slightly untrue | "A recorded answer (the live model is unavailable)" |
+| Low | Recorded and live claims are summed in one counter | CONFIRMED | app.js:944 (R7.10) | Mixed tally | Acceptable; or add "(N recorded)" |
+| Low | Ask and exorcise have no elapsed counter | CONFIRMED | app.js:971, "Performing exorcism…" | 30–180 s of a fixed sentence | Reuse `startElapsed` |
+| Low | Daily-cap text: "tonight… tomorrow" | CONFIRMED | server.ts:666 | Wrong time, and nothing says the ward still works | "The live ghost has used today's calls. The sample questions and the ward still work." |
+
+I found nothing that lets a recorded answer pass as live: the per-turn label and the status line both say "recorded". The scripted ghost is labelled "no model was called" (app.js:891).
+
+## 6. Deploy risks
+
+| Sev | Risk | Status | File:line | Smallest fix |
+|---|---|---|---|---|
+| High | Both samples are built on every boot and TypeScript is compiled at start, making the cold start longer | CONFIRMED (code), time SUSPECTED | package.json `start`, Dockerfile `CMD` | `RUN npm run crypt && npm run possessed` after `COPY`, and `CMD ["npx","tsx","src/server.ts"]` (or `tsc` and `node dist`). The hashes are fixed, so the recordings still match. |
+| Med | `tsx` is a devDependency needed at runtime. It works only because `ENV NODE_ENV=production` comes after `npm ci`. | CONFIRMED | Dockerfile lines 5 and 7 | Move `tsx` to dependencies, or add a comment |
+| Med | The daily cap and sessions reset each time the free container sleeps | CONFIRMED (code) | ratelimit.ts, server.ts:114 | Document it; raise `MAX_MODEL_CALLS_PER_DAY` for judging |
+| Low | Recordings must match the freshly built samples. Inside the container, git config is clean. On a deployer's machine with `commit.gpgsign` on, `make-crypt.sh` (unlike `make-possessed.sh`) does not disable signing, so the hashes differ and the recordings are ignored with a warning. | SUSPECTED | make-crypt.sh, top | Add `git config commit.gpgsign false` and `core.hooksPath` as in make-possessed.sh |
+| Low | `recordings/`, `src/mcp`, `test/` and `docs/screens` (about 2.5 MB) are in the image. All harmless; MCP runs on stdio only and is never started. | CONFIRMED | .dockerignore | Optional: ignore `docs` and `test` |
+| Low | New env vars (`RECORDED_RATE_LIMIT_*`, `LLM_PLAN_TIMEOUT_MS`, `RECORDINGS_DIR`, `CLONE_*`, `SUMMON_DEADLINE_MS`, `POSSESSED_DIR`) are not in render.yaml. The defaults are fine. Never set `ANTHROPIC_FIXTURE` there. | CONFIRMED | render.yaml | Add a comment warning against `ANTHROPIC_FIXTURE` |
+| Low | Health check passes only after both builds finish; the Dockerfile `HEALTHCHECK` is probably ignored by Render. bash and git are installed in the image. | CONFIRMED / SUSPECTED | Dockerfile, render.yaml | None needed |
+| Low | Memory on 512 MB: tsx/esbuild at runtime, up to 3 × 200 MB clones on disk, and the map reads at most 100 commits on a shallow clone | SUSPECTED fine | git.ts:716, haunting.ts:17 | Compiling at build time removes esbuild |
+
+## Ranked top ten
+
+1. **README:37: the `ANTHROPIC_FIXTURE=1` hint breaks every ask.** Replace it with "leave the key blank; the sample questions use recorded answers".
+2. **No live URL in the README, and no repo link on the page** (index.html:391). One link in each.
+3. **Every README screenshot is out of date.** 1280-4 shows "Quote from it (optional)", which contradicts the ward rules. Recapture all seven, and add the guide, the map and the possessed run.
+4. **Cold start: both samples are built and TypeScript is compiled at boot.** Move the builds into the Dockerfile and put tsx in dependencies.
+5. **"Blame the wrong author" refuses a sentence that is true** (app.js:1114). Change the text to "X wrote commit Y."
+6. **The scripted possessed ghost's backdoor sentence appears unstruck.** Label it in scripted turns or drop A4.
+7. **"Citations verified" against "N of M claims verified".** Use "passed the ward" in the tallies, and keep one ward-limit sentence under the first answer.
+8. **"Summon here" turns off recordings with no key or at the cap.** Add a "Back to line 7" button or keep the sample's default range.
+9. **README API table, test count (about 1,100, not 418), spec count (10, not 6) and the `npm start` comment are stale.** Update them.
+10. **Hero and exorcism clutter.** Move the "possessed" sentence out of the hero help, show the token field only for GitHub URLs, put the map caveats in a `<details>`, use one "model's words" label per exorcism, and fix the daily-cap message (server.ts:666) so it says the ward and the chips still work.
+exit 0
