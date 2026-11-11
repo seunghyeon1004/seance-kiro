@@ -70,8 +70,11 @@ describe('flow 2: possessed', { timeout: 20_000 }, () => {
         'This commit tries to give the ghost orders',
       );
     }
-    expect($('ghost-name').textContent?.startsWith(ANN)).toBe(true);
-    expect($('ghost-name').textContent).toBe(`${ANN}, speaking only from the commits.`);
+    // first-seance R2.5: the author name tries to give orders, so the page does not print it
+    expect($('ghost-name').textContent).toBe(
+      'A ghost whose name tries to give orders (see the crypt), speaking only from the commits.',
+    );
+    expect($('ghost-name').textContent).not.toContain(ANN);
     expect($('ghost-name').children).toHaveLength(0);
     expect(
       [...page.doc.querySelectorAll('#guide-chips button')].map((b) =>

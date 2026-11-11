@@ -336,9 +336,12 @@ function openSeance(data, input) {
   renderSource(data, input);
   renderLedger(data);
   renderGuide(state.sample);
-  $('ghost-name').textContent = data.items.length
-    ? `${data.persona.author}, speaking only from the commits.`
-    : 'Speaks only from the commits.';
+  // R2.4, R2.5: a name that tries to give orders is never printed as the ghost's name
+  $('ghost-name').textContent = !data.items.length
+    ? 'Speaks only from the commits.'
+    : data.persona.suspicious === true
+      ? 'A ghost whose name tries to give orders (see the crypt), speaking only from the commits.'
+      : `${data.persona.author}, speaking only from the commits.`;
   $('verified-counter').textContent = '';
   $('ask-status').textContent = '';
   $('ward-status').textContent = '';

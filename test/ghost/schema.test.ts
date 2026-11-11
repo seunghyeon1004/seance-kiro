@@ -510,7 +510,7 @@ describe('SummonResponseSchema', () => {
     buildDurationMs: 847,
     items: [],
     lines: [{ n: 7, text: '  await sleep(3000);' }],
-    persona: { author: 'Ada Lovelace' },
+    persona: { author: 'Ada Lovelace', suspicious: false },
     shallow: false,
   };
 
@@ -524,6 +524,14 @@ describe('SummonResponseSchema', () => {
       const { [key]: _drop, ...rest } = valid;
       expect(SummonResponseSchema.safeParse(rest).success).toBe(false);
     }
+  });
+
+  it('requires persona.suspicious as a boolean (first-seance R2.5)', () => {
+    const persona = (p: unknown) =>
+      SummonResponseSchema.safeParse({ ...valid, persona: p });
+    expect(persona({ author: 'Ada Lovelace' }).success).toBe(false);
+    expect(persona({ author: 'Ada Lovelace', suspicious: 'yes' }).success).toBe(false);
+    expect(persona({ author: 'Ada Lovelace', suspicious: true }).success).toBe(true);
   });
 
   it('rejects more than 40 lines, a line over 400 characters, and an empty author', () => {

@@ -226,7 +226,8 @@ export const SummonResponseSchema = z.object({
   buildDurationMs: z.number().nonnegative(),
   items: z.array(z.unknown()), // the existing item shape, unchanged
   lines: z.array(SourceLineSchema).max(40),
-  persona: z.object({ author: z.string().min(1) }),
+  /** suspicious: isSuspicious(author), so the page never prints a name that gives orders (R2.5). */
+  persona: z.object({ author: z.string().min(1), suspicious: z.boolean() }),
   shallow: z.boolean(),
 });
 

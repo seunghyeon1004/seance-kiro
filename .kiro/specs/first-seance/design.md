@@ -74,7 +74,8 @@ The response adds three fields to the existing ones:
 {
   …existing fields…,
   lines: ledger.lines ?? [],                              // R2.1
-  persona: { author: mostFrequentAuthor(ledger.items) },  // R2.2
+  persona: { author: mostFrequentAuthor(ledger.items),    // R2.2
+             suspicious: isSuspicious(author) },          // R2.5, via personaOf(items)
   shallow: ledger.shallow ?? false,                       // R8.3
 }
 ```
@@ -426,7 +427,7 @@ export const SummonResponseSchema = z.object({
   buildDurationMs: z.number().nonnegative(),
   items: z.array(z.unknown()),                       // the existing item shape, unchanged
   lines: z.array(SourceLineSchema).max(40),
-  persona: z.object({ author: z.string().min(1) }),
+  persona: z.object({ author: z.string().min(1), suspicious: z.boolean() }),   // suspicious: R2.5
   shallow: z.boolean(),
 });
 
@@ -582,7 +583,7 @@ On submit:
 
 1. Set `state.sessionId`, `state.items`, `state.sample = sampleFor(input)`, the totals to 0, and `state.lastReport = null`.
 2. Call `renderSource(data, input)`, `renderLedger(data)` (R8.2, R8.4) and `renderGuide(state.sample)`.
-3. Set `#ghost-name` (R2.4). Clear `#verified-counter`, `#ask-status`, `#ward-status`, `#exorcise-status` and the `#q` error (`clearQError()`). Hide `#copy-report-btn`, `#exorcism-wrap` and `#ex-recorded`. Empty `#log`.
+3. Set `#ghost-name` (R2.4, R2.5: when `data.persona.suspicious` is true, the fixed sentence of §9 instead of the name). Clear `#verified-counter`, `#ask-status`, `#ward-status`, `#exorcise-status` and the `#q` error (`clearQError()`). Hide `#copy-report-btn`, `#exorcism-wrap` and `#ex-recorded`. Empty `#log`.
 4. Call `setHaunting(0)` and `setConfidence(0.5)`, and show `#seance`.
 5. Set `#summon-status` to `summonFound(n)` (R12.4, R8.2). Focus `#h-guide` and scroll it into view, with `block: 'start'` and `behavior` set from reduced motion.
 
@@ -828,7 +829,7 @@ Every string below is exact. `${…}` values come from the server or the ledger 
 | `#source-meta` | ${file}, line ${a}, as it reads in the latest commit. / ${file}, lines ${a} to ${b}, as it reads in the latest commit. (+ " Showing the first 40 lines.") / The text of these lines could not be read. |
 | `#crypt-meta`, empty | No commits touched these lines. |
 | `#crypt-shallow` | Only the most recent 100 commits were read. Older history is not in the crypt. |
-| `#ghost-name` | ${author}, speaking only from the commits. / Speaks only from the commits. |
+| `#ghost-name` | ${author}, speaking only from the commits. / Speaks only from the commits. / A ghost whose name tries to give orders (see the crypt), speaking only from the commits. (R2.5) |
 | `#h-guide` | Try it in three clicks |
 | step titles | Ask the ghost / Try to fool the ward / Run the exorcism |
 | done marker | done |
@@ -943,7 +944,7 @@ Every flow file starts with this header:
 2. **`possessed.test.ts`** (`WorstCaseClient`)
    1. `setRepo('possessed')`, then summon.
    2. Five rows carry `data-suspicious="true"` and "This commit tries to give the ghost orders".
-   3. `#ghost-name` starts with the ANN author string, inserted as text.
+   3. `#ghost-name` reads "A ghost whose name tries to give orders (see the crypt), speaking only from the commits." and does not contain the ANN author string (R2.5).
    4. The chips are the possessed questions.
    5. Click "Can I delete this wait?". The only claim is rejected, with the `.why` `The ward refused it: ${F6(P3)} ${F10('2023')}` and the warning label. `#ask-status` reads "The ghost answered: 0 of 1 claims verified."
    6. (T8, steps 6–10, R13.13) `#possess-btn` is visible, reads "Let a possessed ghost answer", and is the first button in `#guide-step-ward`. Record the `#verified-counter` text, the candle's `--confidence`, the length of `client.calls`, and the text copied by "Copy ward report".
@@ -1004,7 +1005,7 @@ Every flow file starts with this header:
 | `test/ghost/possessed-ghost.test.ts`, `test/ghost/pbt/possessed-ghost.pbt.ts` | R13.1–R13.3, R13.6 and CP12 (§16.8) |
 | `test/server/possess.test.ts` | R13.4–R13.6: the route's shape, `scripted: true`, the 400 and 404 cases, the body limit, and limiter isolation (§16.8) |
 | `test/server/possess-limits.test.ts` | R13.4: the ward limiter refuses `/api/possess` at its cap while the model limiter's per-client and daily counters do not move. It is a file of its own because it sets `WARD_RATE_LIMIT_MAX=3`, `RATE_LIMIT_MAX=1` and `MAX_MODEL_CALLS_PER_DAY=1` before the server module loads |
-| `test/recordings.test.ts` (T9) | Every shipped recording: the file exists for each of the eight targets, parses, its fields match its key, `model === MODEL_ID`, and `ledgerShas` equals the short hashes of a freshly built sample's ledger |
+| `test/recordings.test.ts` (T9) | Every shipped recording: the file exists for each of the eight targets (and `recordings/` holds no other `*.json`), parses, its fields match its key, `model === MODEL_ID`, `ledgerShas` equals the short hashes of a freshly built sample's ledger, `loadRecording` accepts it, the live `verify` verifies at least one claim of each recorded answer, and `verifyPlanClaims` keeps at least one step of each recorded plan |
 
 ### 12.2 Existing tests that assert changed behaviour (N5)
 
@@ -1014,12 +1015,13 @@ These change in the same task as the code they cover.
   - it uses the harness;
   - the preset buttons now send at once, so the test clicks only the preset;
   - after "Invent a citation" the counter stays `2 of 3 claims verified this séance, plus 1 silence claim not checked` (R4.1);
-  - the possessed summon expects the new `#ghost-name`.
+  - the possessed summon expects the new `#ghost-name`, which since R2.5 is the fixed sentence for a name that gives orders, not the name.
 - **`test/ui/spooky-ui.test.ts`**
   - P10 "injected tally element has aria-atomic" and "#verified-counter has aria-live / aria-atomic" are inverted, to assert the attributes are absent (R12.1; supersedes spooky-ui R3.9, R8.7);
   - P11 "#exorcise-status is adjacent to #exorcise-btn" looks in `#guide-step-exorcise` instead of `.ask-actions`;
   - the copy-button expectations change from `disabled` to `hidden` (R10.1).
 - **`test/server/health.test.ts`** also asserts `model` and `samples`.
+- **R2.5 (persona `suspicious`)**: `test/ghost/schema.test.ts` adds `suspicious` to its valid summon body, `test/server/first-seance.test.ts` expects it on the empty-ledger persona, `test/e2e/harness.test.ts` adds it to its crafted summon bodies, and `test/e2e/possessed.test.ts` step 3 and `test/ui/dom.test.ts` expect the fixed sentence instead of the ANN name.
 - **`test/evidence/ledger.test.ts` and `test/evidence/pbt/ledger.pbt.ts`** add `readLines: vi.fn(async () => [])` to their `git.js` mocks.
 - **`test/ghost/llm.test.ts`**: the timeout test also asserts `code === 'TIMEOUT'`.
 

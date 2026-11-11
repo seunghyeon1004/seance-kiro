@@ -10,7 +10,7 @@ export default [
 
   // TypeScript source files
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'scripts/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

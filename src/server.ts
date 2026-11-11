@@ -25,6 +25,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { buildLedger, validateLedgerInput } from './evidence/ledger.js';
+import { isSuspicious } from './evidence/refs.js';
 import { buildPrompt, mostFrequentAuthor } from './ghost/persona.js';
 import { askGhost, modelConfigured } from './ghost/llm.js';
 import type { AnthropicClient } from './ghost/llm.js';
@@ -35,6 +36,7 @@ import type { WardReportMeta } from './ghost/report.js';
 import { computeScore } from './exorcism/score.js';
 import { buildPlan, verifyPlanClaims } from './exorcism/plan.js';
 import type {
+  EvidenceItem,
   ExorciseResponse,
   LedgerResult,
   ScoredResult,
@@ -456,6 +458,19 @@ function recordedAnswer(
   };
 }
 
+/**
+ * The summon's persona: the prompt's author rule, plus whether that name tries to give orders,
+ * so the page can name the ghost without printing it (R2.2, R2.5). Display only: the prompt
+ * and the ward do not read it.
+ */
+function personaOf(items: ReadonlyArray<EvidenceItem>): {
+  author: string;
+  suspicious: boolean;
+} {
+  const author = mostFrequentAuthor(items);
+  return { author, suspicious: isSuspicious(author) };
+}
+
 /** Shared /api/exorcise response, for the live and the recorded plan (design.md §3.4). */
 function toExorciseResponse(
   sessionId: string,
@@ -763,7 +778,7 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
           suspiciousMessage: i.suspiciousMessage,
         })),
         lines: ledger.lines ?? [], // R2.1
-        persona: { author: mostFrequentAuthor(ledger.items) }, // R2.2
+        persona: personaOf(ledger.items), // R2.2, R2.5
         shallow: ledger.shallow ?? false, // R8.3
       });
     } catch (err: unknown) {
