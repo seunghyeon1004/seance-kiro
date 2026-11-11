@@ -4,7 +4,10 @@
  * Uses mocked buildLedger so no real git calls happen.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { GitError } from '../../src/errors.js';
 
 // ---------------------------------------------------------------------------
@@ -23,7 +26,12 @@ const ledgerMod = await import('../../src/evidence/ledger.js');
 const buildLedgerMock = vi.mocked(ledgerMod.buildLedger);
 
 // Import server after mocking its dependency
-const { default: app } = await import('../../src/server.js');
+const {
+  default: app,
+  summonLimiter,
+  wardLimiter,
+  clonePool,
+} = await import('../../src/server.js');
 
 // ---------------------------------------------------------------------------
 // Fixture ledger result
@@ -56,6 +64,9 @@ const FIXTURE_LEDGER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  summonLimiter.reset();
+  wardLimiter.reset();
+  clonePool.reset();
   buildLedgerMock.mockResolvedValue(FIXTURE_LEDGER);
 });
 
@@ -164,5 +175,66 @@ describe('POST /api/summon', () => {
 
     const body = (await res.json()) as { code: string };
     expect(body.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ward-hardening T5: the possessed sample (R8.2)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/summon { repoUrl: "possessed" } (R8.2)', () => {
+  const possessedBody = {
+    repoUrl: 'possessed',
+    file: 'auth/throttle.js',
+    startLine: 4,
+    endLine: 4,
+  };
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'seance-possessed-dir-'));
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('resolves to POSSESSED_DIR', async () => {
+    fs.mkdirSync(path.join(tmp, '.git'));
+    vi.stubEnv('POSSESSED_DIR', tmp);
+
+    const res = await app.fetch(
+      new Request('http://localhost/api/summon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(possessedBody),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(buildLedgerMock).toHaveBeenCalledTimes(1);
+    expect(buildLedgerMock.mock.calls[0]?.[0]).toMatchObject({
+      repoUrl: tmp,
+      file: 'auth/throttle.js',
+      startLine: 4,
+      endLine: 4,
+    });
+  });
+
+  it('returns 400 with the R8.2 message when the sample has not been built', async () => {
+    vi.stubEnv('POSSESSED_DIR', path.join(tmp, 'missing'));
+
+    const res = await app.fetch(
+      new Request('http://localhost/api/summon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(possessedBody),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: 'The possessed sample has not been built; run scripts/make-possessed.sh',
+    });
+    expect(buildLedgerMock).not.toHaveBeenCalled();
   });
 });

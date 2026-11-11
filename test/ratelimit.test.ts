@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createModelLimiter, clientKey } from '../src/ratelimit.js';
+import { createModelLimiter, createSlotPool, clientKey } from '../src/ratelimit.js';
 
 // ---------------------------------------------------------------------------
 // clientKey
@@ -371,5 +371,58 @@ describe('pruning (R1.7)', () => {
     t += 2000;
     lim.check('10.0.1.1');
     expect(lim.size()).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createSlotPool — ward-hardening R10.6, design.md §8.3
+// ---------------------------------------------------------------------------
+
+describe('createSlotPool (R10.6)', () => {
+  it('up to max acquires succeed and the next returns null', () => {
+    const pool = createSlotPool(3);
+    const releases = [pool.tryAcquire(), pool.tryAcquire(), pool.tryAcquire()];
+    expect(releases.every((r) => typeof r === 'function')).toBe(true);
+    expect(pool.inUse()).toBe(3);
+    expect(pool.tryAcquire()).toBeNull();
+    expect(pool.inUse()).toBe(3);
+  });
+
+  it('release frees one slot and is idempotent', () => {
+    const pool = createSlotPool(2);
+    const a = pool.tryAcquire();
+    const b = pool.tryAcquire();
+    expect(b).not.toBeNull();
+    a?.();
+    a?.();
+    a?.();
+    expect(pool.inUse()).toBe(1);
+    const c = pool.tryAcquire();
+    expect(c).not.toBeNull();
+    expect(pool.tryAcquire()).toBeNull();
+    expect(pool.inUse()).toBe(2);
+  });
+
+  it('reset frees every slot, and a release from before the reset does not free a new slot', () => {
+    const pool = createSlotPool(2);
+    const old = pool.tryAcquire();
+    pool.tryAcquire();
+    pool.reset();
+    expect(pool.inUse()).toBe(0);
+    const x = pool.tryAcquire();
+    const y = pool.tryAcquire();
+    expect(x).not.toBeNull();
+    expect(y).not.toBeNull();
+    old?.();
+    expect(pool.inUse()).toBe(2);
+    expect(pool.tryAcquire()).toBeNull();
+  });
+
+  it('a pool of size 1 serialises', () => {
+    const pool = createSlotPool(1);
+    const r = pool.tryAcquire();
+    expect(pool.tryAcquire()).toBeNull();
+    r?.();
+    expect(pool.tryAcquire()).not.toBeNull();
   });
 });

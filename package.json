@@ -12,8 +12,9 @@
     "test": "vitest --run",
     "lint": "eslint . && prettier --check .",
     "typecheck": "tsc --noEmit",
-    "start": "npm run crypt && tsx src/server.ts",
+    "start": "npm run crypt && npm run possessed && tsx src/server.ts",
     "crypt": "bash scripts/make-crypt.sh data/crypt",
+    "possessed": "bash scripts/make-possessed.sh data/possessed",
     "contrast": "node scripts/contrast.mjs"
   },
   "dependencies": {

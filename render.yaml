@@ -13,3 +13,15 @@ services:
         value: 600000
       - key: MAX_MODEL_CALLS_PER_DAY
         value: 300
+      - key: SUMMON_RATE_LIMIT_MAX
+        value: 20
+      - key: SUMMON_RATE_LIMIT_WINDOW_MS
+        value: 600000
+      - key: WARD_RATE_LIMIT_MAX
+        value: 60
+      - key: WARD_RATE_LIMIT_WINDOW_MS
+        value: 600000
+      - key: MAX_CONCURRENT_CLONES
+        value: 3
+      - key: SESSION_MAX
+        value: 500

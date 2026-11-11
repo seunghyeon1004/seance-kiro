@@ -37,7 +37,14 @@ vi.mock('../../src/ghost/llm.js', async (importOriginal) => {
 const llmMod = await import('../../src/ghost/llm.js');
 const askPlanMock = vi.mocked(llmMod.askPlan);
 
-const { default: app, sessions, modelLimiter } = await import('../../src/server.js');
+const {
+  default: app,
+  sessions,
+  modelLimiter,
+  summonLimiter,
+  wardLimiter,
+  clonePool,
+} = await import('../../src/server.js');
 import type { RefactorPlan } from '../../src/ghost/schema.js';
 import { ExorciseResponseSchema } from '../../src/ghost/schema.js';
 
@@ -144,6 +151,9 @@ const KNOWN_SESSION_ID = '550e8400-e29b-41d4-a716-446655440000';
 beforeEach(() => {
   vi.clearAllMocks();
   modelLimiter.reset();
+  summonLimiter.reset();
+  wardLimiter.reset();
+  clonePool.reset();
   sessions.set(KNOWN_SESSION_ID, {
     ledger: FIXTURE_LEDGER,
     expiresAt: Date.now() + 60_000 * 30,

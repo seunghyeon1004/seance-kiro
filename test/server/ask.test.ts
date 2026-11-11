@@ -44,7 +44,13 @@ vi.mock('../../src/ghost/llm.js', async (importOriginal) => {
 const llmMod = await import('../../src/ghost/llm.js');
 const askGhostMock = vi.mocked(llmMod.askGhost);
 
-const { default: app, sessions } = await import('../../src/server.js');
+const {
+  default: app,
+  sessions,
+  summonLimiter,
+  wardLimiter,
+  clonePool,
+} = await import('../../src/server.js');
 import type { GhostAnswerWire, LedgerResult } from '../../src/ghost/schema.js';
 import { VerifiedAnswerResponseSchema } from '../../src/ghost/schema.js';
 
@@ -107,6 +113,9 @@ const KNOWN_SESSION_ID = 'pre-seeded-session';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  summonLimiter.reset();
+  wardLimiter.reset();
+  clonePool.reset();
   // Inject session directly
   sessions.set(KNOWN_SESSION_ID, {
     ledger: FIXTURE_LEDGER,

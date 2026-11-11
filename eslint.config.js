@@ -109,8 +109,9 @@ export default [
     },
   },
 
-  // Ignore generated and installed files, and the bundled sample repository
-  // (data/crypt is deliberately old CommonJS "haunted" code for the demo)
+  // Ignore generated and installed files, and the bundled sample repositories
+  // (data/crypt is deliberately old CommonJS "haunted" code for the demo; data/possessed is
+  // built by scripts/make-possessed.sh)
   {
     ignores: [
       'dist/**',
@@ -118,6 +119,7 @@ export default [
       'coverage/**',
       'test/fixtures/**',
       'data/crypt/**',
+      'data/possessed/**',
     ],
   },
 ];

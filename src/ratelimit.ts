@@ -147,3 +147,45 @@ export function createModelLimiter(opts: LimiterOptions): ModelLimiter {
 
   return { check, reset, size };
 }
+
+// ---------------------------------------------------------------------------
+// createSlotPool — ward-hardening R10.6, design.md §8.3
+// ---------------------------------------------------------------------------
+
+export interface SlotPool {
+  /** Returns a release function (idempotent), or null when all slots are taken. */
+  tryAcquire(): (() => void) | null;
+  /** Number of slots currently held. */
+  inUse(): number;
+  /** Free every slot — used in tests. Release functions from before the reset become no-ops. */
+  reset(): void;
+}
+
+/** A counting semaphore with no waiting: callers that find every slot taken get null. */
+export function createSlotPool(max: number): SlotPool {
+  let held = 0;
+  let generation = 0;
+
+  function tryAcquire(): (() => void) | null {
+    if (held >= max) return null;
+    held += 1;
+    const gen = generation;
+    let released = false;
+    return () => {
+      if (released || gen !== generation) return;
+      released = true;
+      held -= 1;
+    };
+  }
+
+  function inUse(): number {
+    return held;
+  }
+
+  function reset(): void {
+    held = 0;
+    generation += 1;
+  }
+
+  return { tryAcquire, inUse, reset };
+}

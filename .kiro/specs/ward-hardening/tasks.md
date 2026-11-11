@@ -101,16 +101,17 @@ Covers: R6.1, R6.2, R6.4, N6.
 
 ## T5 — The possessed sample and the adversarial tests
 
-- [ ] Write `test/adversarial/worst-case-client.ts`, the scripted `AnthropicClient` from design.md §10.4. It answers A1–A5 obediently, looks up `P*` short hashes by subject, and records every `params` (R9.1).
-- [ ] Write the failing tests:
+- [x] Write `test/adversarial/worst-case-client.ts`, the scripted `AnthropicClient` from design.md §10.4. It answers A1–A5 obediently, looks up `P*` short hashes by subject, and records every `params` (R9.1).
+- [x] Write the failing tests:
   - `test/adversarial/possessed.test.ts`: two builds into temp dirs give the same `git log --format=%H` (R8.1); the flags match R8.5; for A1–A5, the direct path (`buildLedger` → `buildPrompt` → `askGhost` → `verify`) and `POST /api/summon { repoUrl: 'possessed' }` + `POST /api/ask` on `createApp({ anthropicClient })` both keep the attacker's sentence out of every `verified[].text` and put it in `rejected` or `silent` with the reasons in §10.4 (R9.2); the `system` the client received holds no ledger author and no possessed subject or body (R9.3); the user turn has exactly 7 `<evidence ` openings and 7 `</evidence>` closings; the file sets a dummy `ANTHROPIC_API_KEY`, deletes `ANTHROPIC_FIXTURE` and makes no network call (R9.5);
   - `test/adversarial/self-quote.test.ts`: the documented limit in §10.4, with `citesSuspicious: true` and the quote and field in the response;
   - `test/server/summon.test.ts`: `possessed` resolves to `POSSESSED_DIR`, and an unbuilt sample returns 400 with the exact message from R8.2.
-- [ ] Write `scripts/make-possessed.sh [target-dir]` (default `data/possessed`) to design.md §10.1–§10.3: fixed dates, fictional people, `.example` emails, quoted heredocs, P1 and P4 hashes captured with `git rev-parse`, final line `possessed ready at … (7 commits)` (R8.1).
-- [ ] In `package.json`, change only the `scripts` entries: add `"possessed": "bash scripts/make-possessed.sh data/possessed"` and set `start` to `npm run crypt && npm run possessed && tsx src/server.ts`. The file has uncommitted local edits, so do not overwrite the rest of it (R8.3).
-- [ ] In `src/server.ts`, resolve `possessed` to `POSSESSED_DIR` with the R8.2 error, and add `createApp(deps)` with `export const app = createApp()`. `anthropicClient` is forwarded to `askGhost` and to `buildPlan`. The sessions, limiters and pool stay module-level (R8.2, R9.2).
-- [ ] Document `POSSESSED_DIR` in `.env.example`. Add `data/possessed/` to `.prettierignore` and `data/possessed/**` to the `ignores` list in `eslint.config.js`, as is already done for `data/crypt`, so a built sample does not break `npm run lint`.
-- [ ] Run `npm run possessed` twice and compare `git -C data/possessed log --format=%H`; then run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+  (A1's reason is F6 followed by F10: once F6 strikes the citation, no cited item supports the year 2023, per §4.1 step 6. Mutation check: with the F6 check replaced by the old "accept a quoteless citation", A1 and A2 fail; with F9 removed, A3 fails because the sentence is verified; with F10 removed, A1 and A5 fail; with F11 removed, A5 fails; with both removed, A5's sentence is verified. `src/ghost/verifier.ts` was restored and `git diff` on it is empty.)
+- [x] Write `scripts/make-possessed.sh [target-dir]` (default `data/possessed`) to design.md §10.1–§10.3: fixed dates, fictional people, `.example` emails, quoted heredocs, P1 and P4 hashes captured with `git rev-parse`, final line `possessed ready at … (7 commits)` (R8.1).
+- [x] In `package.json`, change only the `scripts` entries: add `"possessed": "bash scripts/make-possessed.sh data/possessed"` and set `start` to `npm run crypt && npm run possessed && tsx src/server.ts`. The file has uncommitted local edits, so do not overwrite the rest of it (R8.3).
+- [x] In `src/server.ts`, resolve `possessed` to `POSSESSED_DIR` with the R8.2 error, and add `createApp(deps)` with `export const app = createApp()`. `anthropicClient` is forwarded to `askGhost` and to `buildPlan`. The sessions, limiters and pool stay module-level (R8.2, R9.2).
+- [x] Document `POSSESSED_DIR` in `.env.example`. Add `data/possessed/` to `.prettierignore` and `data/possessed/**` to the `ignores` list in `eslint.config.js`, as is already done for `data/crypt`, so a built sample does not break `npm run lint`.
+- [x] Run `npm run possessed` twice and compare `git -C data/possessed log --format=%H`; then run `npm test`, `npm run typecheck` and `npm run lint`; all green. (Both builds gave the same 7 hashes. `data/possessed` is covered by the `data/` rule in `.gitignore`.)
 
 Covers: R8.1, R8.2, R8.3, R8.5, R9.1, R9.2, R9.3, R9.5.
 
@@ -118,7 +119,7 @@ Covers: R8.1, R8.2, R8.3, R8.5, R9.1, R9.2, R9.3, R9.5.
 
 ## T6 — Input and abuse limits
 
-- [ ] Write the failing tests in `test/server/hardening.test.ts`, using the list in design.md §13.1:
+- [x] Write the failing tests in `test/server/hardening.test.ts`, using the list in design.md §13.1:
   - `../../etc/passwd`, `/etc/passwd` and a 501-line range each return 400 `VALIDATION_ERROR` without running git (R10.1);
   - a `GitError` or `CloneError` returns 422 with the fixed message, containing no `/tmp` or `seance-`, and `console.error` received the full error (R10.2);
   - a 70 KB body returns 413 `PAYLOAD_TOO_LARGE` and leaves `modelLimiter` unchanged (R10.3);
@@ -127,13 +128,14 @@ Covers: R8.1, R8.2, R8.3, R8.5, R9.1, R9.2, R9.3, R9.5.
   - with `MAX_CONCURRENT_CLONES=1` and a stubbed slow clone, the second remote summon returns 503 `BUSY` with `Retry-After: 30`; a failed or throwing clone releases its slot; `crypt` and `possessed` take no slot (R10.6);
   - the 501st session evicts the first (R10.7);
   - after 61 ward calls, the last returns 429, and `/api/ask` still succeeds with the model limiter's per-client and daily counters unchanged (R10.8).
-- [ ] Write the failing tests for `createSlotPool` in `test/ratelimit.test.ts`: up to `max` acquires succeed, the next returns `null`, release is idempotent, and `reset` frees every slot (R10.6).
-- [ ] Implement `createSlotPool` in `src/ratelimit.ts`. `createModelLimiter` and `clientKey` stay unchanged (R10.6, R10.9).
-- [ ] In `src/server.ts`, add the middleware order from design.md §8.2: `hono/body-limit` at 64 KB on `/api/*` before every limiter, the existing model limiter on `/api/ask` and `/api/exorcise`, then `summonLimiter` and `wardLimiter` through `limitBy` (R10.3, R10.5, R10.8, N1).
-- [ ] In `src/server.ts`, implement the summon flow from design.md §8.4: `validateLedgerInput`, the clone slot released in `finally`, `rememberSession` with the `SESSION_MAX` cap, and `toHttpError` with fixed messages after `console.error` (R10.1, R10.2, R10.6, R10.7).
-- [ ] Reset `summonLimiter`, `wardLimiter` and `clonePool` in the setup of `test/server/summon.test.ts`, `test/server/ask.test.ts`, `test/server/exorcise.test.ts` and `test/adversarial/possessed.test.ts` where they send many requests. Check that `git diff d738258 -- test/server/ratelimit.test.ts` is empty and that the file passes (R10.9).
-- [ ] Document `SUMMON_RATE_LIMIT_MAX`, `SUMMON_RATE_LIMIT_WINDOW_MS`, `WARD_RATE_LIMIT_MAX`, `WARD_RATE_LIMIT_WINDOW_MS`, `MAX_CONCURRENT_CLONES` and `SESSION_MAX` in `.env.example` and `render.yaml`.
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+  (The file sets `MAX_MODEL_CALLS_PER_DAY=1` before the server loads, so a request that touched the daily counter would make the following `/api/ask` fail. On the first run the whole file failed at setup because the limiters and pool were not exported yet. The 51-claim case already passed, because `GhostAnswerWireSchema` has enforced it since T1.)
+- [x] Write the failing tests for `createSlotPool` in `test/ratelimit.test.ts`: up to `max` acquires succeed, the next returns `null`, release is idempotent, and `reset` frees every slot (R10.6).
+- [x] Implement `createSlotPool` in `src/ratelimit.ts`. `createModelLimiter` and `clientKey` stay unchanged (R10.6, R10.9).
+- [x] In `src/server.ts`, add the middleware order from design.md §8.2: `hono/body-limit` at 64 KB on `/api/*` before every limiter, the existing model limiter on `/api/ask` and `/api/exorcise`, then `summonLimiter` and `wardLimiter` through `limitBy` (R10.3, R10.5, R10.8, N1).
+- [x] In `src/server.ts`, implement the summon flow from design.md §8.4: `validateLedgerInput`, the clone slot released in `finally`, `rememberSession` with the `SESSION_MAX` cap, and `toHttpError` with fixed messages after `console.error` (R10.1, R10.2, R10.6, R10.7).
+- [x] Reset `summonLimiter`, `wardLimiter` and `clonePool` in the setup of `test/server/summon.test.ts`, `test/server/ask.test.ts`, `test/server/exorcise.test.ts` and `test/adversarial/possessed.test.ts` where they send many requests. Check that `git diff d738258 -- test/server/ratelimit.test.ts` is empty and that the file passes (R10.9).
+- [x] Document `SUMMON_RATE_LIMIT_MAX`, `SUMMON_RATE_LIMIT_WINDOW_MS`, `WARD_RATE_LIMIT_MAX`, `WARD_RATE_LIMIT_WINDOW_MS`, `MAX_CONCURRENT_CLONES` and `SESSION_MAX` in `.env.example` and `render.yaml`.
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R10.1–R10.9, N1.
 
