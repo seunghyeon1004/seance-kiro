@@ -11,23 +11,26 @@ Rules for building, citing, and verifying the Evidence Ledger. These apply to al
 
 ## Citation rules
 
-- Every ghost claim must carry at least one `{ sha7, quote? }` citation
-- `sha7` must match a `shortSha` present in the ledger — no other value is valid
-- When a `quote` is provided it must be a **literal substring** of `subject + body + hunk` of the cited item (case-sensitive)
-- Silence claim (`kind: "silence"`) requires no citation but must state the question it cannot answer
-- Speculation claim (`kind: "speculation"`) must carry a citation to the evidence that inspired it and be labelled in the response
+These follow the `ward-hardening` spec, which supersedes `ghost-verifier` R3.5 (score formula) and `ward-report` R1.4 (silence items in the verified list).
+
+- Every memory and speculation claim carries 1 to 10 `{ sha7, quote }` citations. **The quote is mandatory**: 8 to 500 characters (at least 8 after `trim()`)
+- `sha7` must match the `shortSha` of exactly one ledger item. A hash shared by two items is ambiguous and refused
+- The quote must be a **literal, case-sensitive substring of one single field** of the cited item: `subject`, `body` or `hunk.slice(0, HUNK_UI_CHARS)`. A quote that only exists across two fields, or past the first 4000 hunk characters, is refused
+- Silence claim (`kind: "silence"`) has no citations, a `silenceReason` naming the question it cannot answer, and at most 300 characters in `text` and in `silenceReason`. It goes into its own `silent` bucket and is **never verified**; the UI labels it as the ghost's words, not checked
+- Speculation claim (`kind: "speculation"`) is cited and quoted like memory and labelled in the response
 
 ## Verifier invariants (enforce in code and PBT)
 
-- A verified citation's SHA is always present in the ledger — reject otherwise
-- A verified quote is always a substring of its cited evidence text — reject otherwise
-- Author and date named in a claim match the cited item's `author` and `date` fields
-- `score = verified / total` is always in [0, 1]; `total` includes silence and speculation claims
-- Verifier is pure and deterministic: same ledger + same claims → same result every time
+- A verified citation's SHA is the `shortSha` of exactly one ledger item — reject otherwise
+- A verified quote is a substring of one field of its cited item — reject otherwise
+- A year (1970–2099) named in a claim must be the UTC year of a cited item's `date` or appear in its fields; a ledger author named in a claim must have written a cited item or be named in it. Names outside the ledger, months and days are not checked
+- `score = verified / (verified + rejected + silent)`, 1 when there are no claims, always in [0, 1]. "N of M claims verified" uses N = verified and M = verified + rejected
+- The verifier only ever becomes stricter, and is pure and deterministic: same ledger + same claims → same result every time
 
 ## PBT properties (fast-check)
 
-- Verifier never accepts a SHA absent from the ledger
-- Verifier never accepts a quote that is not a substring of its cited evidence
+- Verifier never accepts a SHA absent from the ledger, or one shared by two items
+- Verifier never accepts a citation without a quote, or a quote that is not a substring of one field of its cited evidence
+- Verifier never puts a silence claim in `verified`
 - Line-range mapping through renames never yields negative or out-of-order bounds
 - Haunting score is monotone in age and TODO count; always within [0, 100]

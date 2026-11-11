@@ -143,21 +143,23 @@ Covers: R10.1–R10.9, N1.
 
 ## T7 — UI
 
-- [ ] Write the failing static tests in `test/ui/spooky-ui.test.ts` for `public/index.html`: the `possessed` option in `#repo-list` and the new `#repo-help` text (R8.4); `#ward-limit` directly after `#verified-counter` with the exact R2.3 sentence (R2.3); the `plant-quote` label and placeholder; `#ex-summary-lab`, `#ex-tests-lab` and `#ex-dropped-wrap` with their copy (R7.4, R7.5); the `wrongauthor` preset button labelled "Blame the wrong author"; the new contrast rows in `public/tokens.css` (N4); no new `innerHTML` with untrusted data in `public/app.js` (N4).
-- [ ] Write the failing property tests in `test/ui/pbt/ui.pbt.ts`, extracting functions from `public/app.js` as that file already does:
+- [x] Write the failing static tests in `test/ui/spooky-ui.test.ts` for `public/index.html`: the `possessed` option in `#repo-list` and the new `#repo-help` text (R8.4); `#ward-limit` directly after `#verified-counter` with the exact R2.3 sentence (R2.3); the `plant-quote` label and placeholder; `#ex-summary-lab`, `#ex-tests-lab` and `#ex-dropped-wrap` with their copy (R7.4, R7.5); the `wrongauthor` preset button labelled "Blame the wrong author"; the new contrast rows in `public/tokens.css` (N4); no new `innerHTML` with untrusted data in `public/app.js` (N4).
+- [x] Write the failing property tests in `test/ui/pbt/ui.pbt.ts`, extracting functions from `public/app.js` as that file already does:
   - `claimNode` gives verified claims "The words the ward found" with the field labels from R2.2 (R2.2), silent claims the R4.5 label and "Unanswered question: " (R4.5), and claims with `citesSuspicious` the R6.4 label (R6.4);
   - ledger rows with `suspiciousMessage` get `data-suspicious="true"` and the R6.3 text (R6.3);
   - the answer tally and `#verified-counter` use `tally.verified` of `tally.checked` with correct singular and plural silence text (R4.3);
   - the sample-default swap happens only when the fields still hold the other sample's defaults (R8.4);
   - the plan tally counts dropped entries, and an empty `steps` list shows "The ward kept no step of this plan." (R7.5, R7.6);
-  - the `wrongauthor` preset cites a commit by another author with a quote from its subject, and falls back to `misquote` for a single-author ledger.
-- [ ] Update `public/index.html` per design.md §11.1, and add the `wrongauthor` button after the `misquote` button (R2.3, R7.4, R7.5, R8.4).
-- [ ] In `public/app.js`, implement `SAMPLE_DEFAULTS` and the `#repo` change handler, the suspicious ledger rows, `claimNode(c, state)` for all three states, and `renderAnswer` with its order, tally and counter (R2.2, R4.3, R4.5, R6.3, R6.4, R8.4).
-- [ ] In `public/app.js`, implement the plant form: the 8-character quote notice that sends nothing, the new `invent` quote, always sending `{ sha7, quote }`, and the `wrongauthor` preset from design.md §11.2 (R1.1).
-- [ ] In `public/app.js`, implement the exorcism changes: the "not checked" labels, the empty-plan notice, `#ex-dropped` entries, `#ex-dropped-wrap.hidden`, and the tally across steps, entries and dropped entries (R7.4, R7.5, R7.6).
-- [ ] Add the rules from design.md §11.3 to `public/styles.css` (tokens only, no `transition: all`, no new animation), add the contrast rows to `public/tokens.css`, and run `npm run contrast` (N4).
-- [ ] Read every new UI string and confirm that none claims the ward checks names outside the ledger, months or days, or the meaning of a sentence (R3.4).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+  - the `wrongauthor` preset cites a commit by another author whose `subject`, `body` and `hunk.slice(0, HUNK_UI_CHARS)` do not name the claimed author as a whole word (design.md §11.2), with a quote from its subject; it falls back to `misquote` for a single-author ledger or when no such pair exists.
+- [x] Update `public/index.html` per design.md §11.1, and add the `wrongauthor` button after the `misquote` button (R2.3, R7.4, R7.5, R8.4).
+- [x] In `public/app.js`, implement `SAMPLE_DEFAULTS` and the `#repo` change handler, the suspicious ledger rows, `claimNode(c, state)` for all three states, and `renderAnswer` with its order, tally and counter (R2.2, R4.3, R4.5, R6.3, R6.4, R8.4).
+- [x] In `public/app.js`, implement the plant form: the 8-character quote notice that sends nothing, the new `invent` quote, always sending `{ sha7, quote }`, and the `wrongauthor` preset from design.md §11.2 (R1.1).
+- [x] In `public/app.js`, implement the exorcism changes: the "not checked" labels, the empty-plan notice, `#ex-dropped` entries, `#ex-dropped-wrap.hidden`, and the tally across steps, entries and dropped entries (R7.4, R7.5, R7.6).
+- [x] Add the rules from design.md §11.3 to `public/styles.css` (tokens only, no `transition: all`, no new animation), add the contrast rows to `public/tokens.css`, and run `npm run contrast` (N4). (One row added, `--color-accent` on `--color-paper`, 8.98:1. The conditional `--color-muted` on `--color-paper-3` row was not added, because `.found` sits on the claim's own background, not on `paper-3`. Long quotes, hashes, names and paths wrap through `overflow-wrap: anywhere` on the containers of untrusted text; the 320 px layout is checked statically only, since no browser was available.)
+- [x] Read every new UI string and confirm that none claims the ward checks names outside the ledger, months or days, or the meaning of a sentence (R3.4).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+
+Also added `test/ui/dom.test.ts`: `public/index.html` in jsdom, `public/app.js` evaluated unmodified, every request handed to the real `createApp` in process with a scripted model, and both samples built into a temp dir. Only `fetch`, `matchMedia` and `Element.prototype.scrollIntoView` are stubbed.
 
 Covers: R1.1 (form), R2.2, R2.3, R3.4, R4.3 (UI), R4.5, R6.3, R6.4 (UI), R7.4, R7.5, R7.6 (UI), R8.4, N4.
 
@@ -173,8 +175,8 @@ Items 1–4 were done right after T2, before T3, because the human had already r
 - [x] Human: with a real key, run `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts` and `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts --ghost`, then commit the two new `<hash>.json` files as written. (Recorded by the human after T2: `test/fixtures/exorcism-plans/464f2680.json` and `test/fixtures/ghost-answers/b0b2564e.json`, not edited. Committing them is left to the human.)
 - [x] Delete the stale `test/fixtures/ghost-answers/ebfa44af.json` and `test/fixtures/exorcism-plans/5de303db.json` once nothing references them. (Done after T2. Only historical spec and session records still name them.)
 - [x] Update `test/fixtures/ghost-answers/README.md` and `test/fixtures/exorcism-plans/README.md` with the new hashes, the `promptHash` definition, the raw tool-input plan format and the recording commands (R5.7). (Done after T2.)
-- [ ] Update `.kiro/steering/evidence-rules.md` per design.md §13.3: mandatory quotes checked one field at a time, the silence bucket, the score formula, and a note that this spec supersedes `ghost-verifier` R3.5 and `ward-report` R1.4 (N7).
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green, with both fixture tests running and passing.
+- [x] Update `.kiro/steering/evidence-rules.md` per design.md §13.3: mandatory quotes checked one field at a time, the silence bucket, the score formula, and a note that this spec supersedes `ghost-verifier` R3.5 and `ward-report` R1.4 (N7). (`.kiro/steering/product.md` and `tech.md` were also corrected: the `{ sha7, quote }` citation format, silence not counted as verified, the two samples, the new limits, `npm run possessed`, and the `adversarial/` and jsdom test folders.)
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green, with both fixture tests running and passing.
 
 Covers: R5.7, N7.
 
@@ -182,12 +184,12 @@ Covers: R5.7, N7.
 
 ## T9 — Final verification
 
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
-- [ ] Build both samples with `npm run crypt` and `npm run possessed`; both print their ready line, and `data/possessed` has 7 commits.
-- [ ] Search `test/` for `it.skip`, `describe.skip` and `.only`; none added by this spec remain.
-- [ ] Compare `dependencies` and `devDependencies` in `package.json` with `d738258`; nothing added (N1). Check that `git diff d738258 -- test/server/ratelimit.test.ts` is empty (R10.9).
-- [ ] Confirm `npm run lint` reports no `@typescript-eslint/no-explicit-any` in the changed files under `src/` (N3).
-- [ ] Check that every requirement id R1.1–R1.10, R2.1–R2.4, R3.1–R3.4, R4.1–R4.6, R5.1–R5.7, R6.1–R6.4, R7.1–R7.7, R8.1–R8.5, R9.1–R9.5, R10.1–R10.9 and N1–N7 appears in at least one ticked task above, using the traceability table below.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Build both samples with `npm run crypt` and `npm run possessed`; both print their ready line, and `data/possessed` has 7 commits.
+- [x] Search `test/` for `it.skip`, `describe.skip` and `.only`; none added by this spec remain.
+- [x] Compare `dependencies` and `devDependencies` in `package.json` with `d738258`; nothing added (N1). Check that `git diff d738258 -- test/server/ratelimit.test.ts` is empty (R10.9). (The one difference is `jsdom` 25.0.1 in `devDependencies`. It was added on purpose in commit 26654f2, separately from this spec, for the DOM tests, and is the one allowed exception. `dependencies` are unchanged, and the ratelimit test diff is empty.)
+- [x] Confirm `npm run lint` reports no `@typescript-eslint/no-explicit-any` in the changed files under `src/` (N3).
+- [x] Check that every requirement id R1.1–R1.10, R2.1–R2.4, R3.1–R3.4, R4.1–R4.6, R5.1–R5.7, R6.1–R6.4, R7.1–R7.7, R8.1–R8.5, R9.1–R9.5, R10.1–R10.9 and N1–N7 appears in at least one ticked task above, using the traceability table below.
 
 Covers: N1, N3, N5, R10.9 (re-check), and the traceability check.
 

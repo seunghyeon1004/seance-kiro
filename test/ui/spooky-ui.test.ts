@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { JSDOM } from 'jsdom';
 
 const root = resolve(__dirname, '../../public');
 const css = readFileSync(resolve(root, 'styles.css'), 'utf8');
@@ -567,5 +568,193 @@ describe('P14 – contrast table and script (R8.1)', () => {
         failing.push(`ratio ${ratio.toFixed(2)} for "${m[0].slice(0, 60)}"`);
     }
     expect(failing).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ward-hardening T7 — static checks of the new markup, styles and tokens
+// (R2.3, R7.4, R7.5, R8.4, N4; design.md §11.1, §11.3)
+// ---------------------------------------------------------------------------
+
+describe('ward-hardening T7 – index.html (design.md §11.1)', () => {
+  // Parsed only; no scripts run (the DOM behaviour is tested in test/ui/dom.test.ts)
+  const doc = new JSDOM(html).window.document;
+  const byId = (id: string) => {
+    const n = doc.getElementById(id);
+    if (!n) throw new Error(`#${id} missing`);
+    return n;
+  };
+  const text = (id: string) => (byId(id).textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  it('#repo-list offers crypt and possessed (R8.4)', () => {
+    const values = [...byId('repo-list').querySelectorAll('option')].map((o) =>
+      o.getAttribute('value'),
+    );
+    expect(values).toEqual(['crypt', 'possessed']);
+  });
+
+  it('#repo-help names both samples (R8.4)', () => {
+    expect(text('repo-help')).toBe(
+      'crypt is the sample repo. possessed is a hostile sample whose commits try to give the ghost orders. Or paste a public https://github.com/owner/repo.',
+    );
+  });
+
+  it('#ward-limit follows #verified-counter with the R2.3 sentence (R2.3)', () => {
+    const limit = byId('verified-counter').nextElementSibling;
+    expect(limit?.id).toBe('ward-limit');
+    expect(limit?.tagName).toBe('P');
+    expect(limit?.className).toBe('meta');
+    expect(text('ward-limit')).toBe(
+      "The ward checks that each quote is really in the cited commit. It cannot check that the ghost's sentence says the same thing as the quote, so read both.",
+    );
+  });
+
+  it('the plant quote field is required in words, with an 8-character placeholder (R1.1)', () => {
+    const label = doc.querySelector('label[for="plant-quote"]');
+    expect((label?.textContent ?? '').trim()).toBe('Quote from it');
+    expect(byId('plant-quote').getAttribute('placeholder')).toBe(
+      'Exact words from the commit, at least 8 characters',
+    );
+  });
+
+  it('the wrongauthor preset follows the misquote preset', () => {
+    const b = doc.querySelector('[data-preset="wrongauthor"]');
+    expect(b?.tagName).toBe('BUTTON');
+    expect((b?.textContent ?? '').trim()).toBe('Blame the wrong author');
+    expect(b?.getAttribute('class')).toBe('btn small ghost');
+    expect(b?.getAttribute('type')).toBe('button');
+    expect(b?.previousElementSibling?.getAttribute('data-preset')).toBe('misquote');
+  });
+
+  it('#ex-summary-lab and #ex-tests-lab label the model text as unchecked (R7.4)', () => {
+    expect(byId('ex-summary-lab').nextElementSibling?.id).toBe('ex-summary');
+    expect(byId('ex-summary-lab').className).toBe('lab unchecked');
+    expect(text('ex-summary-lab')).toBe("The model's words, not checked");
+    expect(byId('ex-tests-lab').nextElementSibling?.id).toBe('ex-tests');
+    expect(byId('ex-tests-lab').className).toBe('lab unchecked');
+    expect(text('ex-tests-lab')).toBe(
+      "The model's words, not checked. Read each test before you run it.",
+    );
+  });
+
+  it('#ex-dropped-wrap follows #ex-dnt, starts hidden and holds the struck list (R7.5)', () => {
+    const wrap = byId('ex-dropped-wrap');
+    expect(wrap.tagName).toBe('SECTION');
+    expect(wrap.hasAttribute('hidden')).toBe(true);
+    expect(wrap.getAttribute('aria-labelledby')).toBe('h-dropped');
+    expect(wrap.previousElementSibling?.id).toBe('ex-dnt');
+    expect(byId('h-dropped').tagName).toBe('H3');
+    expect(text('h-dropped')).toBe('Struck from the plan');
+    expect(byId('ex-dropped-help').className).toBe('meta');
+    expect(text('ex-dropped-help')).toBe(
+      'The ward found no verified claim behind these, so they are not part of the plan.',
+    );
+    expect(byId('ex-dropped').tagName).toBe('UL');
+    expect(byId('ex-dropped').className).toBe('dropped');
+    expect(wrap.contains(byId('ex-dropped'))).toBe(true);
+  });
+
+  it('has no inline styles, inline scripts or inline event handlers (CSP)', () => {
+    expect(doc.querySelectorAll('[style]')).toHaveLength(0);
+    for (const s of doc.querySelectorAll('script')) {
+      expect(s.getAttribute('src')).toBeTruthy();
+      expect((s.textContent ?? '').trim()).toBe('');
+    }
+    for (const n of doc.querySelectorAll('*')) {
+      for (const a of n.getAttributeNames()) expect(a.startsWith('on'), a).toBe(false);
+    }
+  });
+});
+
+describe('ward-hardening T7 – app.js inserts untrusted text only as text (N4)', () => {
+  it('uses no HTML-parsing sink', () => {
+    expect(js).not.toMatch(
+      /\binnerHTML\b|\bouterHTML\b|insertAdjacentHTML|document\.write/,
+    );
+  });
+});
+
+describe('ward-hardening T7 – styles and tokens (design.md §11.3, N4)', () => {
+  const tokensCss = readFileSync(resolve(root, 'tokens.css'), 'utf8');
+  const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  /** selector list -> declarations, for top-level and media-nested plain rules */
+  const rules = [...cssNoComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selectors: (m[1] ?? '').split(',').map((s) => s.trim().replace(/\s+/g, ' ')),
+    body: m[2] ?? '',
+  }));
+  const ruleFor = (sel: string) => rules.filter((r) => r.selectors.includes(sel));
+
+  it('has the new rules from §11.3, using tokens only', () => {
+    const want: Array<[string, RegExp]> = [
+      ['.lab.warn', /color:\s*var\(--color-accent\)/],
+      ['.lab.warn', /border:\s*1px dashed var\(--color-accent\)/],
+      ['.lab.unchecked', /color:\s*var\(--color-muted\)/],
+      ['.found', /border-inline-start:\s*1px solid var\(--color-rule\)/],
+      ['.found-head', /color:\s*var\(--color-muted\)/],
+      ['.found-quote', /font-family:\s*var\(--font-outlier\)/],
+      ['.found-quote', /color:\s*var\(--color-ink-2\)/],
+      [
+        "#ledger li[data-suspicious='true']",
+        /border-inline-start:\s*2px dashed var\(--color-accent\)/,
+      ],
+    ];
+    for (const [sel, decl] of want) {
+      expect(
+        ruleFor(sel).some((r) => decl.test(r.body)),
+        `${sel} ${decl}`,
+      ).toBe(true);
+    }
+  });
+
+  it('has no literal colour or font below the header comment, and no transition: all', () => {
+    expect(cssNoComments).not.toMatch(
+      /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(/,
+    );
+    for (const m of cssNoComments.matchAll(/font-family:\s*([^;]+);/g)) {
+      expect(m[1]?.trim()).toMatch(/^var\(--font-[a-z-]+\)$/);
+    }
+    expect(cssNoComments).not.toMatch(/transition:\s*all\b/);
+    expect(cssNoComments).not.toMatch(/transition-property:\s*all\b/);
+  });
+
+  it('long quotes, hashes, names and paths wrap anywhere (320 px)', () => {
+    // overflow-wrap is inherited, so the containers of untrusted text are enough
+    const containers = [
+      '.claim',
+      '.ledger li',
+      '.dropped li',
+      '.tests li',
+      '.summary',
+      '.step-body',
+      '.dnt-body',
+      '.steps details summary',
+      '.turn-q',
+      '.notice',
+      '.err',
+      '.crypt-head',
+      '.talk-head',
+    ];
+    for (const sel of containers) {
+      expect(
+        ruleFor(sel).some((r) => /overflow-wrap:\s*anywhere/.test(r.body)),
+        sel,
+      ).toBe(true);
+    }
+  });
+
+  it('sets no fixed or minimum width wider than a 320 px screen', () => {
+    const toPx = (v: string, unit: string) =>
+      unit === 'px' ? Number(v) : unit === 'rem' || unit === 'em' ? Number(v) * 16 : 0;
+    for (const m of cssNoComments.matchAll(
+      /(?:^|[;{\s])(width|min-width|flex-basis):\s*([\d.]+)(px|rem|em)\b/g,
+    )) {
+      expect(toPx(m[2] ?? '0', m[3] ?? ''), m[0]).toBeLessThanOrEqual(288);
+    }
+  });
+
+  it('the contrast table lists accent text on paper (N4)', () => {
+    expect(tokensCss).toMatch(
+      /text: --color-accent \(oklch\(76% 0\.15 65\)\) \| bg: --color-paper \(oklch\(14% 0\.012 60\)\)/,
+    );
   });
 });

@@ -46,10 +46,14 @@
                   aria-describedby="repo-help"
                   list="repo-list"
                 />
-                <datalist id="repo-list"><option value="crypt"></option></datalist>
+                <datalist id="repo-list">
+                  <option value="crypt"></option>
+                  <option value="possessed"></option>
+                </datalist>
                 <p class="err" id="repo-err" role="alert" hidden></p>
                 <p class="help" id="repo-help">
-                  crypt is the sample repo. Or paste a public
+                  crypt is the sample repo. possessed is a hostile sample whose commits
+                  try to give the ghost orders. Or paste a public
                   https://github.com/owner/repo.
                 </p>
               </div>
@@ -149,6 +153,11 @@
               aria-live="polite"
               aria-atomic="true"
             ></p>
+            <p class="meta" id="ward-limit">
+              The ward checks that each quote is really in the cited commit. It cannot
+              check that the ghost's sentence says the same thing as the quote, so read
+              both.
+            </p>
 
             <div class="log" id="log" aria-live="off"></div>
 
@@ -202,6 +211,9 @@
                 <button class="btn small ghost" type="button" data-preset="misquote">
                   Misquote a real commit
                 </button>
+                <button class="btn small ghost" type="button" data-preset="wrongauthor">
+                  Blame the wrong author
+                </button>
               </div>
               <label for="plant-text">Claim</label>
               <input
@@ -219,8 +231,11 @@
                   />
                 </div>
                 <div class="field grow">
-                  <label for="plant-quote">Quote from it (optional)</label
-                  ><input id="plant-quote" placeholder="Exact words from the commit" />
+                  <label for="plant-quote">Quote from it</label
+                  ><input
+                    id="plant-quote"
+                    placeholder="Exact words from the commit, at least 8 characters"
+                  />
                 </div>
               </div>
               <button class="btn small" id="plant-btn" type="button">
@@ -241,14 +256,28 @@
               </p>
               <ul class="signals" id="ex-signals"></ul>
             </div>
+            <p class="lab unchecked" id="ex-summary-lab">
+              The model's words, not checked
+            </p>
             <p class="summary" id="ex-summary"></p>
             <p class="meta" id="ex-verified" role="status" aria-live="polite"></p>
             <h3>Write these tests first</h3>
+            <p class="lab unchecked" id="ex-tests-lab">
+              The model's words, not checked. Read each test before you run it.
+            </p>
             <ol class="tests" id="ex-tests"></ol>
             <h3>Then, in order</h3>
             <ol class="steps" id="ex-steps"></ol>
             <h3>Do not touch</h3>
             <ul class="dnt" id="ex-dnt"></ul>
+            <section id="ex-dropped-wrap" hidden aria-labelledby="h-dropped">
+              <h3 id="h-dropped">Struck from the plan</h3>
+              <p class="meta" id="ex-dropped-help">
+                The ward found no verified claim behind these, so they are not part of the
+                plan.
+              </p>
+              <ul class="dropped" id="ex-dropped"></ul>
+            </section>
           </section>
         </div>
       </section>
@@ -262,8 +291,8 @@
               dates from git history, nothing else.
             </li>
             <li>
-              <strong>Every claim cites a commit.</strong> A short hash and, where it can,
-              the exact words.
+              <strong>Every claim cites a commit.</strong> A short hash and the exact
+              words from that commit.
             </li>
             <li>
               <strong>The ward checks both.</strong> A hash that does not exist or a quote

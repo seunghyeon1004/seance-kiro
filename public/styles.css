@@ -918,3 +918,105 @@ h3 {
 .steps {
   padding-left: 0;
 }
+
+/* ward-hardening T7 (design.md §11.3). Each state is carried by its text label; the dashed
+   borders only repeat it. Tokens only, no new animation. */
+.lab.warn {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 var(--space-2xs);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: normal;
+  color: var(--color-accent);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-card);
+}
+.ledger .lab.warn,
+.claim .lab.warn {
+  margin-top: var(--space-2xs);
+}
+.lab.unchecked {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: normal;
+  color: var(--color-muted);
+}
+.found {
+  margin-top: var(--space-xs);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: normal;
+  border-inline-start: 1px solid var(--color-rule);
+  padding-inline-start: var(--space-sm);
+}
+.found-head {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+.found-list {
+  margin: var(--space-2xs) 0 0;
+  padding-inline-start: var(--space-md);
+  display: grid;
+  gap: var(--space-2xs);
+  color: var(--color-ink-2);
+}
+.found-quote {
+  font-family: var(--font-outlier);
+  color: var(--color-ink-2);
+}
+#ledger li[data-suspicious='true'] {
+  border-inline-start: 2px dashed var(--color-accent);
+}
+.claim.silence .why,
+.dropped .why {
+  display: block;
+  margin-top: var(--space-2xs);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: normal;
+  color: var(--color-ink-2);
+}
+
+/* Struck from the plan: a plain list with rules between entries, not cards */
+.dropped {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-md);
+}
+.dropped li {
+  display: grid;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+.dropped-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--color-ink);
+  text-decoration: line-through;
+}
+.dropped li .claim {
+  font-size: var(--text-md);
+}
+
+/* Long quotes, hashes, author names and paths wrap instead of forcing a horizontal scroll
+   (overflow-wrap is inherited, so the containers of untrusted text are enough) */
+.claim,
+.ledger li,
+.dropped li,
+.tests li,
+.summary,
+.step-body,
+.dnt-body,
+.steps details summary,
+.turn-q,
+.notice,
+.err,
+.crypt-head,
+.talk-head {
+  overflow-wrap: anywhere;
+}
