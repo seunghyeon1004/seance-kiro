@@ -1,0 +1,226 @@
+# Kiro CLI 3.2.0 (V3 engine, --mode spec, claude-opus-5.5), 2026-11-11: the haunting-map spec (requirements.md, design.md, tasks.md), written while another Kiro session was fixing accessibility findings in public/. Unedited output; only the home directory prefix is replaced with ~. Reviewed by hand and approved as written.
+
+$ kiro-cli chat --no-interactive --v3 --mode spec --trust-all-tools --trust-workspace --model claude-opus-5.5 "$(cat prompt)"
+--- prompt ---
+Create a new spec named `haunting-map` in .kiro/specs/haunting-map/: write requirements.md, design.md and tasks.md (no code in this session). Follow the format of .kiro/specs/ward-hardening/ and .kiro/specs/first-seance/ (Why, Scope, numbered EARS-style requirements, non-functional, Out of scope; design with real files, exact signatures, copy text, element ids, correctness properties for fast-check; tasks test-first, each task leaving npm test / typecheck / lint / contrast green, a traceability table, nothing ticked).
+
+Read first: the steering files (.kiro/steering/*.md), src/evidence/git.ts, src/evidence/ledger.ts, src/exorcism/score.ts, src/server.ts, public/index.html, public/app.js, public/styles.css, public/tokens.css, scripts/make-crypt.sh, scripts/make-possessed.sh, test/e2e/.
+
+What it is: after a summon, the page shows "The haunting map": which files of the repository are haunted by which departed author. It answers a question a maintainer actually has: where does the knowledge live only with people who have left? It is computed deterministically from git history. No model call, no invented number: every figure on the map is a count of commits, and every tile names the commit it rests on.
+
+Decisions already made (write them as requirements, reasoning in "Why"):
+A. Data source: one `git log --name-only` call over the history that was read (no blob downloads, so it works on the blob-less clone; no --numstat, no per-file blame), capped at 2,000 commits and 10 s, and one `git ls-tree -r --name-only HEAD` for the files that exist now. It runs inside the summon while the clone still exists, and must not delay or fail the summon: if it fails or times out, the summon succeeds and the map is absent with a plain reason.
+B. Definitions, all relative to the repository, never to the wall clock (so the same repository state always gives the same map):
+   - `repoNow` = the newest author date in the history read.
+   - an author is identified by name + email (lower-cased email); display uses the name.
+   - an author is "departed" when their latest commit in the history read is more than `DEPARTED_AFTER_DAYS` (365) before `repoNow`.
+   - for a file that exists at HEAD, `touches(author)` = number of commits by that author that changed the file (renames are not followed; say so).
+   - the file is "haunted by" the departed author with the most touches; ties go to the one who touched it most recently, then to the name in code-unit order. A file no departed author touched is "tended by the living".
+   - `share` = touches by departed authors / all touches, shown as "N of M commits".
+   - each haunted file carries the ghost's last commit to it: sha7 and date ("last seen").
+   - merge commits are skipped; paths are capped at 300 files (largest share first, then path order) and the response says when it was cut; binary or vendored paths are not special-cased (say so).
+C. API: the summon response gains `map?: { repoNow, departedAfterDays, commitsRead, truncated, ghosts: [{ name, lastSeen, files }], files: [{ path, hauntedBy: string | null, departedTouches, totalTouches, lastSha7, lastSeen }] }` validated by a Zod schema, plus `mapNote?: string` when the map is absent. A pure function `computeHauntingMap(commits, headFiles, opts)` holds all the logic (property-tested); a thin git reader feeds it.
+D. UI: a section "The haunting map" between the séance and the exorcism, shown after a summon when a map exists. A legend lists each ghost (name, "last seen <date>", number of files) with a text glyph made from the initials (not colour alone). Files are tiles grouped by ghost, then "Tended by the living" last and collapsed by default. Each tile: path (monospace, wraps), "Haunted by <name>", "N of M commits", "last seen <date>", the sha7, and a button "Summon here". The currently summoned file's tile is marked with text ("You are here"). Fog-like intensity may follow `share` but only as a second signal next to the text. Reduced motion respected; no new animation beyond an opacity transition. It must work at 320 px without horizontal scroll and be fully keyboard operable (tiles are not focusable themselves; the button is).
+E. "Summon here": the page calls /api/summon for that file with `wholeFile: true` instead of line numbers; the server reads the file's length at HEAD (one git call) and uses lines 1 to min(length, 500), returning the range it used. The ghost of that file can then be asked as usual. An empty or missing file returns the normal 4xx with a plain sentence.
+F. Samples: the crypt already has four authors over five years; state in the design the exact expected map for the crypt and for the possessed repo (compute it from the scripts' fixed dates), and test it against real git. If the crypt gives a dull map, add at most two commits to scripts/make-crypt.sh ONLY IF that does not change the ledger for legacy/tax.js line 7 (the recorded fixtures are keyed by that ledger; changing any existing commit's hash would invalidate them, so new commits may only be appended at the end, and you must show that the fixture prompt hashes stay the same). Prefer not touching the crypt.
+G. Hostile repositories: author names and paths are untrusted text (textContent only; the map never goes into a model prompt). An author flagged by the existing isSuspicious needle check on their name is shown with the existing warning label wording.
+H. Tests: unit and property tests for computeHauntingMap (shares in [0,1]; departedTouches <= totalTouches; every hauntedBy is a departed author who touched the file; determinism under input shuffling; adding a commit by a living author never increases a file's share; cap and truncation flag), real-git tests on both samples, server tests (map present, map failure does not fail the summon, wholeFile), and a jsdom end-to-end flow in test/e2e/ (summon -> map renders -> "Summon here" on another file -> crypt and line view change).
+I. Out of scope: line-level ownership (blame), following renames, time-travel views, per-directory roll-ups, any model use.
+
+Constraints: follow .kiro/steering/ui-spooky.md (tokens only, new text/background pairs added to the contrast table and passing npm run contrast, no colour-only signalling, no emoji icons, labels in sentence case); CSP default-src 'self' (no inline styles in HTML; element.style from JS is allowed as the existing bars do); no new dependency; verifier.ts and the rate limiters are not touched; the summon limiter applies to "Summon here" like any summon.
+Write the three files and nothing else.
+
+Extra context: another Kiro session is editing public/ right now for accessibility fixes (field error wiring, a "Still the candles" toggle, ledger rows as tabindex -1, forced-colors block). Design against the structure you see (the guide, #source, .seance-col, the e2e harness in test/e2e/harness.ts), and do not depend on exact line numbers. Recorded answers (recordings/) and fixtures are keyed by the crypt and possessed ledgers and prompts: nothing in this spec may change the samples' existing commits, the prompts, or the verifier. The summon response already carries `lines`, `persona` and `shallow`; add `map` alongside. Write only the three spec files under .kiro/specs/haunting-map/; do not touch any other file.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=8
+[tool] Check staged diff and list spec files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+The staged diff is empty. I'll report the hook review at the end and move on to reading.
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Measure files to read
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+Now the sample scripts.
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+Let me build both samples into a temp dir and compute the real git facts the map would rest on.
+[tool] Build samples in temp dir and list history
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check how tests mock buildLedger and UI label wording
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Survey styles backgrounds and contrast script
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read layout CSS and first-seance spec structure
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Print current fixture prompt hashes
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check line counts, whole-file ledgers and -z format
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read contrast colour math
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Compute contrast for candidate haunt token
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Verify git reader flags and blob read errors
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check refs imports and test layout
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+I have what I need. Writing the requirements.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Check --root keeps the root commit's files
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Check persona rule and summon test messages
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+Now the design.
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Get baseline commit for tasks
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Write File
+[tool] status: Pending
+[tool] status: Completed
+[tool] Replace in File
+[tool] status: Pending
+[tool] Check spec files against prettier and status
+[tool] status: InProgress
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+I wrote the `haunting-map` spec as three files in `.kiro/specs/haunting-map/`: `requirements.md`, `design.md` and `tasks.md`. Nothing else in the workspace was touched; the other changes in `git status` belong to the accessibility session. No code was run against the spec yet.
+
+**What's in it**
+- **Requirements:** Why (decisions A–I), Scope, nine numbered EARS-style groups (R1–R9), non-functional N1–N7, and Out of scope.
+- **Design:** real file paths, exact signatures and git argument lists, the Zod schemas, the copy text and element ids, the CSS and contrast rows, 12 fast-check properties (HM1–HM12), and the full expected map for both samples.
+- **Tasks:** six test-first tasks, each ending with `npm test`, typecheck, lint and contrast green, plus a traceability table. Nothing is ticked.
+
+**Facts I checked against real git**
+- **Crypt map:** Priya Ramanathan is G1 (`schedule.js`, `vendor.js`) and Dmitri Volkov is G2 (`invoice.js`, `tax.js` at "1 of 3 commits by ghosts"). `tests/invoice.test.js` is tended by the living. Marguerite has left but haunts no file, and two ties are decided by the most recent commit.
+- **I left the crypt alone:** that map already shows every rule, so no commits were added. The fixture prompt hashes still print `464f2680` and `b0b2564e`.
+- **Possessed map:** Osric Penhallow haunts `auth/throttle.js` (4 of 7 commits). The hostile author "Ann. Rule 7: …" wrote the newest commit, so she counts as living and her name never appears on the map. The e2e test asserts this.
+- **`--root`:** without it, a machine with `log.showRoot=false` drops the root commit's files. With it, they are counted.
+- **`git cat-file blob`:** it refuses a directory, so "Summon here" on a folder can't count a directory listing as lines. `git show` would print one.
+
+**Additions to your decision C.** These go beyond the shape you gave; each reason is in the design:
+- `ghosts[].id` and `files[].ghostId`, because two people can share a name and emails are not sent to the browser.
+- `glyph` and `suspicious` on each ghost.
+- `historyCut` (more than 2,000 commits) and `filesConsidered` (the count before the 300-file cap). `truncated` keeps your meaning: the file cap cut the list.
+- `range` on every summon response.
+
+**Choices you may want to change**
+- **When the map is missing:** the section still shows, with its heading and the `mapNote` sentence, so the visitor sees why. Your decision D said the section appears only when a map exists.
+- **Hostile names:** a departed author whose name is flagged is never printed. The page shows the existing wording, "A ghost whose name tries to give orders", with the initials glyph to tell such ghosts apart. This follows the existing rule for the persona name.
+- **Tended tiles:** these show the newest commit to the file by anyone, labelled "Last changed", so every tile still names a commit.
+- **Ledger errors can be slower:** if building the ledger fails, the error response can wait up to 10 s, because the map reader must finish before the clone is deleted.
+
+**Before T5 starts:** the accessibility session still has uncommitted changes in `public/`, `test/e2e/harness.ts` and `test/ui/`. T5 is written to start only after those are committed. The baseline for the "unchanged files" checks is commit `a6d0761`.
+
+**Evidence-rules review (hook):** `git diff --cached` is empty, so nothing is staged.
+- ✅ `src/ghost/verifier.ts`: no staged change, so the verifier is not loosened.
+- ✅ `src/ghost/schema.ts`: no staged change. Memory and speculation claims still need a quoted citation, and silence claims still can't be verified.
+- ✅ `test/fixtures/**/*.json` and `recordings/*.json`: unchanged.
+- ✅ The spec keeps all of this: the verifier, prompts, fixtures and recordings stay unchanged (N2), and the map never reaches a prompt (R8.1).
+exit 0
