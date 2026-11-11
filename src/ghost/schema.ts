@@ -296,13 +296,15 @@ export const ScoredResultSchema = z.object({
 });
 export type ScoredResult = z.infer<typeof ScoredResultSchema>;
 
-// ── Exorcism plan types ──────────────────────────────────────────────────────
+// ── Plan (model output) ──────────────────────────────────────────────────────
+// The refactor_plan tool input exactly as the model returns it (R7.7: no GhostAnswer
+// envelope). The envelope is strict; each claim is checked on its own by the verifier
+// (R7.3), so one malformed claim is struck instead of failing the whole plan.
 
 export const RefactorStepSchema = z.object({
   description: z.string().min(1).max(512),
   rationale: z.string().min(1).max(256),
-  claims: z.array(ClaimSchema).min(1),
-  rejectedClaims: z.array(ClaimSchema).default([]),
+  claims: z.array(z.unknown()).min(1).max(MAX_CLAIMS),
   reversible: z.boolean(),
 });
 export type RefactorStep = z.infer<typeof RefactorStepSchema>;
@@ -315,8 +317,7 @@ export const DoNotTouchEntrySchema = z.object({
     })
     .refine((r) => r.end >= r.start, { message: 'end must be >= start' }),
   reason: z.string().min(1).max(512),
-  claims: z.array(ClaimSchema).min(1),
-  rejectedClaims: z.array(ClaimSchema).default([]),
+  claims: z.array(z.unknown()).min(1).max(MAX_CLAIMS),
 });
 export type DoNotTouchEntry = z.infer<typeof DoNotTouchEntrySchema>;
 
@@ -328,21 +329,54 @@ export const RefactorPlanSchema = z.object({
 });
 export type RefactorPlan = z.infer<typeof RefactorPlanSchema>;
 
-// After Verifier runs, rejectedClaims are populated. A step or entry can then
-// have every claim moved to rejectedClaims, so `claims` may be empty here,
-// while the model's own output (RefactorPlanSchema) must still cite at least one.
-export const VerifiedRefactorStepSchema = RefactorStepSchema.extend({
-  claims: z.array(ClaimSchema),
+// ── Plan (after the ward) ────────────────────────────────────────────────────
+
+export const PlanStepResponseSchema = z.object({
+  description: z.string(),
+  rationale: z.string(),
+  reversible: z.boolean(),
+  claims: z.array(ClaimResponseSchema).min(1),
+  rejectedClaims: z.array(RejectedResponseSchema),
 });
-export const VerifiedDoNotTouchEntrySchema = DoNotTouchEntrySchema.extend({
-  claims: z.array(ClaimSchema),
+export type PlanStepResponse = z.infer<typeof PlanStepResponseSchema>;
+
+export const PlanDoNotTouchResponseSchema = z.object({
+  lineRange: z.object({
+    start: z.number().int().positive(),
+    end: z.number().int().positive(),
+  }),
+  reason: z.string(),
+  claims: z.array(ClaimResponseSchema).min(1),
+  rejectedClaims: z.array(RejectedResponseSchema),
 });
-export const VerifiedRefactorPlanSchema = RefactorPlanSchema.extend({
-  steps: z.array(VerifiedRefactorStepSchema).min(1),
-  doNotTouchList: z.array(VerifiedDoNotTouchEntrySchema),
-  verifierScore: z.number().min(0).max(1),
+export type PlanDoNotTouchResponse = z.infer<typeof PlanDoNotTouchResponseSchema>;
+
+export const PlanDroppedResponseSchema = z.object({
+  kind: z.enum(['step', 'doNotTouch']),
+  /** Step description, or "Line N" / "Lines A–B" */
+  title: z.string(),
+  /** Step rationale, or entry reason */
+  modelText: z.string(),
+  /** R7.1 / R7.2 fixed sentence */
+  dropReason: z.string(),
+  rejectedClaims: z.array(RejectedResponseSchema),
 });
-export type VerifiedRefactorPlan = z.infer<typeof VerifiedRefactorPlanSchema>;
+export type PlanDroppedResponse = z.infer<typeof PlanDroppedResponseSchema>;
+
+export const PlanResponseSchema = z.object({
+  characterizationTests: z.array(z.string()),
+  /** May be empty when the ward kept no step */
+  steps: z.array(PlanStepResponseSchema),
+  doNotTouchList: z.array(PlanDoNotTouchResponseSchema),
+  dropped: z.array(PlanDroppedResponseSchema),
+  summary: z.string(),
+});
+export type PlanResponse = z.infer<typeof PlanResponseSchema>;
+
+/** What buildPlan returns: the response plan plus the ward's plan score (R7.6). */
+export interface VerifiedRefactorPlan extends PlanResponse {
+  verifierScore: number;
+}
 
 // ── API response ─────────────────────────────────────────────────────────────
 
@@ -357,12 +391,7 @@ export const ExorciseResponseSchema = z.object({
   score: z.number().int().min(0).max(100),
   signalBreakdown: z.array(SignalBreakdownSchema).length(6),
   markerLocations: z.array(MarkerLocationSchema),
-  plan: z.object({
-    characterizationTests: z.array(z.string()),
-    steps: z.array(VerifiedRefactorStepSchema),
-    doNotTouchList: z.array(VerifiedDoNotTouchEntrySchema),
-    summary: z.string(),
-  }),
+  plan: PlanResponseSchema,
   verifierScore: z.number().min(0).max(1),
 });
 export type ExorciseResponse = z.infer<typeof ExorciseResponseSchema>;

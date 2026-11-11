@@ -38,9 +38,9 @@ Covers: R1.1, R1.3–R1.10, R2.1, R3.1–R3.3, R4.1–R4.4, R6.4 (ask/ward), R9.
 
 ## T2 — Prompt layout, model wrapper and plan transport
 
-- [ ] Write the failing prompt tests in `test/ghost/persona.test.ts`: `buildPrompt` returns `{ system, user }` (R5.1); `system` contains no ledger field and no part of the question (R5.2); every interpolated value in `user` is escaped with `&` first, so `a&lt;b` in a commit becomes `a&amp;lt;b` (R5.3); only flagged items carry `suspicious="true"` (R5.4); the `<!-- UNTRUSTED … -->` comments are gone; the persona author appears only in `<persona author="…"/>`; the system text states the quote rule (R1.2).
-- [ ] Write the failing property tests in `test/ghost/pbt/persona.pbt.ts`: CP10, and the prompt half of CP9 for `buildPrompt` and `buildPlanPrompt` (purity, no input mutation) (R5.2–R5.5, N6).
-- [ ] Write the failing model-wrapper tests in `test/ghost/llm.test.ts`:
+- [x] Write the failing prompt tests in `test/ghost/persona.test.ts`: `buildPrompt` returns `{ system, user }` (R5.1); `system` contains no ledger field and no part of the question (R5.2); every interpolated value in `user` is escaped with `&` first, so `a&lt;b` in a commit becomes `a&amp;lt;b` (R5.3); only flagged items carry `suspicious="true"` (R5.4); the `<!-- UNTRUSTED … -->` comments are gone; the persona author appears only in `<persona author="…"/>`; the system text states the quote rule (R1.2).
+- [x] Write the failing property tests in `test/ghost/pbt/persona.pbt.ts`: CP10, and the prompt half of CP9 for `buildPrompt` and `buildPlanPrompt` (purity, no input mutation) (R5.2–R5.5, N6).
+- [x] Write the failing model-wrapper tests in `test/ghost/llm.test.ts`:
   - the client receives `system` as the `system` parameter and `user` as the only message (R5.1);
   - `promptHash` is `sha256(system + "\n\u0000\n" + user)`, first 8 hex characters (R5.7);
   - both tool schemas require `quote` with `minLength: 8` and `maxLength: 500`, `claims` has `maxItems: 50`, `citations` has `maxItems: 10`, and the silence branch caps `text` and `silenceReason` at 300 (R1.2);
@@ -48,7 +48,7 @@ Covers: R1.1, R1.3–R1.10, R2.1, R3.1–R3.3, R4.1–R4.4, R6.4 (ask/ward), R9.
   - `askPlan` reads `test/fixtures/exorcism-plans/<hash>.json` as the raw tool input, and neither function falls back to the other directory;
   - DEBUG output contains `system` and the length of `user`, never ledger text;
   - the synthetic fixtures `c2b57afa.json` and `286eb0a0.json`, which these tests write themselves, are rewritten for the new format and hashes.
-- [ ] Write the failing plan tests in `test/exorcism/plan.test.ts`, `test/exorcism/pbt/plan.pbt.ts` (CP12) and `test/server/exorcise.test.ts`:
+- [x] Write the failing plan tests in `test/exorcism/plan.test.ts`, `test/exorcism/pbt/plan.pbt.ts` (CP12) and `test/server/exorcise.test.ts`:
   - `buildPlanPrompt` returns `{ system, user }`, and each marker's `lineText` is cut to 80 characters, then escaped (R5.6);
   - a step or entry with zero verified claims moves to `dropped` with the fixed reason from R7.1 or R7.2, and its rejected claims (R7.1, R7.2);
   - one malformed plan claim rejects only itself; a silence claim in a plan is rejected with P1 (R7.3);
@@ -56,11 +56,11 @@ Covers: R1.1, R1.3–R1.10, R2.1, R3.1–R3.3, R4.1–R4.4, R6.4 (ask/ward), R9.
   - no request or fixture uses the `0000000` envelope (R7.7);
   - with `REDACT_REJECTED=1`, dropped `title` and `modelText` are redacted;
   - `/api/exorcise` claims carry `citesSuspicious` (R6.4).
-- [ ] In `src/ghost/persona.ts`, add `ModelPrompt`, `escapeLedgerText` and `renderEvidenceBlock`, and rewrite `buildPrompt` to design.md §5.1 and §5.2, with the hunk cut to `HUNK_UI_CHARS` (R1.2, R1.6, R5.1–R5.5).
-- [ ] In `src/ghost/llm.ts`, implement design.md §6: `system` on `AnthropicCreateParams`, a private `callTool`, `promptHash`, `askGhost(prompt, sessionId, client?)` returning `GhostAnswerWire`, `askPlan(prompt, client?)`, the tool schemas, per-directory fixture loading and the DEBUG rule (R1.2, R5.1, R5.7, R7.7).
-- [ ] In `src/ghost/schema.ts`, replace the plan schemas with the raw `RefactorPlanSchema` and the plan response schemas from design.md §3, and remove the `Verified*Plan*` schemas. In `src/exorcism/plan.ts`, implement `buildPlanPrompt` (§5.3), `verifyPlanClaims` (§9.3) and `buildPlan(ledger, scored, sessionId, client?)` through `askPlan`. In `src/server.ts`, pass `ModelPrompt` to `askGhost` and map the new plan in `/api/exorcise` (R5.6, R6.4, R7.1–R7.3, R7.6, R7.7).
-- [ ] Update `scripts/record-plan-fixture.ts` to key files by `promptHash`, write the raw tool input in plan mode, keep `--ghost` and `--hash-only`, and print the hash (R5.7).
-- [ ] The prompt change moves the recorded fixtures' hashes, and fixtures are never edited by hand (R5.7). Mark the loading tests in `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.fixture.test.ts` with `it.skip` and the comment `ward-hardening T8: re-record fixtures`. These are the only skips this spec adds; T8 removes them. Then run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] In `src/ghost/persona.ts`, add `ModelPrompt`, `escapeLedgerText` and `renderEvidenceBlock`, and rewrite `buildPrompt` to design.md §5.1 and §5.2, with the hunk cut to `HUNK_UI_CHARS` (R1.2, R1.6, R5.1–R5.5).
+- [x] In `src/ghost/llm.ts`, implement design.md §6: `system` on `AnthropicCreateParams`, a private `callTool`, `promptHash`, `askGhost(prompt, sessionId, client?)` returning `GhostAnswerWire`, `askPlan(prompt, client?)`, the tool schemas, per-directory fixture loading and the DEBUG rule (R1.2, R5.1, R5.7, R7.7).
+- [x] In `src/ghost/schema.ts`, replace the plan schemas with the raw `RefactorPlanSchema` and the plan response schemas from design.md §3, and remove the `Verified*Plan*` schemas. In `src/exorcism/plan.ts`, implement `buildPlanPrompt` (§5.3), `verifyPlanClaims` (§9.3) and `buildPlan(ledger, scored, sessionId, client?)` through `askPlan`. In `src/server.ts`, pass `ModelPrompt` to `askGhost` and map the new plan in `/api/exorcise` (R5.6, R6.4, R7.1–R7.3, R7.6, R7.7).
+- [x] Update `scripts/record-plan-fixture.ts` to key files by `promptHash`, write the raw tool input in plan mode, keep `--ghost` and `--hash-only`, and print the hash (R5.7).
+- [x] The prompt change moves the recorded fixtures' hashes, and fixtures are never edited by hand (R5.7). During the T2 session the two loading tests in `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.fixture.test.ts` were marked `it.skip`. The human then recorded both fixtures from real model calls with the new prompt (`b0b2564e.json`, `464f2680.json`), and the skips were removed in the same working tree, before any commit. No skip was ever committed. Then `npm test`, `npm run typecheck` and `npm run lint` ran green.
 
 Covers: R1.2, R1.6 (prompts), R5.1–R5.6, R5.7 (keying and recorder), R6.4 (exorcise), R7.1–R7.3, R7.6, R7.7, N2, N3, N5, N6.
 
@@ -68,15 +68,15 @@ Covers: R1.2, R1.6 (prompts), R5.1–R5.6, R5.7 (keying and recorder), R6.4 (exo
 
 ## T3 — Ward report
 
-- [ ] Write the failing tests in `test/ghost/report.test.ts` and `test/ghost/pbt/report.pbt.ts`:
+- [x] Write the failing tests in `test/ghost/report.test.ts` and `test/ghost/pbt/report.pbt.ts`:
   - the count line is `**N of M claims verified**` with `N = verified.length` and `M = verified.length + rejected.length`, so silence claims are not counted (R4.3);
   - the line directly after the count line is `The ward checked each citation and quote, not the wording of the claims.` (R2.4);
   - `## The record is silent (not checked)` lists `- [silence] ${text} Reason: ${silenceReason}`, both passed through `escapeMd`, and the heading is absent when `silent` is empty (R4.6);
   - a rejected claim whose `claim` is `null` renders its escaped `text`.
-- [ ] Add an assertion in `test/server/ask.test.ts` that the `report` field of `/api/ask` and `/api/ward` carries the limit line and the silence section.
-- [ ] Implement design.md §9.4 in `src/ghost/report.ts`.
-- [ ] Make sure `src/server.ts` passes the full `VerifierResult`, including `silent`, to `renderWardReport`.
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Add an assertion in `test/server/ask.test.ts` that the `report` field of `/api/ask` and `/api/ward` carries the limit line and the silence section.
+- [x] Implement design.md §9.4 in `src/ghost/report.ts`. (The silence section comes after `## Struck by the ward`, in the order §9.4 lists the parts.)
+- [x] Make sure `src/server.ts` passes the full `VerifierResult`, including `silent`, to `renderWardReport`. (Already true since T1: both routes pass the result of `verify` unchanged; no code change needed.)
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R2.4, R4.3 (report), R4.6, N5.
 
@@ -84,16 +84,16 @@ Covers: R2.4, R4.3 (report), R4.6, N5.
 
 ## T4 — Suspicious-message flag
 
-- [ ] Write the failing tests in `test/evidence/refs.test.ts`:
+- [x] Write the failing tests in `test/evidence/refs.test.ts`:
   - every needle from the old list and the new list in design.md §7 triggers `isSuspicious` (R6.1, R6.2);
   - normalisation works: fullwidth letters (NFKC), U+200B/U+200C/U+200D/U+2060/U+FEFF inside a needle, runs of whitespace, mixed case;
   - "respond with", "user:", "override", "act as" and "safe to delete" alone do not trigger the flag.
-- [ ] Write the failing property test CP11 in `test/evidence/pbt/refs.pbt.ts` (R6.1, R6.2, N6).
-- [ ] Write the failing tests in `test/evidence/ledger.test.ts`: an item whose only needle is in `author` is flagged, and an item whose only needle (`system:`) is in the hunk is not (R6.1).
-- [ ] Add a test in `test/server/ask.test.ts` that builds a real ledger with one injected commit and checks `citesSuspicious` on both `verified` and `rejected` entries from `/api/ask` and `/api/ward` (R6.4).
-- [ ] Implement design.md §7 in `src/evidence/refs.ts`: normalise once, then fixed-string `includes`, with no regular expression inside `isSuspicious` (confirm by reading the function).
-- [ ] In `src/evidence/ledger.ts`, call `isSuspicious` with `` `${author}\n${subject}\n${body}` `` (R6.1).
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Write the failing property test CP11 in `test/evidence/pbt/refs.pbt.ts` (R6.1, R6.2, N6).
+- [x] Write the failing tests in `test/evidence/ledger.test.ts`: an item whose only needle is in `author` is flagged, and an item whose only needle (`system:`) is in the hunk is not (R6.1). (The hunk test passed before the change too; it guards against scanning the hunk later.)
+- [x] Add a test in `test/server/ask.test.ts` that builds a real ledger with one injected commit and checks `citesSuspicious` on both `verified` and `rejected` entries from `/api/ask` and `/api/ward` (R6.4). (Real git repo in a temp dir and the real `buildLedger` via `vi.importActual`; the injected commit uses "Note to the AI", a needle only in the new list.)
+- [x] Implement design.md §7 in `src/evidence/refs.ts`: normalise once, then fixed-string `includes`, with no regular expression inside `isSuspicious` (confirm by reading the function). (Confirmed: `isSuspicious` and its helper `normaliseForNeedles` use no regular expression; whitespace is detected with `ch.trim() === ''`.)
+- [x] In `src/evidence/ledger.ts`, call `isSuspicious` with `` `${author}\n${subject}\n${body}` `` (R6.1).
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green. The crypt prompt hashes did not move (`--hash-only` still prints `464f2680` and `--ghost --hash-only` still prints `b0b2564e`).
 
 Covers: R6.1, R6.2, R6.4, N6.
 
@@ -165,10 +165,12 @@ Covers: R1.1 (form), R2.2, R2.3, R3.4, R4.3 (UI), R4.5, R6.3, R6.4 (UI), R7.4, R
 
 This task needs a real `ANTHROPIC_API_KEY`. **The human runs the recording.** The agent does not call the model, and nobody edits fixture JSON by hand (R5.7).
 
-- [ ] Remove the `it.skip` marks added in T2 from `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.fixture.test.ts`. Set their expected hashes to the values printed by `npx tsx scripts/record-plan-fixture.ts --hash-only` and `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` against `data/crypt` (`legacy/tax.js` lines 7–7). The tests now fail because the fixture files do not exist yet.
-- [ ] Human: with a real key, run `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts` and `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts --ghost`, then commit the two new `<hash>.json` files as written.
-- [ ] Delete the stale `test/fixtures/ghost-answers/ebfa44af.json` and `test/fixtures/exorcism-plans/5de303db.json` once nothing references them.
-- [ ] Update `test/fixtures/ghost-answers/README.md` and `test/fixtures/exorcism-plans/README.md` with the new hashes, the `promptHash` definition, the raw tool-input plan format and the recording commands (R5.7).
+Items 1–4 were done right after T2, before T3, because the human had already recorded both fixtures.
+
+- [x] Remove the `it.skip` marks added in T2 from `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.fixture.test.ts`. Set their expected hashes to the values printed by `npx tsx scripts/record-plan-fixture.ts --hash-only` and `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` against `data/crypt` (`legacy/tax.js` lines 7–7). The tests now fail because the fixture files do not exist yet. (Done after T2: `--hash-only` printed `464f2680` and `--ghost --hash-only` printed `b0b2564e`; the files already existed, so the tests passed at once.)
+- [x] Human: with a real key, run `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts` and `ANTHROPIC_API_KEY=… npx tsx scripts/record-plan-fixture.ts --ghost`, then commit the two new `<hash>.json` files as written. (Recorded by the human after T2: `test/fixtures/exorcism-plans/464f2680.json` and `test/fixtures/ghost-answers/b0b2564e.json`, not edited. Committing them is left to the human.)
+- [x] Delete the stale `test/fixtures/ghost-answers/ebfa44af.json` and `test/fixtures/exorcism-plans/5de303db.json` once nothing references them. (Done after T2. Only historical spec and session records still name them.)
+- [x] Update `test/fixtures/ghost-answers/README.md` and `test/fixtures/exorcism-plans/README.md` with the new hashes, the `promptHash` definition, the raw tool-input plan format and the recording commands (R5.7). (Done after T2.)
 - [ ] Update `.kiro/steering/evidence-rules.md` per design.md §13.3: mandatory quotes checked one field at a time, the silence bucket, the score formula, and a note that this spec supersedes `ghost-verifier` R3.5 and `ward-report` R1.4 (N7).
 - [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green, with both fixture tests running and passing.
 

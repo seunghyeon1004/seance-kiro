@@ -1,5 +1,6 @@
 /**
  * T4 — Property-based tests for buildPlanPrompt and buildPlan verification.
+ * ward-hardening T2: the { system, user } layout, and CP12 for verifyPlanClaims (R7.1, R7.2, R7.6).
  *
  * fast-check: 1 000 runs per property; fixed seed via FAST_CHECK_SEED env var.
  */
@@ -7,7 +8,8 @@
 import { describe, expect } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
-import { buildPlanPrompt } from '../../../src/exorcism/plan.js';
+import { buildPlanPrompt, verifyPlanClaims } from '../../../src/exorcism/plan.js';
+import { RefactorPlanSchema } from '../../../src/ghost/schema.js';
 import type {
   EvidenceItem,
   LedgerResult,
@@ -126,74 +128,58 @@ const scoredResultArb: fc.Arbitrary<ScoredResult> = fc.record({
     { maxLength: 10 },
   ),
 });
+const pairArb = (l: fc.Arbitrary<LedgerResult>) =>
+  l.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })));
 
 // ---------------------------------------------------------------------------
 // PP1 — buildPlanPrompt determinism
 // ---------------------------------------------------------------------------
 
 describe('PP1 — buildPlanPrompt determinism', () => {
-  test.prop(
-    [
-      nonEmptyLedgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
-    fcParams,
-  )('same inputs → identical prompt string', ({ ledger, scored }) => {
-    const prompt1 = buildPlanPrompt(ledger, scored);
-    const prompt2 = buildPlanPrompt(ledger, scored);
-
-    expect(prompt1).toBe(prompt2);
-  });
+  test.prop([pairArb(nonEmptyLedgerArb)], fcParams)(
+    'same inputs → identical { system, user }',
+    ({ ledger, scored }) => {
+      expect(buildPlanPrompt(ledger, scored)).toEqual(buildPlanPrompt(ledger, scored));
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
-// PP2 — buildPlanPrompt includes evidence block
+// PP2–PP4 — the user turn holds the ledger and the score; system holds the format
 // ---------------------------------------------------------------------------
 
-describe('PP2 — buildPlanPrompt always includes evidence block', () => {
-  test.prop(
-    [
-      nonEmptyLedgerArb.chain((ledger) =>
-        scoredResultArb.map((scored) => ({ ledger, scored })),
-      ),
-    ],
-    fcParams,
-  )('prompt always contains [EVIDENCE] block', ({ ledger, scored }) => {
-    const prompt = buildPlanPrompt(ledger, scored);
-
-    expect(prompt).toContain('[EVIDENCE]');
-  });
+describe('PP2 — buildPlanPrompt always includes the ledger in user', () => {
+  test.prop([pairArb(nonEmptyLedgerArb)], fcParams)(
+    'user contains <ledger> … </ledger>',
+    ({ ledger, scored }) => {
+      const { user } = buildPlanPrompt(ledger, scored);
+      expect(user.startsWith('<ledger>\n')).toBe(true);
+      expect(user).toContain('\n</ledger>');
+    },
+  );
 });
 
-// ---------------------------------------------------------------------------
-// PP3 — buildPlanPrompt includes score block
-// ---------------------------------------------------------------------------
-
-describe('PP3 — buildPlanPrompt always includes score block', () => {
-  test.prop(
-    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
-    fcParams,
-  )('prompt always contains [SCORE] block', ({ ledger, scored }) => {
-    const prompt = buildPlanPrompt(ledger, scored);
-
-    expect(prompt).toContain('[SCORE]');
-  });
+describe('PP3 — buildPlanPrompt always includes the score block in user', () => {
+  test.prop([pairArb(ledgerArb)], fcParams)(
+    'user contains exactly one <score> element',
+    ({ ledger, scored }) => {
+      const { user } = buildPlanPrompt(ledger, scored);
+      expect(user.split('<score ').length - 1).toBe(1);
+      expect(user.split('</score>').length - 1).toBe(1);
+    },
+  );
 });
 
-// ---------------------------------------------------------------------------
-// PP4 — buildPlanPrompt includes response format block
-// ---------------------------------------------------------------------------
-
-describe('PP4 — buildPlanPrompt always includes response format', () => {
-  test.prop(
-    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
-    fcParams,
-  )('prompt always contains [RESPONSE FORMAT] block', ({ ledger, scored }) => {
-    const prompt = buildPlanPrompt(ledger, scored);
-
-    expect(prompt).toContain('[RESPONSE FORMAT]');
-  });
+describe('PP4 — buildPlanPrompt system holds the response format', () => {
+  test.prop([pairArb(ledgerArb)], fcParams)(
+    'system describes the plan fields and the tool call',
+    ({ ledger, scored }) => {
+      const { system } = buildPlanPrompt(ledger, scored);
+      expect(system).toContain('characterizationTests');
+      expect(system).toContain('doNotTouchList');
+      expect(system).toContain('Answer by calling the refactor_plan tool exactly once.');
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -201,36 +187,163 @@ describe('PP4 — buildPlanPrompt always includes response format', () => {
 // ---------------------------------------------------------------------------
 
 describe('PP5 — buildPlanPrompt score value serialization', () => {
-  test.prop(
-    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
-    fcParams,
-  )('prompt score attribute matches ScoredResult.score', ({ ledger, scored }) => {
-    const prompt = buildPlanPrompt(ledger, scored);
-
-    // Extract the score attribute from the <score overall="X"> tag
-    const scoreMatch = prompt.match(/overall="(\d+)"/);
-    expect(scoreMatch).not.toBeNull();
-
-    if (scoreMatch) {
-      const scoreInPrompt = parseInt(scoreMatch[1]!, 10);
-      expect(scoreInPrompt).toBe(scored.score);
-    }
-  });
+  test.prop([pairArb(ledgerArb)], fcParams)(
+    'user score attribute matches ScoredResult.score',
+    ({ ledger, scored }) => {
+      const { user } = buildPlanPrompt(ledger, scored);
+      const scoreMatch = user.match(/<score overall="(\d+)">/);
+      expect(scoreMatch).not.toBeNull();
+      if (scoreMatch) {
+        expect(parseInt(scoreMatch[1]!, 10)).toBe(scored.score);
+      }
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
-// PP6 — buildPlanPrompt system block warning
+// PP6 — buildPlanPrompt system rules
 // ---------------------------------------------------------------------------
 
-describe('PP6 — buildPlanPrompt includes citation enforcement warning', () => {
-  test.prop(
-    [ledgerArb.chain((ledger) => scoredResultArb.map((scored) => ({ ledger, scored })))],
-    fcParams,
-  )('prompt contains system-level warning about citations', ({ ledger, scored }) => {
-    const prompt = buildPlanPrompt(ledger, scored);
+describe('PP6 — buildPlanPrompt includes citation enforcement rules in system', () => {
+  test.prop([pairArb(ledgerArb)], fcParams)(
+    'system warns about citations and quotes',
+    ({ ledger, scored }) => {
+      const { system } = buildPlanPrompt(ledger, scored);
+      expect(system).toMatch(/claim must cite.*SHA/i);
+      expect(system).toContain('every citation carries a quote');
+    },
+  );
+});
 
-    // Ensure the system block warns about SHA citations
-    expect(prompt).toContain('[SYSTEM]');
-    expect(prompt).toMatch(/claim must cite.*SHA/i);
+// ---------------------------------------------------------------------------
+// CP12 — plan verification (R7.1, R7.2, R7.6)
+// ---------------------------------------------------------------------------
+
+/** A small ledger with distinct short hashes and quotable subjects. */
+const cp12LedgerArb: fc.Arbitrary<LedgerResult> = fc
+  .uniqueArray(sha40Arb, { minLength: 1, maxLength: 4, selector: (s) => s.slice(0, 7) })
+  .map((shas) => ({
+    items: shas.map((sha, i) => ({
+      id: `E${i + 1}`,
+      sha,
+      shortSha: sha.slice(0, 7),
+      author: 'Plain Author',
+      email: 'a@example.com',
+      date: '2015-06-01T00:00:00.000Z',
+      subject: `subject number ${i} of the plan ledger`,
+      body: '',
+      hunk: '',
+      files: ['f.js'],
+      refs: [],
+      suspiciousMessage: i % 2 === 1,
+    })) as unknown as readonly EvidenceItem[],
+    truncated: false,
+    buildDurationMs: 0,
+  }));
+
+/** Claims of every kind: valid, misquoted, quoteless, unknown commit, silence, malformed. */
+function claimArb(ledger: LedgerResult): fc.Arbitrary<unknown> {
+  const n = ledger.items.length;
+  return fc.oneof(
+    fc.integer({ min: 0, max: n - 1 }).map((i) => ({
+      kind: 'memory',
+      text: 'A cited claim.',
+      citations: [
+        { sha7: ledger.items[i]!.shortSha, quote: `subject number ${i} of the plan` },
+      ],
+    })),
+    fc.integer({ min: 0, max: n - 1 }).map((i) => ({
+      kind: 'speculation',
+      text: 'A guess.',
+      citations: [{ sha7: ledger.items[i]!.shortSha, quote: 'not in any commit' }],
+    })),
+    fc.integer({ min: 0, max: n - 1 }).map((i) => ({
+      kind: 'memory',
+      text: 'Quoteless.',
+      citations: [{ sha7: ledger.items[i]!.shortSha }],
+    })),
+    sha7Arb.map((sha7) => ({
+      kind: 'memory',
+      text: 'Unknown commit.',
+      citations: [{ sha7, quote: 'subject number 0 of the plan' }],
+    })),
+    fc.constant({
+      kind: 'silence',
+      text: 'Silent.',
+      citations: [],
+      silenceReason: 'Why?',
+    }),
+    fc.anything(),
+  );
+}
+
+const planArb = cp12LedgerArb.chain((ledger) => {
+  const claims = fc.array(claimArb(ledger), { minLength: 1, maxLength: 4 });
+  const stepArb = fc.record({
+    description: fc.string({ minLength: 1, maxLength: 20 }),
+    rationale: fc.string({ minLength: 1, maxLength: 20 }),
+    claims,
+    reversible: fc.boolean(),
   });
+  const entryArb = fc
+    .tuple(fc.integer({ min: 1, max: 50 }), fc.integer({ min: 0, max: 5 }), claims)
+    .map(([start, len, cs]) => ({
+      lineRange: { start, end: start + len },
+      reason: 'kept for a reason',
+      claims: cs,
+    }));
+  return fc
+    .record({
+      steps: fc.array(stepArb, { minLength: 1, maxLength: 4 }),
+      doNotTouchList: fc.array(entryArb, { maxLength: 3 }),
+    })
+    .map((p) => ({
+      ledger,
+      plan: RefactorPlanSchema.parse({
+        characterizationTests: ['a test'],
+        summary: 'a summary',
+        ...p,
+      }),
+    }));
+});
+
+describe('CP12 — plan verification', () => {
+  test.prop([planArb], fcParams)(
+    'shown entries have a verified claim, nothing is lost, the tally covers all three lists',
+    ({ ledger, plan }) => {
+      const result = verifyPlanClaims(ledger, plan);
+
+      for (const s of result.steps) expect(s.claims.length).toBeGreaterThanOrEqual(1);
+      for (const e of result.doNotTouchList)
+        expect(e.claims.length).toBeGreaterThanOrEqual(1);
+      for (const d of result.dropped)
+        expect(d.rejectedClaims.length).toBeGreaterThanOrEqual(1);
+
+      expect(
+        result.steps.length + result.doNotTouchList.length + result.dropped.length,
+      ).toBe(plan.steps.length + plan.doNotTouchList.length);
+      expect(
+        result.dropped.filter((d) => d.kind === 'step').length + result.steps.length,
+      ).toBe(plan.steps.length);
+
+      const inputClaims = [...plan.steps, ...plan.doNotTouchList].reduce(
+        (n, x) => n + x.claims.length,
+        0,
+      );
+      const verified =
+        result.steps.reduce((n, s) => n + s.claims.length, 0) +
+        result.doNotTouchList.reduce((n, e) => n + e.claims.length, 0);
+      const rejected =
+        result.steps.reduce((n, s) => n + s.rejectedClaims.length, 0) +
+        result.doNotTouchList.reduce((n, e) => n + e.rejectedClaims.length, 0) +
+        result.dropped.reduce((n, d) => n + d.rejectedClaims.length, 0);
+      expect(verified + rejected).toBe(inputClaims);
+      expect(result.verifierScore).toBeCloseTo(
+        verified + rejected === 0 ? 1 : verified / (verified + rejected),
+        12,
+      );
+      expect(result.verifierScore).toBeGreaterThanOrEqual(0);
+      expect(result.verifierScore).toBeLessThanOrEqual(1);
+    },
+  );
 });

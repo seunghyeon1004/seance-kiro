@@ -124,3 +124,70 @@ describe('P5 — isSuspicious detects all known injection strings', () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// CP11 (ward-hardening T4) — every old and new needle triggers with any ASCII context
+// ---------------------------------------------------------------------------
+
+const CP11_NEEDLES = [
+  // old list (R6.2)
+  'ignore previous instructions',
+  'ignore all instructions',
+  'system:',
+  '<|',
+  '<!-- ',
+  '[INST]',
+  '[/INST]',
+  '<<SYS>>',
+  // new list (design.md §7)
+  'ignore previous',
+  'ignore all previous',
+  'ignore the above',
+  'ignore your',
+  'disregard',
+  'forget your',
+  'forget all',
+  'new instructions',
+  'you are now',
+  'you must now',
+  'pretend to be',
+  'note to the ai',
+  'note to the model',
+  'to the assistant',
+  'assistant:',
+  'system prompt',
+  '[system]',
+  '### instruction',
+  '<!--',
+  '<evidence',
+  '</evidence',
+  '<ledger',
+  '</ledger',
+  '<question',
+  '</question',
+  '<persona',
+  'do not tell the user',
+  'always say',
+  'always answer',
+  'never need quotes',
+  'without a quote',
+  'without quotes',
+  'silencereason',
+  '"kind"',
+  '"citations"',
+  'sha7=',
+  'tool_use',
+  'ghost_answer',
+  'refactor_plan',
+];
+
+const asciiString = (maxLength: number): fc.Arbitrary<string> =>
+  fc.string({ unit: 'binary-ascii', maxLength });
+
+describe('CP11 — needles (R6.1, R6.2)', () => {
+  test.prop([fc.constantFrom(...CP11_NEEDLES), asciiString(60), asciiString(60)], {
+    numRuns: 2_000,
+  })('isSuspicious(a + needle + b) is true for any ASCII a, b', (needle, a, b) => {
+    return isSuspicious(a + needle + b) === true;
+  });
+});

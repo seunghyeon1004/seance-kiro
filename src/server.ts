@@ -465,22 +465,9 @@ app.post('/api/exorcise', async (c) => {
     // Reset session expiry (sliding window)
     session.expiresAt = nowMs + SESSION_TTL_MS;
 
-    const isProduction = REDACT;
-
-    // In production, redact rejected claim text in steps and doNotTouchList
-    const redactedSteps = plan.steps.map((step) => ({
-      ...step,
-      rejectedClaims: step.rejectedClaims.map((claim) =>
-        isProduction ? { ...claim, text: REDACTED_TEXT } : claim,
-      ),
-    }));
-
-    const redactedDoNotTouchList = plan.doNotTouchList.map((entry) => ({
-      ...entry,
-      rejectedClaims: entry.rejectedClaims.map((claim) =>
-        isProduction ? { ...claim, text: REDACTED_TEXT } : claim,
-      ),
-    }));
+    // With REDACT_REJECTED=1, rejected claim text and the model's words in dropped entries are hidden
+    const redactRejected = <T extends { text: string }>(r: T): T =>
+      REDACT ? { ...r, text: REDACTED_TEXT } : r;
 
     return c.json(
       ExorciseResponseSchema.parse({
@@ -490,8 +477,20 @@ app.post('/api/exorcise', async (c) => {
         markerLocations: scoredResult.markerLocations,
         plan: {
           characterizationTests: plan.characterizationTests,
-          steps: redactedSteps,
-          doNotTouchList: redactedDoNotTouchList,
+          steps: plan.steps.map((step) => ({
+            ...step,
+            rejectedClaims: step.rejectedClaims.map(redactRejected),
+          })),
+          doNotTouchList: plan.doNotTouchList.map((entry) => ({
+            ...entry,
+            rejectedClaims: entry.rejectedClaims.map(redactRejected),
+          })),
+          dropped: plan.dropped.map((d) => ({
+            ...d,
+            title: REDACT ? REDACTED_TEXT : d.title,
+            modelText: REDACT ? REDACTED_TEXT : d.modelText,
+            rejectedClaims: d.rejectedClaims.map(redactRejected),
+          })),
           summary: plan.summary,
         },
         verifierScore: plan.verifierScore,

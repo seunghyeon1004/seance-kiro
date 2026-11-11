@@ -830,8 +830,49 @@ describe('plan claims: model output vs verified output', () => {
     const { RefactorStepSchema } = await import('../../src/ghost/schema.js');
     expect(RefactorStepSchema.safeParse(step).success).toBe(false);
   });
-  it('after the ward, a step whose claims were all rejected still parses', async () => {
-    const { VerifiedRefactorStepSchema } = await import('../../src/ghost/schema.js');
-    expect(VerifiedRefactorStepSchema.safeParse(step).success).toBe(true);
+  it('the model may send at most MAX_CLAIMS claims per step (ward-hardening T2)', async () => {
+    const { RefactorStepSchema, MAX_CLAIMS } = await import('../../src/ghost/schema.js');
+    const claim = { kind: 'memory', text: 't', citations: [] };
+    expect(
+      RefactorStepSchema.safeParse({ ...step, claims: Array(MAX_CLAIMS).fill(claim) })
+        .success,
+    ).toBe(true);
+    expect(
+      RefactorStepSchema.safeParse({ ...step, claims: Array(MAX_CLAIMS + 1).fill(claim) })
+        .success,
+    ).toBe(false);
+  });
+  it('a shown plan step needs a verified claim; a dropped entry carries none (ward-hardening T2)', async () => {
+    type Parser = { safeParse(v: unknown): { success: boolean } };
+    const {
+      PlanStepResponseSchema,
+      PlanDroppedResponseSchema,
+      VerifiedRefactorStepSchema,
+    } = (await import('../../src/ghost/schema.js')) as unknown as {
+      PlanStepResponseSchema: Parser;
+      PlanDroppedResponseSchema: Parser;
+      VerifiedRefactorStepSchema?: unknown;
+    };
+    expect(VerifiedRefactorStepSchema).toBeUndefined();
+    expect(
+      PlanStepResponseSchema.safeParse({
+        description: 'Add a comment',
+        rationale: 'Keeps the reason',
+        reversible: true,
+        claims: [],
+        rejectedClaims: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      PlanDroppedResponseSchema.safeParse({
+        kind: 'step',
+        title: 'Add a comment',
+        modelText: 'Keeps the reason',
+        dropReason: 'The ward verified none of the claims behind this step.',
+        rejectedClaims: [
+          { text: 't', kind: 'memory', reason: 'r', citesSuspicious: false },
+        ],
+      }).success,
+    ).toBe(true);
   });
 });

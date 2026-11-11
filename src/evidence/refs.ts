@@ -86,30 +86,101 @@ export function parseRefs(text: string): string[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Known prompt-injection substrings.
- * Patterns are fixed strings or very simple bounded checks — no ReDoS risk.
+ * Known prompt-injection substrings (ward-hardening design.md §7), lower case.
+ * Fixed strings compared with `includes` — no regular expression, no ReDoS risk (R6.1).
  */
-const INJECTION_NEEDLES: string[] = [
+const INJECTION_NEEDLES: readonly string[] = [
+  // The original list; every entry must still trigger (R6.2)
   'ignore previous instructions',
   'ignore all instructions',
   'system:',
   '<|',
   '<!-- ',
-  '[INST]',
-  '[/INST]',
-  '<<SYS>>',
+  '[inst]',
+  '[/inst]',
+  '<<sys>>',
+  // Added by ward-hardening
+  'ignore previous',
+  'ignore all previous',
+  'ignore the above',
+  'ignore your',
+  'disregard',
+  'forget your',
+  'forget all',
+  'new instructions',
+  'you are now',
+  'you must now',
+  'pretend to be',
+  'note to the ai',
+  'note to the model',
+  'to the assistant',
+  'assistant:',
+  'system prompt',
+  '[system]',
+  '### instruction',
+  '<!--',
+  '<evidence',
+  '</evidence',
+  '<ledger',
+  '</ledger',
+  '<question',
+  '</question',
+  '<persona',
+  'do not tell the user',
+  'always say',
+  'always answer',
+  'never need quotes',
+  'without a quote',
+  'without quotes',
+  'silencereason',
+  '"kind"',
+  '"citations"',
+  'sha7=',
+  'tool_use',
+  'ghost_answer',
+  'refactor_plan',
 ];
+
+/** Zero-width and invisible characters removed before matching (design.md §7 step 2). */
+const INVISIBLE_CHARS: ReadonlySet<string> = new Set([
+  '\u200B',
+  '\u200C',
+  '\u200D',
+  '\u2060',
+  '\uFEFF',
+]);
+
+/**
+ * Normalise text for needle matching (design.md §7): NFKC, drop invisible characters,
+ * collapse each run of whitespace to one space, lower-case. No regular expression:
+ * a single character is whitespace when `trim()` empties it, which is the same set as `\s`.
+ */
+function normaliseForNeedles(text: string): string {
+  let out = '';
+  let inSpace = false;
+  for (const ch of text.normalize('NFKC')) {
+    if (INVISIBLE_CHARS.has(ch)) continue;
+    if (ch.trim() === '') {
+      if (!inSpace) out += ' ';
+      inSpace = true;
+      continue;
+    }
+    out += ch;
+    inSpace = false;
+  }
+  return out.toLowerCase();
+}
 
 /**
  * Return `true` if `text` contains a substring that looks like a
- * prompt-injection attempt (R11.3).
+ * prompt-injection attempt (R11.3, ward-hardening R6.1).
  *
- * Uses simple fixed-string `includes` checks — no regex, no ReDoS risk.
+ * Normalises once, then uses fixed-string `includes` checks — no regex, no ReDoS risk.
  */
 export function isSuspicious(text: string): boolean {
-  const lower = text.toLowerCase();
+  const normalised = normaliseForNeedles(text);
   for (const needle of INJECTION_NEEDLES) {
-    if (lower.includes(needle.toLowerCase())) return true;
+    if (normalised.includes(needle)) return true;
   }
   return false;
 }

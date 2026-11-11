@@ -3,6 +3,10 @@
  *
  * The Anthropic client is injectable so tests can provide a scripted fake
  * without hitting the network.
+ *
+ * ward-hardening design.md §6: the prompt travels as { system, user } (R5.1), fixtures are
+ * keyed by promptHash (R5.7), and the plan is read as the raw refactor_plan tool input
+ * with no answer envelope (R7.7).
  */
 
 import { createHash } from 'node:crypto';
@@ -10,8 +14,18 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
-import { GhostAnswerWireSchema } from './schema.js';
-import type { GhostAnswerWire } from './schema.js';
+import type { ZodType, ZodTypeDef } from 'zod';
+import {
+  GhostAnswerWireSchema,
+  MAX_CITATIONS,
+  MAX_CLAIMS,
+  QUOTE_MAX_CHARS,
+  QUOTE_MIN_CHARS,
+  RefactorPlanSchema,
+  SILENCE_MAX_CHARS,
+} from './schema.js';
+import type { GhostAnswerWire, RefactorPlan } from './schema.js';
+import type { ModelPrompt } from './persona.js';
 import { ConfigError, TimeoutError, ParseError } from '../errors.js';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +48,7 @@ export interface AnthropicClient {
 export interface AnthropicCreateParams {
   model: string;
   max_tokens: number;
+  system: string;
   tools: AnthropicTool[];
   tool_choice?: { type: 'any' };
   messages: Array<{ role: 'user'; content: string }>;
@@ -78,56 +93,107 @@ function makeDefaultClient(apiKey: string): AnthropicClient {
 const MODEL_ID = 'claude-sonnet-5-5';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-// Path to fixture directory (relative to project root, resolved at runtime)
-const FIXTURE_DIR = join(
-  fileURLToPath(import.meta.url),
-  // src/ghost/llm.ts → ../../.. = project root
-  '../../../test/fixtures/ghost-answers',
-);
+// src/ghost/llm.ts → ../../.. = project root
+const FIXTURES_ROOT = join(fileURLToPath(import.meta.url), '../../../test/fixtures');
+const GHOST_FIXTURE_DIR = join(FIXTURES_ROOT, 'ghost-answers');
+const PLAN_FIXTURE_DIR = join(FIXTURES_ROOT, 'exorcism-plans');
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
+/** sha256(system + "\n\u0000\n" + user), first 8 hex characters. Fixture key (R5.7). */
+export function promptHash(p: ModelPrompt): string {
+  return createHash('sha256')
+    .update(p.system + '\n\u0000\n' + p.user)
+    .digest('hex')
+    .slice(0, 8);
+}
+
 /**
- * Send a prompt to the LLM and return the answer with its envelope Zod-validated.
- * Each claim is left for the verifier to check on its own (ward-hardening R1.8),
- * so a quoteless claim is struck by the ward instead of failing the whole answer.
+ * Ask the ghost. Returns the answer with its envelope Zod-validated; each claim is left
+ * for the verifier to check on its own (R1.8), so a quoteless claim is struck by the ward
+ * instead of failing the whole answer.
  *
- * @param prompt    - Full prompt string from buildPrompt().
- * @param sessionId - Used to validate the model's echoed sessionId.
+ * @param prompt    - { system, user } from buildPrompt().
+ * @param sessionId - The session the answer belongs to (the system text asks the model to echo it).
  * @param client    - Injectable Anthropic client (defaults to real SDK client).
  */
 export async function askGhost(
-  prompt: string,
+  prompt: ModelPrompt,
   sessionId: string,
   client?: AnthropicClient,
-  opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
 ): Promise<GhostAnswerWire> {
+  return withOneRetry(async () => {
+    if (process.env['ANTHROPIC_FIXTURE'] === '1') {
+      return loadFixture(
+        GHOST_FIXTURE_DIR,
+        prompt,
+        GhostAnswerWireSchema,
+        'GhostAnswerWireSchema',
+      );
+    }
+    const input = await callTool(prompt, GHOST_TOOL, client);
+    return parseOrThrow(
+      input,
+      GhostAnswerWireSchema,
+      'LLM response',
+      'GhostAnswerWireSchema',
+    );
+  });
+}
+
+/**
+ * Ask for an exorcism plan. Returns the refactor_plan tool input validated with
+ * RefactorPlanSchema (claims are unknown[] and checked by the verifier, R7.3).
+ *
+ * @param prompt - { system, user } from buildPlanPrompt().
+ * @param client - Injectable Anthropic client (defaults to real SDK client).
+ */
+export async function askPlan(
+  prompt: ModelPrompt,
+  client?: AnthropicClient,
+): Promise<RefactorPlan> {
+  return withOneRetry(async () => {
+    if (process.env['ANTHROPIC_FIXTURE'] === '1') {
+      return loadFixture(
+        PLAN_FIXTURE_DIR,
+        prompt,
+        RefactorPlanSchema,
+        'RefactorPlanSchema',
+      );
+    }
+    const input = await callTool(prompt, PLAN_TOOL, client);
+    return parseOrThrow(input, RefactorPlanSchema, 'LLM response', 'RefactorPlanSchema');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shared call path
+// ---------------------------------------------------------------------------
+
+/**
+ * The model occasionally answers in prose or breaks the envelope; one retry is cheap and
+ * invisible to the user. Only ParseError is retried, and never in fixture mode.
+ */
+async function withOneRetry<T>(once: () => Promise<T>): Promise<T> {
   try {
-    return await askGhostOnce(prompt, sessionId, client, opts);
+    return await once();
   } catch (err) {
-    // The model occasionally answers in prose or breaks the schema; one retry is cheap and invisible to the user.
     if (err instanceof ParseError && process.env['ANTHROPIC_FIXTURE'] !== '1') {
-      return askGhostOnce(prompt, sessionId, client, opts);
+      return once();
     }
     throw err;
   }
 }
 
-async function askGhostOnce(
-  prompt: string,
-  sessionId: string,
+/** Send { system, user } with one tool and return the tool_use block's raw input. */
+async function callTool(
+  prompt: ModelPrompt,
+  tool: AnthropicTool,
   client?: AnthropicClient,
-  opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
-): Promise<GhostAnswerWire> {
-  const planMode = opts.tool === 'refactor_plan';
-  // Fixture mode — no network call
-  if (process.env['ANTHROPIC_FIXTURE'] === '1') {
-    return loadFixture(prompt, planMode);
-  }
-
-  // Read API key at call time
+): Promise<unknown> {
+  // Read API key at call time; required even with an injected client
   const apiKey = process.env['ANTHROPIC_API_KEY'];
   if (!apiKey || apiKey.trim() === '') {
     throw new ConfigError(
@@ -137,12 +203,6 @@ async function askGhostOnce(
 
   const resolvedClient = client ?? makeDefaultClient(apiKey);
 
-  // Build JSON schema from GhostAnswerSchema for tool-use JSON mode
-  const toolInputSchema = planMode
-    ? buildRefactorPlanJsonSchema()
-    : buildGhostAnswerJsonSchema();
-
-  // AbortController for timeout
   const timeoutMs = process.env['LLM_TIMEOUT_MS']
     ? parseInt(process.env['LLM_TIMEOUT_MS'], 10)
     : DEFAULT_TIMEOUT_MS;
@@ -150,40 +210,27 @@ async function askGhostOnce(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  // DEBUG: the system text and the size of the user turn, never the ledger text
+  if (process.env['DEBUG']) {
+    console.debug('[DEBUG] model system:', prompt.system);
+    console.debug('[DEBUG] model user turn length:', prompt.user.length);
+  }
+
   let rawResponse: AnthropicMessage;
   try {
     rawResponse = await resolvedClient.messages.create(
       {
         model: MODEL_ID,
         max_tokens: 4096,
-        tools: [
-          planMode
-            ? {
-                name: 'refactor_plan',
-                description:
-                  'The exorcism plan: characterization tests, small reversible steps and a do-not-touch list, every claim cited to the Evidence Ledger.',
-                input_schema: toolInputSchema,
-              }
-            : {
-                name: 'ghost_answer',
-                description:
-                  'Structured answer from the ghost persona. Must conform to GhostAnswerSchema.',
-                input_schema: toolInputSchema,
-              },
-        ],
-        // claude-sonnet-5-5 rejects forced tool_choice, so the prompt tells it to call the tool exactly once
-        messages: [
-          {
-            role: 'user',
-            content: `${prompt}\n\nAnswer by calling the ${planMode ? 'refactor_plan' : 'ghost_answer'} tool exactly once. Do not reply in prose.`,
-          },
-        ],
+        // claude-sonnet-5-5 rejects forced tool_choice, so the system text asks for exactly one tool call
+        system: prompt.system,
+        tools: [tool],
+        messages: [{ role: 'user', content: prompt.user }],
       },
       { signal: controller.signal },
     );
   } catch (err: unknown) {
     clearTimeout(timer);
-    // Check for abort / timeout
     if (
       err instanceof Error &&
       (err.name === 'AbortError' ||
@@ -194,106 +241,45 @@ async function askGhostOnce(
     }
     // Redact API key from error messages
     const message = err instanceof Error ? err.message : String(err);
-    const redacted = message.replaceAll(apiKey, '[REDACTED]');
-    throw new Error(redacted);
+    throw new Error(message.replaceAll(apiKey, '[REDACTED]'));
   }
 
   clearTimeout(timer);
 
-  // Extract tool_use block
   const toolUseBlock = rawResponse.content.find((b) => b.type === 'tool_use');
   if (!toolUseBlock) {
     throw new ParseError('LLM response contained no tool_use block');
   }
+  return toolUseBlock.input;
+}
 
-  // Log DEBUG (with ledger text redacted)
-  if (process.env['DEBUG']) {
-    const promptRedacted = prompt.replace(
-      /<evidence[^>]*>[\s\S]*?<\/evidence>/g,
-      '[LEDGER REDACTED]',
-    );
-    console.debug('[DEBUG] ghost prompt (redacted):', promptRedacted);
-    console.debug('[DEBUG] ghost answer raw:', JSON.stringify(toolUseBlock.input));
-  }
-
-  if (planMode) {
-    // The plan travels through the same answer envelope the rest of the pipeline expects:
-    // one claim whose text is the plan JSON (src/exorcism/plan.ts parses and verifies every inner claim).
-    // The envelope claim itself is never verified (ward-hardening T2 removes it, R7.7).
-    const envelope: GhostAnswerWire = {
-      voice: 'exorcist',
-      sessionId,
-      claims: [
-        {
-          kind: 'memory',
-          text: JSON.stringify(toolUseBlock.input),
-          citations: [{ sha7: '0000000' }],
-        },
-      ],
-    };
-    return envelope;
-  }
-
-  // Parse and validate the envelope; each claim is checked by the verifier
-  const parsed = GhostAnswerWireSchema.safeParse(toolUseBlock.input);
+function parseOrThrow<T>(
+  input: unknown,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+  what: string,
+  schemaName: string,
+): T {
+  const parsed = schema.safeParse(input);
   if (!parsed.success) {
     throw new ParseError(
-      `LLM response failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
+      `${what} failed ${schemaName} validation: ${parsed.error.message}`,
     );
   }
-
   return parsed.data;
 }
 
 // ---------------------------------------------------------------------------
-// Fixture mode
+// Fixture mode — one directory per function, no fallback
 // ---------------------------------------------------------------------------
 
-async function loadFixture(
-  prompt: string,
-  planMode: boolean = false,
-): Promise<GhostAnswerWire> {
-  const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
-
-  // For refactor plans, look in exorcism-plans first, then fall back to ghost-answers
-  let fixturePath: string;
-  if (planMode) {
-    const planFixtureDir = join(
-      fileURLToPath(import.meta.url),
-      '../../../test/fixtures/exorcism-plans',
-    );
-    fixturePath = join(planFixtureDir, `${hash}.json`);
-
-    // Try exorcism-plans first
-    try {
-      const raw = await readFile(fixturePath, 'utf8');
-      let json: unknown;
-      try {
-        json = JSON.parse(raw);
-      } catch {
-        throw new ParseError(`Fixture file ${fixturePath} is not valid JSON`);
-      }
-
-      const parsed = GhostAnswerWireSchema.safeParse(json);
-      if (!parsed.success) {
-        throw new ParseError(
-          `Fixture file ${fixturePath} failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
-        );
-      }
-
-      return parsed.data;
-    } catch (err) {
-      // If not found or failed, fall back to ghost-answers
-      if (!(err instanceof Error) || !err.message.includes('ENOENT')) {
-        // Re-throw if it's a validation error, not a file-not-found
-        if (err instanceof ParseError) throw err;
-      }
-      // Fall through to ghost-answers
-    }
-  }
-
-  // Fall back to ghost-answers for both non-plan mode and when plan fixture not found
-  fixturePath = join(FIXTURE_DIR, `${hash}.json`);
+async function loadFixture<T>(
+  dir: string,
+  prompt: ModelPrompt,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+  schemaName: string,
+): Promise<T> {
+  const hash = promptHash(prompt);
+  const fixturePath = join(dir, `${hash}.json`);
 
   let raw: string;
   try {
@@ -311,41 +297,54 @@ async function loadFixture(
     throw new ParseError(`Fixture file ${fixturePath} is not valid JSON`);
   }
 
-  const parsed = GhostAnswerWireSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new ParseError(
-      `Fixture file ${fixturePath} failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
-    );
-  }
-
-  return parsed.data;
+  return parseOrThrow(json, schema, `Fixture file ${fixturePath}`, schemaName);
 }
 
 // ---------------------------------------------------------------------------
-// JSON Schema builder
+// Tool JSON schemas (R1.2)
 // ---------------------------------------------------------------------------
 
 const CITATION_SCHEMA = {
   type: 'object',
-  required: ['sha7'],
+  required: ['sha7', 'quote'],
   properties: {
     sha7: { type: 'string', pattern: '^[0-9a-f]{7}$' },
-    quote: { type: 'string', minLength: 1 },
-  },
-};
-const PLAN_CLAIM_SCHEMA = {
-  type: 'object',
-  required: ['kind', 'text', 'citations'],
-  properties: {
-    kind: { type: 'string', enum: ['memory', 'speculation'] },
-    text: { type: 'string', minLength: 1 },
-    citations: { type: 'array', minItems: 1, items: CITATION_SCHEMA },
+    quote: { type: 'string', minLength: QUOTE_MIN_CHARS, maxLength: QUOTE_MAX_CHARS },
   },
 };
 
-/** JSON Schema for the exorcism plan tool; matches RefactorPlanSchema in schema.ts. */
-function buildRefactorPlanJsonSchema(): { type: 'object'; [k: string]: unknown } {
+const CITATIONS_SCHEMA = {
+  type: 'array',
+  minItems: 1,
+  maxItems: MAX_CITATIONS,
+  items: CITATION_SCHEMA,
+};
+
+function citedClaimSchema(kinds: string[]): Record<string, unknown> {
   return {
+    type: 'object',
+    required: ['kind', 'text', 'citations'],
+    properties: {
+      kind: { type: 'string', enum: kinds },
+      text: { type: 'string', minLength: 1 },
+      citations: CITATIONS_SCHEMA,
+    },
+  };
+}
+
+const PLAN_CLAIMS_SCHEMA = {
+  type: 'array',
+  minItems: 1,
+  maxItems: MAX_CLAIMS,
+  items: citedClaimSchema(['memory', 'speculation']),
+};
+
+/** JSON Schema for the exorcism plan tool; matches RefactorPlanSchema in schema.ts. */
+const PLAN_TOOL: AnthropicTool = {
+  name: 'refactor_plan',
+  description:
+    'The exorcism plan: characterization tests, small reversible steps and a do-not-touch list, every claim cited and quoted from the Evidence Ledger.',
+  input_schema: {
     type: 'object',
     required: ['characterizationTests', 'steps', 'doNotTouchList', 'summary'],
     properties: {
@@ -363,7 +362,7 @@ function buildRefactorPlanJsonSchema(): { type: 'object'; [k: string]: unknown }
           properties: {
             description: { type: 'string', minLength: 1, maxLength: 512 },
             rationale: { type: 'string', minLength: 1, maxLength: 256 },
-            claims: { type: 'array', minItems: 1, items: PLAN_CLAIM_SCHEMA },
+            claims: PLAN_CLAIMS_SCHEMA,
             reversible: { type: 'boolean' },
           },
         },
@@ -383,24 +382,21 @@ function buildRefactorPlanJsonSchema(): { type: 'object'; [k: string]: unknown }
               },
             },
             reason: { type: 'string', minLength: 1, maxLength: 512 },
-            claims: { type: 'array', minItems: 1, items: PLAN_CLAIM_SCHEMA },
+            claims: PLAN_CLAIMS_SCHEMA,
           },
         },
       },
       summary: { type: 'string', minLength: 1, maxLength: 1024 },
     },
-  };
-}
+  },
+};
 
-/**
- * Build a JSON Schema object for the tool input_schema parameter.
- * This is hand-crafted to match GhostAnswerSchema exactly.
- */
-function buildGhostAnswerJsonSchema(): {
-  type: 'object';
-  [k: string]: unknown;
-} {
-  return {
+/** JSON Schema for the ghost answer tool; matches GhostAnswerSchema in schema.ts. */
+const GHOST_TOOL: AnthropicTool = {
+  name: 'ghost_answer',
+  description:
+    'Structured answer from the ghost persona. Every memory and speculation claim cites and quotes the Evidence Ledger.',
+  input_schema: {
     type: 'object',
     required: ['claims', 'voice', 'sessionId'],
     properties: {
@@ -409,67 +405,28 @@ function buildGhostAnswerJsonSchema(): {
       claims: {
         type: 'array',
         minItems: 1,
+        maxItems: MAX_CLAIMS,
         items: {
           oneOf: [
-            {
-              type: 'object',
-              required: ['kind', 'text', 'citations'],
-              properties: {
-                kind: { type: 'string', enum: ['memory'] },
-                text: { type: 'string', minLength: 1 },
-                citations: {
-                  type: 'array',
-                  minItems: 1,
-                  items: {
-                    type: 'object',
-                    required: ['sha7'],
-                    properties: {
-                      sha7: {
-                        type: 'string',
-                        pattern: '^[0-9a-f]{7}$',
-                      },
-                      quote: { type: 'string', minLength: 1 },
-                    },
-                  },
-                },
-              },
-            },
-            {
-              type: 'object',
-              required: ['kind', 'text', 'citations'],
-              properties: {
-                kind: { type: 'string', enum: ['speculation'] },
-                text: { type: 'string', minLength: 1 },
-                citations: {
-                  type: 'array',
-                  minItems: 1,
-                  items: {
-                    type: 'object',
-                    required: ['sha7'],
-                    properties: {
-                      sha7: {
-                        type: 'string',
-                        pattern: '^[0-9a-f]{7}$',
-                      },
-                      quote: { type: 'string', minLength: 1 },
-                    },
-                  },
-                },
-              },
-            },
+            citedClaimSchema(['memory']),
+            citedClaimSchema(['speculation']),
             {
               type: 'object',
               required: ['kind', 'text', 'citations', 'silenceReason'],
               properties: {
                 kind: { type: 'string', enum: ['silence'] },
-                text: { type: 'string', minLength: 1 },
+                text: { type: 'string', minLength: 1, maxLength: SILENCE_MAX_CHARS },
                 citations: { type: 'array', maxItems: 0, items: {} },
-                silenceReason: { type: 'string', minLength: 1 },
+                silenceReason: {
+                  type: 'string',
+                  minLength: 1,
+                  maxLength: SILENCE_MAX_CHARS,
+                },
               },
             },
           ],
         },
       },
     },
-  };
-}
+  },
+};

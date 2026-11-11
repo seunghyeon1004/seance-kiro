@@ -244,3 +244,43 @@ describe('P4 — determinism and input immutability', () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// ward-hardening T3 — limit line and silence section (R2.4, R4.3, R4.6)
+// ---------------------------------------------------------------------------
+
+const LIMIT_LINE =
+  'The ward checked each citation and quote, not the wording of the claims.';
+const SILENCE_HEADING = '## The record is silent (not checked)';
+
+describe('ward-hardening T3 — limit line and silence section', () => {
+  test.prop([verifierResultArb], fcParams)(
+    'the line directly after the count line is the limit line (R2.4)',
+    (result) => {
+      const lines = renderWardReport(result).split('\n');
+      const n = result.verified.length;
+      const m = result.verified.length + result.rejected.length;
+      const i = lines.indexOf(`**${n} of ${m} claims verified**`);
+      expect(i).toBeGreaterThan(0);
+      expect(lines[i + 1]).toBe(LIMIT_LINE);
+    },
+  );
+
+  test.prop([verifierResultArb], fcParams)(
+    'the silence heading appears iff silent.length > 0, followed by one line per claim (R4.6)',
+    (result) => {
+      const lines = renderWardReport(result).split('\n');
+      const h = lines.indexOf(SILENCE_HEADING);
+      if (result.silent.length === 0) {
+        expect(h).toBe(-1);
+        return;
+      }
+      expect(h).toBeGreaterThan(0);
+      result.silent.forEach((s, k) => {
+        expect(lines[h + 1 + k]).toBe(
+          `- [silence] ${escapeMd(s.claim.text)} Reason: ${escapeMd(s.claim.silenceReason)}`,
+        );
+      });
+    },
+  );
+});

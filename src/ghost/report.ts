@@ -5,7 +5,12 @@
  * R1.7  Pure: no I/O, no clock reads, no mutation.
  */
 
-import type { VerifierResult, VerifiedClaim, RejectedClaim } from './schema.js';
+import type {
+  VerifierResult,
+  VerifiedClaim,
+  RejectedClaim,
+  SilentClaim,
+} from './schema.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -68,6 +73,15 @@ function renderRejectedItem(rc: RejectedClaim): string {
   return `- ~~${text}~~ — rejected: ${reason}`;
 }
 
+function renderSilentItem(sc: SilentClaim): string {
+  // ward-hardening R4.6 — the ghost's words, listed apart and never counted as verified
+  return `- [silence] ${escapeMd(sc.claim.text)} Reason: ${escapeMd(sc.claim.silenceReason)}`;
+}
+
+/** ward-hardening R2.4 — states what the ward did and did not check. */
+export const WARD_LIMIT_LINE =
+  'The ward checked each citation and quote, not the wording of the claims.';
+
 // ---------------------------------------------------------------------------
 // renderWardReport — R1.1 – R1.7
 // ---------------------------------------------------------------------------
@@ -88,10 +102,13 @@ export function renderWardReport(result: VerifierResult, meta?: WardReportMeta):
     }
   }
 
-  // R1.2 — count line
+  // R1.2 — count line; silence claims are not counted (ward-hardening R4.3)
   const n = result.verified.length;
   const m = result.verified.length + result.rejected.length;
   lines.push(`**${n} of ${m} claims verified**`);
+
+  // ward-hardening R2.4 — limit line directly after the count line
+  lines.push(WARD_LIMIT_LINE);
 
   // blank line before sections
   lines.push('');
@@ -109,6 +126,14 @@ export function renderWardReport(result: VerifierResult, meta?: WardReportMeta):
     lines.push('## Struck by the ward');
     for (const rc of result.rejected) {
       lines.push(renderRejectedItem(rc));
+    }
+  }
+
+  // ward-hardening R4.6 — silence section (heading omitted when empty)
+  if (result.silent.length > 0) {
+    lines.push('## The record is silent (not checked)');
+    for (const sc of result.silent) {
+      lines.push(renderSilentItem(sc));
     }
   }
 

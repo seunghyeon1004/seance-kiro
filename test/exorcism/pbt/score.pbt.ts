@@ -8,13 +8,14 @@ import { describe, expect } from 'vitest';
 import { test } from '@fast-check/vitest';
 import * as fc from 'fast-check';
 import { computeScore } from '../../../src/exorcism/score.js';
+import { verifyPlanClaims } from '../../../src/exorcism/plan.js';
 import type {
   EvidenceItem,
   LedgerResult,
+  RefactorPlan,
   ScoreInput,
   VerifiedRefactorPlan,
 } from '../../../src/ghost/schema.js';
-import { VerifiedRefactorPlanSchema } from '../../../src/ghost/schema.js';
 
 // ---------------------------------------------------------------------------
 // fast-check configuration
@@ -218,7 +219,29 @@ describe('PS4 — Determinism', () => {
 // ---------------------------------------------------------------------------
 
 describe('PS5 — verifierScore bounds on VerifiedRefactorPlan', () => {
-  // Generate a valid VerifiedRefactorPlan using fast-check model
+  // ward-hardening T2: VerifiedRefactorPlanSchema is removed; the bound is checked on the
+  // real verifyPlanClaims output for plans mixing verified, struck and silence claims.
+  const ledger: LedgerResult = {
+    items: [
+      {
+        id: 'E1',
+        sha: 'abc1234' + '0'.repeat(33),
+        shortSha: 'abc1234',
+        author: 'Ada Lovelace',
+        email: 'ada@example.com',
+        date: '2020-01-01T00:00:00.000Z',
+        subject: 'a quote of some length',
+        body: '',
+        hunk: '',
+        files: ['f.js'],
+        refs: [],
+        suspiciousMessage: false,
+      },
+    ],
+    truncated: false,
+    buildDurationMs: 0,
+  };
+
   const validClaim = {
     kind: 'memory' as const,
     text: 'A claim',
@@ -232,44 +255,43 @@ describe('PS5 — verifierScore bounds on VerifiedRefactorPlan', () => {
     silenceReason: 'No evidence found',
   };
 
-  const verifierScoreArb = fc.float({ min: 0, max: 1, noNaN: true });
+  const struckClaim = {
+    kind: 'memory' as const,
+    text: 'A struck claim',
+    citations: [{ sha7: 'deadbee', quote: 'a quote of some length' }],
+  };
 
-  const verifiedRefactorPlanArb: fc.Arbitrary<VerifiedRefactorPlan> =
-    verifierScoreArb.map((verifierScore) => ({
+  const claimsArb = fc.array(fc.constantFrom(validClaim, silenceClaim, struckClaim), {
+    minLength: 1,
+    maxLength: 5,
+  });
+
+  const planArb: fc.Arbitrary<RefactorPlan> = fc
+    .tuple(
+      fc.array(claimsArb, { minLength: 1, maxLength: 3 }),
+      fc.array(claimsArb, { maxLength: 3 }),
+    )
+    .map(([stepClaims, entryClaims]) => ({
       characterizationTests: ['it should behave correctly'],
-      steps: [
-        {
-          description: 'Extract utility function',
-          rationale: 'Reduces duplication',
-          claims: [validClaim],
-          rejectedClaims: [],
-          reversible: true,
-        },
-      ],
-      doNotTouchList: [
-        {
-          lineRange: { start: 1, end: 5 },
-          reason: 'Critical workaround',
-          claims: [silenceClaim],
-          rejectedClaims: [],
-        },
-      ],
+      steps: stepClaims.map((claims) => ({
+        description: 'Extract utility function',
+        rationale: 'Reduces duplication',
+        claims,
+        reversible: true,
+      })),
+      doNotTouchList: entryClaims.map((claims) => ({
+        lineRange: { start: 1, end: 5 },
+        reason: 'Critical workaround',
+        claims,
+      })),
       summary: 'Refactor legacy code carefully.',
-      verifierScore,
     }));
 
-  test.prop([verifiedRefactorPlanArb], fcParams)(
-    'verifierScore is always in [0, 1]',
-    (plan) => {
-      // Parse through schema to confirm the type constraint is upheld
-      const result = VerifiedRefactorPlanSchema.safeParse(plan);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.verifierScore).toBeGreaterThanOrEqual(0);
-        expect(result.data.verifierScore).toBeLessThanOrEqual(1);
-      }
-    },
-  );
+  test.prop([planArb], fcParams)('verifierScore is always in [0, 1]', (plan) => {
+    const result: VerifiedRefactorPlan = verifyPlanClaims(ledger, plan);
+    expect(result.verifierScore).toBeGreaterThanOrEqual(0);
+    expect(result.verifierScore).toBeLessThanOrEqual(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

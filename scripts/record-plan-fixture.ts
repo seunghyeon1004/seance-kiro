@@ -1,17 +1,19 @@
 /**
  * Records the canonical exorcism plan fixture from a REAL model call.
  * Builds the sample crypt, takes the ledger for legacy/tax.js line 7, scores it at a
- * fixed time, and saves the model's plan answer under test/fixtures/exorcism-plans/<hash>.json.
+ * fixed time, and saves the model's raw refactor_plan tool input under
+ * test/fixtures/exorcism-plans/<promptHash>.json.
  *
  *   ANTHROPIC_API_KEY=... npx tsx scripts/record-plan-fixture.ts          # record the plan
  *   ANTHROPIC_API_KEY=... npx tsx scripts/record-plan-fixture.ts --ghost  # record a ghost answer
  *   add --hash-only to either to print the prompt hash without a model call
  *
- * The --ghost mode records test/fixtures/ghost-answers/<hash>.json for FIXTURE_QUESTION on the
- * same ledger (buildPrompt with FIXTURE_SESSION_ID).
+ * The --ghost mode records test/fixtures/ghost-answers/<promptHash>.json for FIXTURE_QUESTION
+ * on the same ledger (buildPrompt with FIXTURE_SESSION_ID).
+ *
+ * Files are keyed by promptHash({ system, user }) from src/ghost/llm.ts (ward-hardening R5.7).
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { buildLedger } from '../src/evidence/ledger.js';
 import { computeScore } from '../src/exorcism/score.js';
 import { buildPlanPrompt } from '../src/exorcism/plan.js';
-import { askGhost } from '../src/ghost/llm.js';
+import { askGhost, askPlan, promptHash } from '../src/ghost/llm.js';
 import { buildPrompt } from '../src/ghost/persona.js';
 
 export const FIXTURE_NOW_MS = Date.UTC(2026, 10, 9, 0, 0, 0);
@@ -43,14 +45,15 @@ async function main(): Promise<void> {
     const prompt = ghost
       ? buildPrompt(ledger.items, FIXTURE_QUESTION, FIXTURE_SESSION_ID)
       : buildPlanPrompt(ledger, scored);
-    const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
+    const hash = promptHash(prompt);
     console.log(
       `prompt hash ${hash}, score ${scored.score}, ledger ${ledger.items.length} items`,
     );
     if (process.argv.includes('--hash-only')) return;
+    // Plan mode writes the raw refactor_plan tool input (validated by RefactorPlanSchema)
     const answer = ghost
       ? await askGhost(prompt, FIXTURE_SESSION_ID)
-      : await askGhost(prompt, FIXTURE_SESSION_ID, undefined, { tool: 'refactor_plan' });
+      : await askPlan(prompt);
     const dirName = ghost ? 'ghost-answers' : 'exorcism-plans';
     const out = path.join(root, 'test/fixtures', dirName, `${hash}.json`);
     fs.writeFileSync(out, JSON.stringify(answer, null, 2) + '\n');

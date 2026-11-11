@@ -1,0 +1,40 @@
+{
+  "claims": [
+    {
+      "kind": "memory",
+      "text": "The wait is a hack I added because of the vendor's rate limiting: two requests from the same account within 3 seconds get a 429, and there's no burst allowance.",
+      "citations": [
+        {
+          "sha7": "e9a5c9c",
+          "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds"
+        },
+        {
+          "sha7": "e9a5c9c",
+          "quote": "their support confirmed there is no burst allowance"
+        }
+      ]
+    },
+    {
+      "kind": "memory",
+      "text": "Without the delay the nightly batch lost about 8% of quotes. I knew a queue was the proper fix, and the delay was a stopgap.",
+      "citations": [
+        {
+          "sha7": "e9a5c9c",
+          "quote": "Without the delay the nightly batch loses about 8% of quotes. Proper fix is a queue."
+        }
+      ]
+    },
+    {
+      "kind": "speculation",
+      "text": "A later change left a TODO saying the delay could go after a migration to a new tax vendor. That suggests the delay is tied to the current vendor's limit, though I can't say whether the migration happened.",
+      "citations": [
+        {
+          "sha7": "6a959a9",
+          "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+        }
+      ]
+    }
+  ],
+  "voice": "first-person, a developer explaining his own stopgap",
+  "sessionId": "fixture-session"
+}

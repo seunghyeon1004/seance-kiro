@@ -1,0 +1,170 @@
+{
+  "characterizationTests": [
+    "With a stubbed ./vendor and ./invoice, and fake timers, taxFor(account, lines) must not call vendor.quote before 3000ms have elapsed. It must call it exactly once after that.",
+    "taxFor must pass the result of total(lines) as the second argument to vendor.quote, along with the unchanged account.",
+    "taxFor must return exactly what vendor.quote resolves with. A rejection from vendor.quote must propagate unchanged.",
+    "Simulate the vendor's rule with a fake that returns 429 when two calls for the same account are less than 3s apart. Run a batch of sequential taxFor calls and assert that none get a 429.",
+    "Check that module.exports exposes only taxFor, and that taxFor keeps its (account, items) arity and returns a Promise."
+  ],
+  "steps": [
+    {
+      "description": "Write the characterization tests first: fake timers, a stubbed vendor that enforces the 3s per-account rule, and a stubbed invoice.total. Run them against the current code and confirm they pass before any change.",
+      "rationale": "Locks in the delay and the call contract before touching code that works around a vendor limit.",
+      "claims": [
+        {
+          "kind": "memory",
+          "text": "The delay exists because the vendor rejects requests from the same account that arrive within 3 seconds, so the tests must model that rule.",
+          "citations": [
+            {
+              "sha7": "e9a5c9c",
+              "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds"
+            }
+          ]
+        },
+        {
+          "kind": "memory",
+          "text": "Removing the delay was measured to lose quotes in the nightly batch, so a regression test for it is needed.",
+          "citations": [
+            {
+              "sha7": "e9a5c9c",
+              "quote": "Without the delay the nightly batch loses about 8% of quotes."
+            }
+          ]
+        }
+      ],
+      "reversible": true
+    },
+    {
+      "description": "Optionally move the 3000ms wait into a small named helper (e.g. waitForVendorSlot) in the same module. Keep the value, the await position and the call order unchanged. Re-run the tests after the change.",
+      "rationale": "Gives the workaround one clear name and one place to replace later, with no behavior change.",
+      "claims": [
+        {
+          "kind": "memory",
+          "text": "The wait is already named by a constant (PAUSE_MS) and sits inline before vendor.quote, so extracting it is a small step.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "await new Promise((resolve) => setTimeout(resolve, PAUSE_MS));"
+            },
+            {
+              "sha7": "6a959a9",
+              "quote": "const PAUSE_MS = 3000;"
+            }
+          ]
+        },
+        {
+          "kind": "speculation",
+          "text": "The generic name PAUSE_MS does not say that the value comes from the vendor's rate limit. A comment or a rename such as VENDOR_MIN_GAP_MS would help future readers. The ledger does not show whether the rename was intended.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "refactor: rename variables in tax.js"
+            }
+          ]
+        }
+      ],
+      "reversible": true
+    },
+    {
+      "description": "Do not delete the delay now. Replace it only after one of two things happens. Either the new tax vendor is live and its limits are confirmed, or a per-account queue or rate limiter is built, as the original author suggested. Then run the rate-limit characterization test against the new mechanism.",
+      "rationale": "The original author named the proper fix, and the TODO ties removal to a vendor migration.",
+      "claims": [
+        {
+          "kind": "memory",
+          "text": "The original author called the delay a hack and said the proper fix is a queue.",
+          "citations": [
+            {
+              "sha7": "e9a5c9c",
+              "quote": "Proper fix is a queue."
+            },
+            {
+              "sha7": "e9a5c9c",
+              "quote": "hack: wait 3s before calling the tax vendor"
+            }
+          ]
+        },
+        {
+          "kind": "memory",
+          "text": "A TODO ties removal of the delay to a migration to a new tax vendor.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+            }
+          ]
+        },
+        {
+          "kind": "speculation",
+          "text": "The ledger does not say whether the vendor migration has happened or what the new vendor's rate limits are. Do not assume the delay is obsolete without confirming this.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+            }
+          ]
+        }
+      ],
+      "reversible": false
+    }
+  ],
+  "doNotTouchList": [
+    {
+      "lineRange": {
+        "start": 3,
+        "end": 7
+      },
+      "reason": "The TODO comment, the PAUSE_MS constant and the 3s wait before vendor.quote work around an external vendor rate limit (429 on requests within 3s). Keep the value and the await position until a queue or a new vendor replaces them.",
+      "claims": [
+        {
+          "kind": "memory",
+          "text": "The vendor returns 429 for same-account requests within 3 seconds, and support confirmed there is no burst allowance. The delay is an external-constraint workaround.",
+          "citations": [
+            {
+              "sha7": "e9a5c9c",
+              "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds"
+            },
+            {
+              "sha7": "e9a5c9c",
+              "quote": "their support confirmed there is no burst allowance"
+            }
+          ]
+        },
+        {
+          "kind": "memory",
+          "text": "Without the delay the nightly batch loses about 8% of quotes.",
+          "citations": [
+            {
+              "sha7": "e9a5c9c",
+              "quote": "Without the delay the nightly batch loses about 8% of quotes."
+            }
+          ]
+        },
+        {
+          "kind": "memory",
+          "text": "A later commit kept the delay, named it PAUSE_MS, and added a TODO to remove it only after a vendor migration.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+            },
+            {
+              "sha7": "6a959a9",
+              "quote": "const PAUSE_MS = 3000;"
+            }
+          ]
+        },
+        {
+          "kind": "speculation",
+          "text": "The TODO is probably still valid, since the ledger shows no commit that completes the vendor migration. This is inferred from the absence of evidence.",
+          "citations": [
+            {
+              "sha7": "6a959a9",
+              "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": "Haunting score 57 comes mostly from age, a missing test and a TODO marker. The core is a deliberate hack: a 3s sleep before the tax vendor call, because the vendor returns 429 for same-account requests within 3 seconds. Write characterization tests first, covering the delay, argument passing, error propagation and a simulated 429 rule. Then at most extract and rename the wait, keeping 3000ms. Leave lines 3-7 alone until a queue or the new vendor replaces the workaround."
+}

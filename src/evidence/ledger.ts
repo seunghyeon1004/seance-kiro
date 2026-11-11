@@ -144,9 +144,12 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
         // non-fatal: leave files as []
       }
 
-      // Refs + suspicious check (R5, R11.3)
+      // Refs + suspicious check (R5, R11.3); the author is scanned, the hunk is not
+      // (ward-hardening R6.1, design.md §7)
       const refs = parseRefs(`${commit.subject} ${commit.body}`);
-      const suspiciousMessage = isSuspicious(`${commit.subject} ${commit.body}`);
+      const suspiciousMessage = isSuspicious(
+        `${commit.author}\n${commit.subject}\n${commit.body}`,
+      );
 
       // GitHub PR/issue enrichment (R6)
       let pr: EvidenceItem['pr'];

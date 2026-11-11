@@ -284,3 +284,86 @@ describe('renderWardReport', () => {
     expect(report).toContain('\\`code\\`');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ward-hardening T3: limit line and silence section (R2.4, R4.3, R4.6)
+// ---------------------------------------------------------------------------
+
+const LIMIT_LINE =
+  'The ward checked each citation and quote, not the wording of the claims.';
+
+function silentClaim(text: string, silenceReason: string, index = 0) {
+  return {
+    index,
+    claim: { kind: 'silence' as const, text, citations: [] as [], silenceReason },
+  };
+}
+
+describe('renderWardReport (ward-hardening T3)', () => {
+  it('puts the limit line directly after the count line (R2.4)', () => {
+    const result = makeResult({
+      verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
+      rejected: [
+        rejectedMemory('Bad', 'dead000', 'Commit dead000 is not in the ledger.'),
+      ],
+      silent: [silentClaim('Silent', 'Who asked?')],
+    });
+    const lines = renderWardReport(result).split('\n');
+    const i = lines.indexOf('**1 of 2 claims verified**');
+    expect(i).toBeGreaterThan(0);
+    expect(lines[i + 1]).toBe(LIMIT_LINE);
+  });
+
+  it('puts the limit line after the count line even when the report is empty', () => {
+    const lines = renderWardReport(makeResult(), { file: 'a.js' }).split('\n');
+    expect(lines.slice(0, 4)).toEqual([
+      '# Ward report',
+      'File: a.js',
+      '**0 of 0 claims verified**',
+      LIMIT_LINE,
+    ]);
+  });
+
+  it('does not count silence claims in N or M (R4.3)', () => {
+    const result = makeResult({
+      verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
+      silent: [silentClaim('One', 'Q1?'), silentClaim('Two', 'Q2?', 1)],
+    });
+    expect(renderWardReport(result)).toContain('**1 of 1 claims verified**');
+  });
+
+  it('lists silence claims under their own heading, escaped (R4.6)', () => {
+    const result = makeResult({
+      silent: [
+        silentClaim('The record is *silent*', 'Who asked for [the] wait?'),
+        silentClaim('Nothing on\nthat', 'Why 3 s?', 1),
+      ],
+    });
+    const lines = renderWardReport(result).split('\n');
+    const h = lines.indexOf('## The record is silent (not checked)');
+    expect(h).toBeGreaterThan(0);
+    expect(lines[h + 1]).toBe(
+      '- [silence] The record is \\*silent\\* Reason: Who asked for \\[the\\] wait?',
+    );
+    expect(lines[h + 2]).toBe('- [silence] Nothing on that Reason: Why 3 s?');
+  });
+
+  it('omits the silence heading when there are no silence claims (R4.6)', () => {
+    const result = makeResult({
+      verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
+      rejected: [
+        rejectedMemory('Bad', 'dead000', 'Commit dead000 is not in the ledger.'),
+      ],
+    });
+    const report = renderWardReport(result);
+    expect(report).not.toContain('## The record is silent');
+    expect(report).not.toContain('[silence]');
+  });
+
+  it('never lists a silence claim under ## Verified', () => {
+    const result = makeResult({ silent: [silentClaim('Silent words', 'Q?')] });
+    const report = renderWardReport(result);
+    expect(report).not.toContain('## Verified');
+    expect(report).not.toContain('[memory] Silent words');
+  });
+});
