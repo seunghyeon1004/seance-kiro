@@ -8,6 +8,8 @@ Built with Kiro for Kiroween 2026 (category: Costume Contest).
 
 ![The Séance landing page](docs/screens/1280-1-landing.png)
 
+_Captured 2026-11-09. The page has changed since (see [Screens](#screens)); this capture still shows a GitHub token field and wording that are gone._
+
 ## What it does
 
 - **The crypt.** An evidence ledger from `git blame --porcelain` and `git log -L` (renames followed): each commit's message, author, date, diff hunk and `#123` references. No AI is involved in this step. The page shows the line you asked about above it.
@@ -28,9 +30,9 @@ It proves that each citation is real and each quote is really in the cited commi
 
 ## Screens
 
-**These captures are from 2026-11-09 and predate the changes of 2026-11-11.** The page now also has the guide, "The line in question", "The words the ward found" under each claim, the haunting map and the possessed sample; some labels differ (the quote field is no longer optional, the tally reads "passed the ward"). They will be recaptured.
+**These captures are from 2026-11-09 and predate the changes of 2026-11-11.** The page now also has the guide, "The line in question", "The words the ward found" under each claim, the haunting map and the possessed sample; some things shown are gone or reworded: the GitHub token field was removed, the quote field is no longer optional, quotes now appear under every claim, and the tallies read "passed the ward" instead of "claims verified". They will be recaptured.
 
-| Ghost answer, every claim cited                                   | A planted false memory, refused                                        |
+| Ghost answer (before quotes were mandatory)                       | A planted false memory, refused                                        |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | ![Ghost answer](docs/screens/1280-2-ghost-answer.png)             | ![Ward refuses an invented hash](docs/screens/1280-3-ward-refuses.png) |
 | **A misquote of a real commit, refused**                          | **The exorcism: haunting score and plan**                              |
@@ -88,7 +90,7 @@ Any other MCP client: start `npx -y tsx src/mcp/server.ts` (or `npm run --silent
 
 `kind` is `memory`, `speculation` or `silence`. A silence claim has a `silenceReason` and no citations (the `citations` field can be left out); it goes to `silent` and is never verified. Every entry carries `index`, the claim's position in the request.
 
-Example on the sample crypt, `legacy/tax.js` line 7. The claim "The delay exists because the tax vendor rejects requests that arrive too close together", quoting e9a5c9c's "The vendor returns 429 if two requests from the same account land within 3 seconds", is verified, and the ward reports that it found the quote in the commit's `body`. The claim "The vendor allows short bursts, so the delay can go", quoting "support confirmed there is a burst allowance", is struck: "The quote cited from e9a5c9c is not in that commit's subject, message or diff." The report starts with `**1 of 2 claims verified**`.
+Example on the sample crypt, `legacy/tax.js` line 7. The claim "The delay exists because the tax vendor rejects requests that arrive too close together", quoting e9a5c9c's "The vendor returns 429 if two requests from the same account land within 3 seconds", is verified, and the ward reports that it found the quote in the commit's `body`. The claim "The vendor allows short bursts, so the delay can go", quoting "support confirmed there is a burst allowance", is struck: "The quote cited from e9a5c9c is not in that commit's subject, message or diff." The report's count line reads `**1 of 2 claims verified**`.
 
 With Kiro CLI 3.2.0, the default engine ran `seance_summon` and `seance_verify` from the archaeologist's `allowedTools` without asking. The V3 engine in non-interactive mode denied every seance call unless started with `--trust-all-tools`, which ran all three tools. The three runs are in [`docs/kiro-evidence/seance-mcp-session.txt`](docs/kiro-evidence/seance-mcp-session.txt).
 
@@ -102,10 +104,10 @@ Limits:
 
 ## How Kiro was used
 
-Everything under [`.kiro/`](.kiro) is committed, and [`.kiro/README.md`](.kiro/README.md) says plainly what Kiro did, what was done by hand, and where Kiro was wrong. Raw output of every Kiro session is in [`docs/kiro-evidence/`](docs/kiro-evidence).
+Everything under [`.kiro/`](.kiro) is committed, and [`.kiro/README.md`](.kiro/README.md) says plainly what Kiro did, what was done by hand, and where Kiro was wrong. Raw output of the Kiro sessions is in [`docs/kiro-evidence/`](docs/kiro-evidence) (one failed V3 run on 2026-11-09 is described there but not kept).
 
-- **Specs.** Ten specs with EARS requirements, a design and tasks: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`, and, written by Kiro in V3 spec mode on 2026-11-11, `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp`. 564 of 568 task items are ticked, each checked against code and tests; the open ones need a person looking at the page in a browser.
-- **Audits that became specs.** Kiro's read-only security review showed the ward verified less than the page promised; that became `ward-hardening`. Its first-run audit from a judge's seat became `first-seance`. Its accessibility audit was fixed test-first. After the work, both audits were run again on the result.
+- **Specs.** Ten specs with EARS requirements, a design and tasks: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`, `ward-report`, `model-rate-limit`, and, written by Kiro in V3 spec mode on 2026-11-11, `ward-hardening`, `first-seance`, `haunting-map` and `seance-mcp`. 564 of 568 task items are ticked. Of the four open ones, three need a person looking at the page in a browser and one is a traceability check that depends on one of them.
+- **Audits that became specs.** Kiro's read-only security review showed the ward verified less than the page promised; that became `ward-hardening`. Its first-run audit from a judge's seat became `first-seance`. Its accessibility audit was fixed test-first. After the work, the accessibility and first-run audits were run again on the result.
 - **Custom agents with hooks.** `warden` builds test-first and gets a typecheck after every file write and the full suite when it stops. `inquisitor`, read-only and on a different model family, re-attacks the ward after a change. `archaeologist` answers questions about history and has its own claims checked by the ward.
 - **MCP.** The repository's `seance` server gives Kiro the ledger and the ward as tools, next to the git and filesystem servers.
 - **Steering.** Product, tech, evidence rules, UI rules, testing rules and the MCP server's rules, updated as the code changed.

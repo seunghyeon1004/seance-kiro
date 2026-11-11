@@ -32,7 +32,7 @@ Applies to `public/`. Vanilla HTML, CSS and JS; no framework, no build step. Eve
 - A claim "passed the ward"; its label is "Citations verified". Never call a sentence verified or true.
 - Refused claims: "Unverified" plus "The ward refused it: <reason>". Silence: "The record is silent (the ghost's words, not checked)".
 - Plan text outside cited claims is "the model's words".
-- Recorded turns and plans always show the recorded label; scripted (possessed) turns always show the scripted label; planted claims show "Planted by you". None of them counts as the ghost's.
+- Recorded turns and plans always show the recorded label; scripted (possessed) turns always show the scripted label; planted claims show "Planted by you". Planted and scripted turns never count as the ghost's; a recorded turn is the ghost's answer and counts.
 
 ## Accessibility floor (non-negotiable)
 

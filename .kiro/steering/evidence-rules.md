@@ -8,7 +8,7 @@ Rules for building, citing and verifying the Evidence Ledger. They apply to `src
 - `buildLedger` cuts `author` and `email` to 256, `subject` to 512 and `body` to 4096 characters; `isSuspicious` sees the full author, subject and body first.
 - Blame: `git blame --porcelain -L<start>,<end> -- <file>`. History: `git log -L<start>,<end>:<file> --date=iso-strict --format=fuller`. `-L` follows renames itself; never add `--follow` or a pathspec to it.
 - At most 50 items (the most recent are kept), hunks at most 512 KB combined. Items are frozen; the ghost never writes to the ledger.
-- Refs: `Fix #n`, `Fixes #n`, `Close(s) #n`, `Resolve(s) #n` (keyword case-insensitive) and a bare `#n` after start, whitespace or punctuation. With a GitHub token, the first ref's title and body go into `item.pr`. `pr` is not a quote field.
+- Refs: `Fix #n`, `Fixes #n`, `Close(s) #n`, `Resolve(s) #n` (keyword case-insensitive) and a bare `#n` after start, whitespace or punctuation. Only when an API client sends `githubToken` (the page does not), the first ref's title and body go into `item.pr`. `pr` is not a quote field.
 
 ## Citation rules
 

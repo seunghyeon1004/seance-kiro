@@ -1,0 +1,254 @@
+# Kiro CLI 3.2.0 (V2 engine, claude-opus-5.5, read-only: --trust-tools=fs_read), 2026-11-11: Kiro checking every factual statement in the README, DESIGN.md, .kiro/README.md, the evidence index, the steering files and the drafts against the repository. Unedited output; only the home directory prefix is replaced with ~. It could not run git or the tests and says so. Its corrections were applied by hand in the next commit.
+
+$ kiro-cli chat --no-interactive --model claude-opus-5.5 --trust-tools=fs_read "$(cat prompt)"
+--- prompt ---
+Read-only documentation audit. Do not modify any file. A hackathon judge may judge this project from README.md alone and will read the .kiro directory. Check every factual statement in these files against the repository as it is now, and list each statement that is wrong, stale, unprovable from the repository, or stronger than what the code and the transcripts support: README.md, DESIGN.md, .kiro/README.md, docs/kiro-evidence/README.md, .kiro/steering/*.md, recordings/README.md, test/fixtures/*/README.md, .env.example, docs/drafts/DEVPOST.md (only its "Draft status" note and its last section "Update: the 4,000-credit round").
+
+How to check: routes, request and response fields against src/server.ts and src/ghost/schema.ts; UI copy quoted in the docs against public/index.html and public/app.js (exact strings); file and directory names with a listing; commands against package.json; counts (number of specs, number of files in recordings/, number of agents, hooks and steering files, the per-spec ticked/open task counts: count lines matching `- [x]` and `- [ ]` at any indentation in each .kiro/specs/*/tasks.md); every transcript file named in the two READMEs exists in docs/kiro-evidence/, and every file in docs/kiro-evidence/ is listed in its README; every commit sha named in docs/kiro-evidence/README.md appears in the transcripts' context or is at least a 7-hex string (you cannot run git; say so); statements about what Kiro did or failed to do against the transcript they cite (open the transcript and find the passage); env vars named in the docs against .env.example and the code. You cannot run the test suite: say that the test count is unverified by you rather than guessing.
+
+Also flag: anything a judge could read as an inflated claim; anything that describes screenshots or the live site as showing something they do not show; internal contradictions between the documents (different counts, different names, different dates); leftover references to removed things (the GitHub token field on the page, "Verified" as a claim label, "by ghosts" on the map, the #ward-limit paragraph above the guide, `aria-pressed` on the candle button, ANTHROPIC_FIXTURE as a way to run the page).
+
+Report as a table: file, line or section, the statement, what the repository shows, suggested correction. Then a short list of statements you checked and found correct that matter most to a judge. Be exact and do not pad.
+
+--- output ---
+[tool] Running: cd ~/hackathons-2026/kiroween/seance && ls -la && ls .kiro .kiro/* docs docs/* recordings test/fixtures test/fixtures/* | head -300 && wc -l README.md DESIGN.md .kiro/README.m...
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: cd ~/hackathons-2026/kiroween/seance && ls -la && ls .kiro .kiro/* docs docs/* recordings test/fixtures test/fixtures/* | head -300 && wc -l README.md DESIGN.md .kiro/README.m...
+[tool] Reading listing seance, listing .kiro, listing docs, listing recordings, listing fixtures
+[tool] status: Completed
+[tool] Running: @filesystem/read_multiple_files
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: @filesystem/read_multiple_files
+[tool] Reading README.md:1, README.md:1
+[tool] status: Completed
+[tool] Reading README.md:1, DESIGN.md:1
+[tool] status: Completed
+[tool] Reading testing.md:1, mcp-server.md:1, ui-spooky.md:1, README.md:1, README.md:1, README.md:1, .env.example:1, package.json:1
+[tool] status: Completed
+[tool] Searching for '^#|Draft status' in DEVPOST.md
+[tool] Reading mcp.json:1, inquisitor.json:1, warden.json:1, archaeologist.json:1, evidence-review.json:1, sloplint.json:1, ghost-tests.json:1
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading DEVPOST.md:2-13
+[tool] Searching for '^## ' in DEVPOST.md
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'Update: the 4,000' in DEVPOST.md
+[tool] status: Completed
+[tool] Reading DEVPOST.md:140
+[tool] status: Completed
+[tool] Searching for '^\s*- \[x\]' in specs
+[tool] Searching for '^\s*- \[ \]' in specs
+[tool] Searching for '^\s*- \[X\]|^\s*\* \[[ xX]\]|^\s*[0-9]+\. \[[ xX]\]' in specs
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'app\.(get|post|use)\(|process\.env\.[A-Z_]+|c\.json\(' in server.ts
+[tool] status: Completed
+[tool] Searching for 'app\.(get|post|use)\(' in server.ts
+[tool] Searching for 'env\.[A-Z_]{3,}|env\[['"][A-Z_]+' in src
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading server.ts:2-341
+[tool] status: Completed
+[tool] Reading server.ts:341-1040
+[tool] status: Completed
+[tool] Reading server.ts:1041-1240
+[tool] Searching for 'process\.env' in src
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading llm.ts:21-210
+[tool] status: Completed
+[tool] Searching for 'passed the ward|Citations verified|The words the ward fou...' in public
+[tool] status: Completed
+[tool] Reading index.html:1
+[tool] status: Completed
+[tool] Searching for 'aria-pressed|passed the ward|Citations verified|'Verified...' in app.js
+[tool] status: Completed
+[tool] Searching for 'aria-pressed|passed the ward|Citations verified|'Verified...' in app.js
+[tool] status: Completed
+[tool] Reading app.js:2-451
+[tool] status: Completed
+[tool] Reading app.js:451-1100
+[tool] status: Completed
+[tool] Reading app.js:1101-1700
+[tool] status: Completed
+[tool] Searching for 'line-through|badge|content:|animation-duration|flicker|33...' in styles.css
+[tool] status: Completed
+[tool] Searching for 'line-through' in styles.css
+[tool] Searching for 'badge' in styles.css
+[tool] Searching for 'content: '' in styles.css
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '✓|⚠|\\2713|\\26a0|\\26A0|content: "' in public
+[tool] Reading styles.css:551-580, styles.css:311-335
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '\[\s*'--color|fg:|text:' in contrast.mjs
+[tool] Reading contrast.mjs:2-121
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '\| bg:' in tokens.css
+[tool] status: Completed
+[tool] Searching for '^agentSpawn 2026-11-1[01]' in warden-hook-fires.log
+[tool] Searching for '^postToolUse fs_write 2026-11-1[01]' in warden-hook-fires.log
+[tool] Searching for '^stop 2026-11-1[01]' in warden-hook-fires.log
+[tool] Reading warden-hook-fires.log:2-31
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^postToolUse fs_write 2026-11-10' in warden-hook-fires.log
+[tool] Searching for '^(agentSpawn|stop) 2026-11-1[01]' in warden-hook-fires.log
+[tool] status: Completed
+[tool] status: Completed
+[tool] Running: @filesystem/read_text_file
+[tool] Running: @filesystem/read_text_file
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: @filesystem/read_text_file
+[tool] status: Failed: Running: @filesystem/read_text_file
+[tool] Reading warden-hook-fires.log:1-3, inquisitor-hook-fires.log:1
+[tool] status: Completed
+[tool] Searching for 'of \d+ claims verified|denied|trust-all|citations|Run \d|...' in seance-mcp-session.txt
+[tool] status: Completed
+[tool] Reading seance-mcp-session.txt:1
+[tool] status: Completed
+[tool] Searching for 'is not in that commit's subject, message or diff|claims v...' in src
+[tool] Searching for 'citations|default\(' in tools.ts
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading report.ts:96-135
+[tool] status: Completed
+[tool] Searching for 'by ghosts|ward-limit|aria-pressed|GitHub token|githubToke...' in seance
+[tool] status: Completed
+[tool] Searching for 'CONFIRMED|denied|SUSPECTED' in inquisitor-review-session.txt
+[tool] status: Completed
+[tool] Searching for '^#+ |^\*\*[0-9C]|^[0-9]+\. \*\*|^### ' in inquisitor-review-session.txt
+[tool] status: Completed
+[tool] Reading inquisitor-review-session.txt:316-575
+[tool] status: Completed
+[tool] Searching for 'on purpose|deliberately|temporarily|restored|revert' in ward-hardening-impl-session.txt
+[tool] Searching for 'it\.skip|skip' in ward-hardening-impl-session.txt
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'A1.*A3|disabl' in ward-hardening-impl-session.txt
+[tool] status: Completed
+[tool] Searching for '27|findings' in polish-session.txt
+[tool] Searching for 'synthetic|^# |four|testing\.md|mcp-server\.md' in steering-sync-session.txt
+[tool] Searching for 'not connected|stop|3\.2\.0' in powers-context7-retry-session.txt
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'llm\.test|50f6a8a5|76439609|does not match|mismatch' in steering-sync-session.txt
+[tool] status: Completed
+[tool] Searching for 'kiro-scope' in seance-mcp-impl-session.txt
+[tool] Searching for 'mcp add' in kiro-evidence
+[tool] Searching for 'empty|ambiguous' in inquisitor-fixes-session.txt
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^#+ |^\*\*[A-Z0-9]|^[0-9]+\. ' in audit-security-session.txt
+[tool] status: Completed
+[tool] Searching for 'never (implemented|compared|checked)|not implemented|opti...' in audit-security-session.txt
+[tool] status: Completed
+[tool] Reading audit-security-session.txt:52-81
+[tool] status: Completed
+[tool] Searching for '^# |Session 2|by hand|matched|matches the design' in haunting-map-impl-session.txt
+[tool] Searching for 'throttl|^# ' in first-seance-impl-session.txt
+[tool] Searching for 'aria-pressed' in kiro-evidence
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading .prettierignore:1, 5a4ec240b9bab964.json:1
+[tool] Searching for 'ANTHROPIC_FIXTURE|keys-only|RECORDINGS_DIR|sha256|slice\(...' in record-answers.ts
+[tool] Searching for 'sha256|slice\(0, 16\)|JSON\.stringify\(\[|ledgerShas' in recordings.ts
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^ "(question|kind|sample)"' in recordings
+[tool] status: Completed
+[tool] Searching for '464f2680|b0b2564e|toBe\(57\)|Date\.UTC\(2026, 10, 9\)|fix...' in test
+[tool] Searching for 'ghost-answers|writeFileSync|mkdtemp' in llm.test.ts
+[tool] Searching for '--ghost|--hash-only|Date\.UTC' in record-plan-fixture.ts
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Finding {test/ghost/pbt/*,test/e2e/*,test/adversarial/*,test/mcp/... in seance
+[tool] status: Completed
+[tool] Finding {evidence/pbt/*,ui/*.ts,ghost/*.test.ts} in test
+[tool] Searching for 'kind: '(memory|speculation|silence)'' in possessed-ghost.ts
+[tool] Searching for 'verified\)\.toHaveLength|verified\.length|toEqual\(\[\]\)' in possessed.test.ts
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'The ward verified \d|verified: \d|of \d claims' in possessed.test.ts
+[tool] status: Completed
+[tool] Reading image ~/hackathons-2026/kiroween/seance/docs/screens/1280-1-landing.png, ~/hackathons-2026/kiroween/seance/docs/screens/1280-2-ghost-answer.png, ~/hac...
+[tool] status: Completed
+I checked the docs against the code, `package.json`, the directory listings, the task checkboxes and the transcripts. Most statements hold up, but I found 26 that are wrong, stale or stronger than the evidence. The most visible to a judge: the first image in README.md still shows the removed GitHub token field, the README's MCP example misstates how the ward report begins, and two documents say all eight inquisitor findings were fixed when one was deliberately left open.
+
+**What I could not verify:**
+- **Test count:** the "1,382 tests" figure is unverified by me, because I could not run the suite.
+- **Commit shas:** I could not run git, so I did not check any sha against history. All 31 shas in `docs/kiro-evidence/README.md` are 7-hex strings. Only `d738258` also appears elsewhere (in `inquisitor.json` and the inquisitor transcript).
+- **Recording keys and the fixture score:** I did not recompute the sha256 recording keys or the fixture's score of 57.
+- **Partly read:** I did not open `docs/screens/1280-4`, `-5`, `-6` or `390-1`. I did not read the re-audit transcripts or check the credit readings line by line.
+
+## Statements that are wrong, stale or overstated
+
+| File | Line or section | Statement | What the repository shows | Suggested correction |
+|---|---|---|---|---|
+| README.md | Top image | `![The Séance landing page](docs/screens/1280-1-landing.png)`, with no caveat next to it | The capture shows the removed "GitHub token for pull request text" field, the old lede, and "a short hash and, where it can, the exact…" (the quote was optional then). The page now has no token field, and the lede and rules differ. | Recapture it, or move it under the dated caveat. |
+| README.md | Screens caveat | Lists what the captures lack, and says "some labels differ (the quote field is no longer optional, the tally reads 'passed the ward')" | It does not mention that the captures show the removed token field. 1280-2 shows "4 of 4 claims verified this séance" and "claims verified by the ward", with cite buttons but no quotes under the claims. | Add: the captures show the removed GitHub token field and the old "claims verified" wording. |
+| README.md | Screens table | "Ghost answer, every claim cited" | 1280-2 shows hashes only. No quote or "The words the ward found" appears, so it shows less than the ward now requires. | "Ghost answer (before quotes were mandatory)". |
+| README.md | MCP example | "The report starts with `**1 of 2 claims verified**`" | `report.ts` writes `# Ward report` first, then a `File:` line when meta is passed, then the count line. | "The report's count line reads `**1 of 2 claims verified**`". |
+| README.md | How Kiro was used | "Raw output of every Kiro session is in docs/kiro-evidence/" | `docs/kiro-evidence/README.md` (Credits) says one V3 run is not in the files. | "Raw output of the Kiro sessions (one failed V3 run excepted)…" |
+| README.md, DEVPOST | Specs / Numbers | "564 of 568 task items are ticked, each checked against code and tests; the open ones need a person looking at the page in a browser" | The counts are correct. Of the 4 open items, 3 are browser checks and 1 is a traceability item (first-seance line 257). "Each checked" cannot be proved from the repository. | "…3 need a browser, 1 is a traceability check that depends on them." Drop "each checked" or say "ticked only after a passing test, per testing.md". |
+| README.md | Audits | "Its accessibility audit was fixed test-first. After the work, both audits were run again" | "Both" reads as the security and first-run audits. The re-audits were layout/accessibility and first-run. The security audit was not repeated; the inquisitor reviewed instead. | "…the accessibility and first-run audits were run again." Same fix in DEVPOST ("Both audits were then repeated"). |
+| .kiro/README.md | 4,000-credit round, Outside the specs | "the inquisitor's eight findings were fixed" | `X-Forwarded-For` (CONFIRMED HIGH #2) was left open on purpose (README, `inquisitor-fixes-session.txt` header). | "seven of the eight findings were fixed; X-Forwarded-For is a documented open risk." |
+| DEVPOST | Update section | "confirmed eight findings, which were fixed" | Same as above. | Same. |
+| DEVPOST | Update section | "Its first real run found a bug in our server" | In `seance-mcp-session.txt`, run 1 (V2) found nothing and verified 5 of 5. Run 3 (V3, `--trust-all-tools`) found the silence/`citations` defect. | "Its third run…" or "A run with all tools trusted…" |
+| .kiro/README.md | warden | "that day the log shows `agentSpawn` 15 times, `postToolUse` 686 times and `stop` 13 times" | `warden-hook-fires.log` now has 16 / 849 / 15 entries dated 2026-11-11. | Update to 16 / 849 / 15, or say "as of commit X". |
+| docs/kiro-evidence/README.md | `warden-hook-fires.log` (continued) row | Same 15 / 686 / 13 | Same. | Same. |
+| docs/kiro-evidence/README.md | Not proven | "The CLI agent hooks in `warden.json` have (`postToolUse`, `stop`). `agentSpawn` has not." | The log has 16 `agentSpawn` lines. `.kiro/README.md` says all three fire on V3. | "`agentSpawn` did not fire on 3.1.0 V2; it fires on 3.2.0 V3." |
+| .kiro/README.md | warden | "A builder agent (V2 engine)…" and "`postToolUse` with matcher `fs_write`" | The file now has a `kiroUpgrade` block, and the matcher is `"write"`. | "Originally V2 with matcher `fs_write`; after the V3 upgrade the matcher is `write`." |
+| .kiro/README.md | inquisitor | "a shell limited to `git diff/log/show/status`, `npx vitest run` and `npm test`" | `allowedCommands` also includes `git ls-files`. | Add `git ls-files`. |
+| .kiro/README.md | Task lists checked (2026-11-09) | "The canonical plan fixture, `test/fixtures/exorcism-plans/5de303db.json`" | That file no longer exists. The canonical fixture is `464f2680.json`, and its README says it replaced 5de303db. | Name 464f2680, or mark this as historical with the replacement. |
+| .kiro/README.md | spooky-ui | "Reversible ✓ / Irreversible ⚠ badges" | `app.js` renders plain "Reversible" / "Irreversible", and `public/` contains no ✓ or ⚠ glyph. `a11y-fixes-session.txt` lists "the badge symbols" among its fixes. | "Reversible / Irreversible badges (the symbols were removed on 2026-11-11)". |
+| .kiro/README.md | spooky-ui | "a running 'N of M claims verified this séance' counter" | `counterText` writes "N of M claims passed the ward this séance". | Use the current string, or mark it as the 11-09 wording. |
+| .kiro/README.md | spooky-ui | "contrast check (… 11 token pairs, all at least 4.5:1)" | The `tokens.css` table now has 21 rows. `contrast.mjs` also checks usage pairs, with a 3:1 threshold for non-text pairs. | Mark it as the 11-09 state, or give the current figures. |
+| .kiro/README.md | Where Kiro was wrong | "The candle button it wrote had a changing label and `aria-pressed` at once (it flagged this itself)" | The prompt (`a11y-fixes-session.txt` line 12) required "a real button with aria-pressed". Kiro followed it and then flagged the ambiguity (line 370). | Move to "instructions were wrong", or say that the prompt asked for it. |
+| .kiro/steering/ui-spooky.md | Vocabulary | Recorded, scripted and planted turns: "None of them counts as the ghost's." | `app.js` `renderAnswer`: recorded answers count like live ones (R7.10). Only planted and scripted turns are excluded. The inquisitor confirms: "Recorded turns … count as ghost turns." | "Planted and scripted turns never count; a recorded turn is labelled and counts." |
+| .kiro/steering/product.md | Core rules | "Recordings and fixtures come only from real model calls … Never write or edit one by hand." | `test/fixtures/ghost-answers/50f6a8a5.json` and `76439609.json` are written by `test/ghost/llm.test.ts`. `testing.md` names this exception; product.md does not. | Add the exception, or point to testing.md. |
+| .kiro/steering/evidence-rules.md; DESIGN.md §2.1 | Refs; Evidence | "With a GitHub token, the first ref's title and body go into `item.pr`" / "(public GitHub) PR/issue text" | The token reaches the server only through the `githubToken` field of the `/api/summon` body. The page has no token field and there is no env var, so the live page never fetches PR text. | "…only when an API client sends `githubToken`; the page does not." |
+| .env.example | `ANTHROPIC_FIXTURE` comment | "answer from recorded fixtures instead of calling the model (tests, offline demo)" | This contradicts the README ("for the test suite only; it does not make the live page answer"). Page prompts contain a random sessionId, so no fixture matches. `modelConfigured()` also returns true under fixture mode, which turns off the no-key recordings path. | "(tests only; with it set the page cannot answer and the recorded answers are not served)". |
+| .env.example | Coverage | Lists the env vars | The code also reads `CRYPT_DIR` (server.ts:345) and `DEBUG` (llm.ts:284). | Add `CRYPT_DIR` (and `DEBUG` if it is meant for users). |
+| DESIGN.md | §7 Risks | "LLM key on a public demo: per-day cap and fixture fallback" | The fallback is `recordings/`, not fixtures. | "…and recorded answers". |
+| DESIGN.md | §5 Steering | Lists 4 steering files | There are 6; `testing.md` and `mcp-server.md` are missing from the list. | Add both. |
+| DESIGN.md | §2 Product | "Point Séance at a repo (local path or public GitHub URL)" | Local paths are refused unless `ALLOW_LOCAL=1`. | "…(a sample or public GitHub URL; local paths with ALLOW_LOCAL=1)". |
+| docs/kiro-evidence/README.md | Credits | "…31.61 to 41.52. exorcism-plan …: 41.62 to 48.58" | There is a 0.10 gap between consecutive readings. | Explain it or align the numbers. |
+| docs/kiro-evidence/README.md | Table | Commit column | Six rows give no commit: exorcism-t6-t7, seance-mcp spec/impl, seance-mcp-session, steering-sync, powers-context7-retry. | Add the shas, or say "uncommitted at time of writing". |
+| .kiro/README.md, README.md | archaeologist V3 run | "a silence claim sent without a `citations` field was refused" | The transcript has the agent saying it sent `citations: []`. The error "Required at claims[4].citations" points to a missing field. The docs' reading is an inference. | "…a silence claim was refused with 'Required at claims[N].citations'". |
+
+## Checked and correct (the ones that matter most to a judge)
+
+- **Spec and task counts:** 10 specs. 564 `- [x]` and 4 `- [ ]` lines. Per spec: ward-hardening 74/74, first-seance 95/98, haunting-map 45/46, seance-mcp 42/42. The first six specs total 308, and spooky-ui has 120.
+- **Agents, hooks, steering:** 3 agents (plus 2 `.bak` files), 3 hook files, 6 steering files. The `mcp.json` servers and commands match the `.kiro/README.md` table.
+- **Evidence directory:** every file in `docs/kiro-evidence/` is listed in its README, and every transcript named in both READMEs exists.
+- **Routes:** the README API table matches `server.ts` for all six routes (the server returns a few extra fields), including `scripted: true` on `/api/possess`, `map`/`mapNote`, `recorded`, and `quotes` on verified claims. The limits match too: 64 KB body limit before the limiters, a per-IP limiter on every working route, 3 clone slots, a daily cap of 300. Every env var in `.env.example` is read by the code with the stated default.
+- **UI strings:** these match `index.html` and `app.js` exactly: "Citations verified", "Unverified", "The ward refused it: …", "The record is silent (the ghost's words, not checked)", "The words the ward found", "N of M claims passed the ward this séance", "Planted by you", "Let a possessed ghost answer", "Summon here", "You are here", "Tended by the living", "Struck from the plan", "Try it in three clicks", "The line in question", "Still the candles" / "Light the candles", "Performing exorcism…", and the severity labels.
+- **Removed things are gone from the page:** there is no GitHub token field, no "Verified" claim label, no "by ghosts" (the map says "by departed authors"), no `#ward-limit` paragraph above the guide (the limit sentence appears once, under the first answer), and no `aria-pressed` (removed with a comment in `setCandles`).
+- **MCP example sentences:** the reason string ("The quote cited from e9a5c9c is not in that commit's subject, message or diff.") and the `**N of M claims verified**` count line exist in `verifier.ts` and `report.ts`. The struck quote is indeed not a substring: the real body says "there is *no* burst allowance".
+- **Recordings:** `recordings/` has 8 JSON files, and their sample, kind and question match the README table and the chip questions in `app.js`. Prettier ignores `recordings/` and `test/fixtures/`. The fixture hashes `464f2680` and `b0b2564e` match their tests.
+- **Transcript-backed claims:**
+  - The security audit's C1 to C4 findings (quote optional, silence passes any text, author/date never compared, prompt unescaped) are in the transcript.
+  - The inquisitor found exactly 8 CONFIRMED findings, with "Verified" and the map-forging filename among them, its shell calls were denied, and its log reads `changed-files=0`.
+  - Kiro broke the verifier on purpose and restored it (A1, A3, A5).
+  - `kiro-scope` blocked the edit to `mcp.json`, and the entry was added with `kiro-cli mcp add`.
+  - The throttle cut-off happened at first-seance T3, and the Context7 retry hit "not connected".
+  - The polish session handled 27 items, and the steering sync flagged the synthetic fixtures.
+  - The archaeologist got 5 of 5 on V2, every call denied on V3, and all three tools ran with `--trust-all-tools`.
+  - The first warden run logged 2 `postToolUse` lines and a `stop` with 287 tests.
+- **Possessed ghost:** the scripted ghost gets nothing verified ("0 of 4 claims … 1 silence claim was not checked" in `test/e2e/possessed.test.ts`).
+exit 0

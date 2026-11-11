@@ -10,13 +10,13 @@ kiro-cli --agent archaeologist
 
 It locates the code, calls Séance's own MCP server (`seance_summon`) to build the evidence ledger, drafts its claims with exact quotes, sends them to `seance_verify`, and states only what the ward verified; struck claims are shown struck with the ward's reason. `seance_haunting_map` tells it which files are haunted by departed authors. If the tools are unavailable it falls back to `git log`, `git blame` and `git show` and marks every claim "not checked by the ward". Steering files (`evidence-rules.md`, `product.md`, `tech.md`) are loaded as resources.
 
-What happened when it ran on 2026-11-11 (`docs/kiro-evidence/seance-mcp-session.txt`): on the default V2 engine the three tools in `allowedTools` were auto-approved and it answered with 5 of 5 verified claims. On V3 without tool trust every call was denied, and it said so and marked its claims unchecked. On V3 with `--trust-all-tools` all three tools ran. That run found a real defect in our server (a silence claim sent without a `citations` field was refused), which was then fixed. The prompt and tool list were applied by hand from the `seance-mcp` design, because Kiro's own `kiro-scope` rule stops the agent from editing files under `.kiro/settings/` (it stopped and said so).
+What happened when it ran on 2026-11-11 (`docs/kiro-evidence/seance-mcp-session.txt`): on the default V2 engine the three tools in `allowedTools` were auto-approved and it answered with 5 of 5 verified claims. On V3 without tool trust every call was denied, and it said so and marked its claims unchecked. On V3 with `--trust-all-tools` all three tools ran. That run found a real defect in our server (a silence claim was refused with "Required at claims[4].citations"; a silence claim has no citations), which was then fixed. The prompt and tool list were applied by hand from the `seance-mcp` design, because Kiro's own `kiro-scope` rule stops the agent from editing files under `.kiro/settings/` (it stopped and said so).
 
 ---
 
 ## agents/inquisitor.json
 
-A read-only adversarial reviewer, added on 2026-11-11 and set to run on `gpt-5.6-sol`, a different model family from the one that wrote the code. Its one question: after a change, can anything reach the user marked verified without a deterministic check having found its evidence? It has `read` and a shell limited to `git diff/log/show/status`, `npx vitest run` and `npm test`. Two hooks: `agentSpawn` prints the files changed since the security audit, and `stop` logs how many files under `src`, `public`, `test`, `scripts` and `recordings` are modified, which should be 0 for a reviewer.
+A read-only adversarial reviewer, added on 2026-11-11 and set to run on `gpt-5.6-sol`, a different model family from the one that wrote the code. Its one question: after a change, can anything reach the user marked verified without a deterministic check having found its evidence? It has `read` and a shell limited to `git diff/log/show/status/ls-files`, `npx vitest run` and `npm test`. Two hooks: `agentSpawn` prints the files changed since the security audit, and `stop` logs how many files under `src`, `public`, `test`, `scripts` and `recordings` are modified, which should be 0 for a reviewer.
 
 Its first run (`docs/kiro-evidence/inquisitor-review-session.txt`) confirmed eight findings in that day's work, among them that the "Verified" label overstated what the ward proves and that a file name could forge commits on the haunting map. Both hooks fired, and the stop hook logged `changed-files=0`. Its shell calls were denied in non-interactive V3, so it read files only and ran no test. The fixes are in `docs/kiro-evidence/inquisitor-fixes-session.txt`.
 
@@ -24,7 +24,7 @@ Its first run (`docs/kiro-evidence/inquisitor-review-session.txt`) confirmed eig
 
 ## agents/warden.json
 
-A builder agent (V2 engine) for small fixes: failing test first, then the smallest change. Its CLI agent hooks are the ones proven to fire from the command line:
+A builder agent: failing test first, then the smallest change. It was written for the V2 engine (hook matcher `fs_write`); after the V3 engine upgraded the file the matcher is `write`. Its CLI agent hooks are the ones proven to fire from the command line:
 
 - `postToolUse` with matcher `fs_write`: runs `npx tsc --noEmit` after every file write and prints the result back to the agent.
 - `stop`: runs the full vitest suite when the agent finishes.
@@ -32,7 +32,7 @@ A builder agent (V2 engine) for small fixes: failing test first, then the smalle
 
 Each hook appends a line to `docs/kiro-evidence/warden-hook-fires.log`. In the run that fixed the inverted line range bug it logged two `postToolUse fs_write` entries (typecheck exit 0) and one `stop` entry (287 tests passed).
 
-On 2026-11-11 the V3 engine upgraded this file to its own agent format by itself (the old file is kept as `warden.json.bak`). Since then all three hooks fire in non-interactive V3 runs, `agentSpawn` included: that day the log shows `agentSpawn` 15 times, `postToolUse` 686 times and `stop` 13 times. Every implementation session of the four new specs ran through this agent, so Kiro saw a typecheck result after each file it wrote.
+On 2026-11-11 the V3 engine upgraded this file to its own agent format by itself (the old file is kept as `warden.json.bak`). Since then all three hooks fire in non-interactive V3 runs, `agentSpawn` included: that day the log shows `agentSpawn` 16 times, `postToolUse` 849 times and `stop` 15 times. Every implementation session of the four new specs ran through this agent, so Kiro saw a typecheck result after each file it wrote.
 
 Gotcha we hit: with `--agent warden`, `--trust-tools` on the command line did not widen the agent's own `allowedTools`. With only `fs_read` allowed, every write was denied, and Kiro's final summary still reported test results that never ran. Both runs are in `docs/kiro-evidence/warden-hooks-session.txt`.
 
@@ -77,6 +77,8 @@ List them: `kiro-cli mcp list workspace`
 
 ### spooky-ui: hand-written first, then audited and finished by Kiro
 
+_This section describes the page as of 2026-11-09. Since then the badge symbols were removed ("Reversible" / "Irreversible"), the counter reads "N of M claims passed the ward this séance", and the contrast check reads the real tokens and covers 21 table pairs plus 28 usage pairs._
+
 The `spooky-ui` page was first written by hand on 2026-11-06: Kiro's batch run of that spec stopped on the free plan's monthly limit. On 2026-11-09, with credits available again, Kiro went back to it in three steps. First, it audited `public/` against all 52 requirements (27 met, 20 partial, 5 missing; `docs/kiro-evidence/spooky-ui-audit.md`). Second, the warden agent fixed the gaps that change nothing on screen, and added `test/ui/spooky-ui.test.ts`. The fixes: `aria-busy` while loading; an opacity substitute for the flicker under reduced motion; a candle flicker whose half-period runs from 4 s down to a 333 ms floor (at most 1.5 cycles a second); a "séance has ended" path for expired sessions; an inline error for an empty repository field; atomic tally announcements; and claim bubbles as `article` elements. One Kiro change was reverted in review: moving `--confidence` to the root element, which `.candle`'s own value shadows. Third, Kiro ticked only the 4 task items it could verify at that point. The other 84 described a module layout (`public/js/*`, three CSS files) that the hand-written UI never had. It did not implement hiding rejected claims in production (R3.7, R7.7), because showing them struck through is the product's point. Severity labels, step badges and collapsible steps were left for later at first, so the demo captures would stay valid. Then, after a user decision to match the spec fully (the demo video is re-rendered), the warden agent added the visible parts it had left out: a severity label next to the haunting score (Restless, Troubled, Haunted, Possessed), Reversible ✓ / Irreversible ⚠ badges on refactor steps, steps and do-not-touch entries as keyboard-collapsible `details` (open by default), a running "N of M claims verified this séance" counter, a "Performing exorcism…" status, and a contrast check (`scripts/contrast.mjs`, `npm run contrast`, 11 token pairs, all at least 4.5:1). That session also ended on a throttle. By hand: prettier, and a CSS fix where the list number overlapped the disclosure triangle. Kiro then rewrote `tasks.md` to describe the real files (one `app.js`, flat CSS) instead of the module split. In review I reopened four ticks that were reasoned rather than tested, fixed one wrong id, and corrected its reason for R3.7/R7.7. That left 116 verified and 4 open. The last four were property tests for the planchette angle, the fog opacity and the claims counter, plus the fast-check setup. Kiro's credits were spent by then, so I wrote them by hand in `test/ui/pbt/ui.pbt.ts`. All 120 are now verified. The module split was not done: it would put a working UI at risk near the deadline.
 
 ### Task lists checked against the code (2026-11-09)
@@ -91,7 +93,7 @@ Every `tasks.md` was re-checked against the code and tests.
 
 As of 2026-11-09 all six specs were fully ticked: 308 of 308 task items, each checked against code and tests. (The count for all ten specs is in "The 4,000-credit round" below.) Two pieces were finished by hand after Kiro's credits ran out (48.58 of 50 used):
 
-- The canonical plan fixture, `test/fixtures/exorcism-plans/5de303db.json`. It was recorded from a real model call on the sample crypt with `scripts/record-plan-fixture.ts`. It replaces the hand-made fixture Kiro had written for a toy ledger, and its test rebuilds the crypt with real git.
+- The canonical plan fixture, then `test/fixtures/exorcism-plans/5de303db.json` (replaced on 2026-11-11 by `464f2680.json`, recorded the same way after the prompt changed). It was recorded from a real model call on the sample crypt with `scripts/record-plan-fixture.ts`. It replaces the hand-made fixture Kiro had written for a toy ledger, and its test rebuilds the crypt with real git.
 - The four `spooky-ui` property tests.
 
 The ticks in `ghost-verifier` and `evidence-ledger` were then re-checked line by line against code and tests. Five ticked items turned out not to be true, and each was fixed and annotated in its `tasks.md`:
@@ -115,7 +117,7 @@ Everything above was built on the free plan's 50 credits with small models. On 2
 | `haunting-map` | Which files are haunted by which departed author, computed from two git calls with no model, and "Summon here" on any tile. | 45 of 46 |
 | `seance-mcp` | Séance's ledger and ward as an MCP server, so another agent's claims can be checked the same way. Kiro's `archaeologist` agent uses it. | 42 of 42 |
 
-Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); the inquisitor's eight findings were fixed with an addendum in each affected spec; and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
+Outside the specs: the rest of the accessibility audit was fixed test-first (`docs/kiro-evidence/a11y-fixes-session.txt`); seven of the inquisitor's eight findings were fixed with an addendum in each affected spec (the eighth, `X-Forwarded-For`, is a documented open risk); and at the end Kiro audited the finished page again, the layout by reading the CSS at five viewport sizes and the first-run path click by click, and the findings of both were fixed in a polish session (`reaudit-layout-session.txt`, `reaudit-first-run-session.txt`, `polish-session.txt`). Kiro also rewrote the four steering files against the code and added `testing.md` and `mcp-server.md` (`steering-sync-session.txt`).
 
 All ten specs together: 564 of 568 task items ticked. The four open items are three checks that need a person looking at the page in a browser, and one traceability item that depends on one of them. 1,382 tests.
 
@@ -125,6 +127,7 @@ All ten specs together: 564 of 568 task items ticked. The four open items are th
 - Kiro broke the verifier on purpose, one check at a time, to see the adversarial tests fail, and restored it each time.
 - The fix I suggested for the map parser ("a header can only start after a NUL") was still ambiguous, because every path also starts after a NUL. Kiro saw it and used the one thing a path can never be: empty.
 - It reported twice that the `/review-evidence` hook still described the quote as optional, and each time that files it had not created had appeared in the tree.
+- The accessibility prompt asked for a candle button with both a changing label and `aria-pressed`. Kiro built it as asked and then flagged that the combination is ambiguous to a screen reader; `aria-pressed` was removed by hand.
 - It left items unticked that it could not verify: the browser checks, a lint rule that did not cover `scripts/*.ts`, the three limits missing from the map's copy.
 
 ### Where Kiro was wrong or blocked
@@ -132,7 +135,7 @@ All ten specs together: 564 of 568 task items ticked. The four open items are th
 - A session was cut off by a model throttle at the start of `first-seance` T3. It was restarted from the last finished task.
 - The V3 engine would not let the agent edit `.kiro/settings/mcp.json` (its own `kiro-scope` rule). The entry was added with `kiro-cli mcp add`.
 - In non-interactive V3 runs, shell and MCP calls are denied unless `--trust-all-tools` is passed, whatever the agent file allows. The inquisitor therefore reviewed by reading only, and the archaeologist's V3 run needed `--trust-all-tools`.
-- The candle button it wrote had a changing label and `aria-pressed` at once (it flagged this itself); the first "Blame the wrong author" preset said "wrote this wait" on any repository; the map's copy stated three of six limits. All three were corrected by hand.
+- The first "Blame the wrong author" preset said "wrote this wait" on any repository, and the map's copy stated three of six limits (Kiro reported the second itself). Both were corrected by hand.
 - The numbers in one task (`recorded-limits`) could not produce the case they were meant to test; Kiro worked around it in the test and said so.
 - Audits were done by reading. Nothing was measured in a browser, and the accessibility audit's contrast ratios were worked out by hand by the model.
 - The Context7 power was tried again on 3.2.0 to check the MCP SDK's documentation. As on 3.1.0, the power activated but its MCP server was not connected in a non-interactive session; Kiro stopped instead of answering from memory (`powers-context7-retry-session.txt`).

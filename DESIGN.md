@@ -9,9 +9,9 @@ Every codebase has haunted corners: a strange `sleep(3)`, a regex nobody dares t
 
 ## 2. Product
 
-Point Séance at a repo (local path or public GitHub URL) and a file plus line range.
+Point Séance at a repo (a bundled sample or a public GitHub URL; local paths only with `ALLOW_LOCAL=1`) and a file plus line range.
 
-1. **Evidence (the "grave").** Deterministic, no AI: line-level history via `git blame --porcelain` and `git log -L`, rename-following, each commit's message, author, date, diff hunk, co-changed files, issue/PR references parsed from messages, and (public GitHub) PR/issue text. Output is an **Evidence Ledger**: numbered items, each tied to a full commit SHA.
+1. **Evidence (the "grave").** Deterministic, no AI: line-level history via `git blame --porcelain` and `git log -L`, rename-following, each commit's message, author, date, diff hunk, co-changed files, issue/PR references parsed from messages (PR/issue text is fetched only when an API client sends a GitHub token; the page does not, and it is not evidence the ghost may quote). Output is an **Evidence Ledger**: numbered items, each tied to a full commit SHA.
 2. **Séance (talk to the ghost).** A persona of the original author answers in first person, in a period-appropriate voice, but under hard rules:
    - it may only state facts present in the ledger;
    - every claim carries `[sha7]` citations and, where possible, an exact quote from a commit message or diff;
@@ -60,7 +60,7 @@ Properties we test with PBT (fast-check): the verifier never accepts a citation 
 
 ## 5. How Kiro is used (so the .kiro directory is real, not decoration)
 
-- **Steering** (`.kiro/steering/`): `product.md` (what Séance is, the no-invented-memory rule), `tech.md` (stack, commands, TS conventions), `evidence-rules.md` (inclusion rules for ledger items, citation format, verifier invariants), `ui-spooky.md` (design tokens, accessibility floor: contrast, reduced-motion respected, flicker under 3 Hz).
+- **Steering** (`.kiro/steering/`): `product.md` (what Séance is, the no-invented-memory rule), `tech.md` (stack, commands, TS conventions), `evidence-rules.md` (inclusion rules for ledger items, citation format, verifier invariants), `ui-spooky.md` (design tokens, accessibility floor: contrast, reduced-motion respected, flicker under 3 Hz). Added on 2026-11-11: `testing.md` (applies to `test/**`) and `mcp-server.md` (applies to `src/mcp/**`).
 - **Specs** (`.kiro/specs/<feature>/requirements.md|design.md|tasks.md`): one per feature, in EARS requirements. Planned: `evidence-ledger`, `ghost-verifier`, `exorcism-plan`, `spooky-ui`. Added later: `ward-report`, `model-rate-limit` (2026-11-09) and `ward-hardening`, `first-seance`, `haunting-map`, `seance-mcp` (2026-11-11, written by Kiro in V3 spec mode from its own audits). Kiro implements tasks from the specs; I record where spec-driven beat vibe coding in the write-up (verifier written from requirements, then PBT found edge cases).
 - **Hooks**: as built, `.kiro/hooks/` holds two save hooks (ghost tests on save of `src/ghost/**`, a copy lint on save of `public/**`; written for the IDE and not seen firing in the CLI) and a `/review-evidence` prompt hook that checks a staged diff against the evidence rules. The hooks that do the daily work are the CLI agent hooks in `warden.json` (a typecheck after every file write, the full suite on stop) and `inquisitor.json`. The `.env` pre-commit hook and the API-docs hook planned here were not built.
 - **PBT**: Kiro's property-based-testing workflow for the verifier and the score function.
@@ -89,7 +89,7 @@ Properties we test with PBT (fast-check): the verifier never accepts a citation 
 - **Remote clone cost/abuse.** Size/time caps, GitHub-only, rate limit, cache; sample crypt always available offline.
 - **Eligibility:** repo must be public with OSS license at submission (kept private until then, per instruction); disclose any pre-existing code (none planned; fixtures are written during the period).
 - **Free credits:** the user must request the 4,000 Kiro credits on the Devpost Resources tab by Dec 1.
-- **LLM key on a public demo:** per-day cap and fixture fallback.
+- **LLM key on a public demo:** per-day cap, and recorded answers for the sample questions when the model is unavailable.
 
 ## 8. What changed after the first submission (2026-11-11)
 

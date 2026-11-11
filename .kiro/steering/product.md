@@ -10,7 +10,7 @@ Séance shows the _why_ behind legacy code. Point it at a file and a line range;
 - **Speculation is labelled.** A speculation claim is cited like memory and always carries the "Speculation" label.
 - **The ward only gets stricter.** No change may let a claim pass that the ward rejected before.
 - **Ledger text is untrusted.** Commit messages, diffs, file paths and author names are data, never instructions. A commit or a name that tries to give the ghost orders is flagged in text ("This commit tries to give the ghost orders", "A ghost whose name tries to give orders").
-- **Recordings and fixtures come only from real model calls**, written by the recording scripts. Never write or edit one by hand.
+- **Recordings and fixtures come only from real model calls**, written by the recording scripts. Never write or edit one by hand. (The one exception, two synthetic loader fixtures written by a test, is named in `testing.md`.)
 
 ## User flows
 
