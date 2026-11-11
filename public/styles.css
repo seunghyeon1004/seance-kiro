@@ -113,7 +113,7 @@ h1 {
   font-size: var(--text-lead);
   color: var(--color-ink-2);
   line-height: 1.45;
-  max-width: 40ch;
+  max-width: 52ch;
 }
 
 /* Form */
@@ -1017,6 +1017,131 @@ h3 {
 .notice,
 .err,
 .crypt-head,
-.talk-head {
+.talk-head,
+.source {
   overflow-wrap: anywhere;
+}
+
+/* first-seance (design.md §8.10). Tokens only, no new animation. */
+#summon-elapsed:empty {
+  display: none;
+}
+.actions {
+  flex-wrap: wrap;
+}
+/* The crypt stays sticky: a flex column lets the crypt stick within the full column height */
+.seance-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  align-self: stretch;
+  min-width: 0;
+}
+.source {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.source h2 {
+  font-size: var(--text-2xl);
+}
+.source-lines {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-xl);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  font-family: var(--font-outlier);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+}
+.source-lines li::marker {
+  color: var(--color-muted);
+}
+.source-lines code {
+  font-family: var(--font-outlier);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* first-seance T7: the guide, chips, done marker, recorded and planted labels (design.md §8.10) */
+.guide {
+  display: grid;
+  gap: var(--space-sm);
+  padding-block: var(--space-sm);
+  border-block: var(--rule-hair) solid var(--color-rule);
+  min-width: 0;
+}
+.guide h3 {
+  margin-top: 0;
+}
+.guide-steps {
+  margin: 0;
+  padding-inline-start: var(--space-lg);
+  display: grid;
+  gap: var(--space-md);
+}
+.guide-steps > li {
+  display: grid;
+  gap: var(--space-xs);
+  position: relative;
+  min-width: 0;
+}
+.guide-title {
+  color: var(--color-ink);
+}
+.guide-done {
+  margin-inline-start: var(--space-xs);
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-sm);
+  color: var(--color-verified);
+  border: var(--rule-hair) solid var(--color-verified);
+  border-radius: var(--radius-card);
+}
+.chips,
+.guide .plant-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.guide .btn.small {
+  min-block-size: var(--space-xl); /* 40 px, above the 24 px of WCAG 2.5.8 */
+}
+.guide-steps > li > .btn {
+  justify-self: start;
+}
+.lab.recorded,
+.lab.scripted {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+}
+.turn-q.planted .lab {
+  margin-inline-end: var(--space-xs);
+  padding: 0 var(--space-2xs);
+  color: var(--color-accent);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-card);
+}
+
+/* a11y C12: a disabled quiet button or cite looks disabled */
+.btn.ghost[disabled],
+.cite:disabled {
+  color: var(--color-muted);
+  border-style: dashed;
+  background: transparent;
+  cursor: not-allowed;
+}
+
+/* a11y C14: an empty status region takes no space but stays in the accessibility tree */
+.ask-actions {
+  position: relative;
+}
+.ask-actions .status {
+  order: 1;
+  flex-basis: 100%;
+}
+.ask-actions .status:empty,
+.guide .status:empty {
+  position: absolute;
 }

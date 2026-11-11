@@ -162,10 +162,10 @@ describe('P8 – inline repo-err field error (R1.1, R1.2)', () => {
 // ---------------------------------------------------------------------------
 // P10 — R3.9: aria-atomic=true on each injected .tally
 // ---------------------------------------------------------------------------
-describe('P10 – aria-atomic on tally (R3.9)', () => {
-  it('injected tally element has aria-atomic="true"', () => {
-    // The el() call for tally should include aria-atomic: 'true'
-    expect(js).toMatch(/['"]aria-atomic['"]\s*:\s*['"]true['"]/);
+describe('P10 – the tally is not a live region (R3.9, superseded by first-seance R12.1)', () => {
+  it('injected tally element has no aria-atomic', () => {
+    // first-seance R12.1: the per-answer result is announced once through #ask-status
+    expect(js).not.toMatch(/['"]aria-atomic['"]\s*:\s*['"]true['"]/);
   });
 });
 
@@ -418,12 +418,13 @@ describe('P10 – persistent verified-counter (R3.3, R3.9)', () => {
     expect(html).toMatch(/id=['"]verified-counter['"]/);
   });
 
-  it('#verified-counter has aria-live="polite"', () => {
-    expect(html).toMatch(/id=['"]verified-counter['"][^>]*aria-live=['"]polite['"]/);
+  // first-seance R12.1 supersedes spooky-ui R3.9 and R8.7: the counter is not a live region
+  it('#verified-counter has no aria-live', () => {
+    expect(html).not.toMatch(/id=['"]verified-counter['"][^>]*aria-live/);
   });
 
-  it('#verified-counter has aria-atomic="true"', () => {
-    expect(html).toMatch(/id=['"]verified-counter['"][^>]*aria-atomic=['"]true['"]/);
+  it('#verified-counter has no aria-atomic', () => {
+    expect(html).not.toMatch(/id=['"]verified-counter['"][^>]*aria-atomic/);
   });
 
   it('app.js updates #verified-counter after each answer', () => {
@@ -464,12 +465,12 @@ describe('P11 – exorcise loading indicator (R7.2)', () => {
   });
 
   it('#exorcise-status is adjacent to #exorcise-btn in the HTML', () => {
-    // Both should appear in the same .ask-actions block
-    const actionsMatch = html.match(/class=['"]ask-actions['"][^]*?<\/div>/);
-    expect(actionsMatch).not.toBeNull();
-    const actionsBlock = actionsMatch![0];
-    expect(actionsBlock).toMatch(/exorcise-btn/);
-    expect(actionsBlock).toMatch(/exorcise-status/);
+    // first-seance: both sit in step 3 of the guide, #guide-step-exorcise
+    const stepMatch = html.match(/id=['"]guide-step-exorcise['"][^]*?<\/li>/);
+    expect(stepMatch).not.toBeNull();
+    const stepBlock = stepMatch![0];
+    expect(stepBlock).toMatch(/exorcise-btn/);
+    expect(stepBlock).toMatch(/exorcise-status/);
   });
 
   it('exorcise handler sets loading text to "Performing exorcism…"', () => {
@@ -593,9 +594,9 @@ describe('ward-hardening T7 – index.html (design.md §11.1)', () => {
     expect(values).toEqual(['crypt', 'possessed']);
   });
 
-  it('#repo-help names both samples (R8.4)', () => {
+  it('#repo-help names both samples (R8.4; copy from first-seance R1.3)', () => {
     expect(text('repo-help')).toBe(
-      'crypt is the sample repo. possessed is a hostile sample whose commits try to give the ghost orders. Or paste a public https://github.com/owner/repo.',
+      "crypt and possessed are samples; possessed's commits try to give the ghost orders. Or paste a public GitHub link: Séance reads its default branch and the last 100 commits.",
     );
   });
 

@@ -286,6 +286,14 @@ export const VerifiedAnswerResponseSchema = z.object({
 
 export type VerifiedAnswerResponse = z.infer<typeof VerifiedAnswerResponseSchema>;
 
+/** POST /api/possess (first-seance R13.4, design.md §16.4). */
+export const PossessRequestSchema = z.object({ sessionId: z.string().min(1) });
+/** The /api/ward response plus `scripted: true`; `sessionId` and `recorded` are absent (R13.5). */
+export const PossessResponseSchema = VerifiedAnswerResponseSchema.extend({
+  scripted: z.literal(true),
+});
+export type PossessResponse = z.infer<typeof PossessResponseSchema>;
+
 // ── Exorcism score types ─────────────────────────────────────────────────────
 
 export const SignalNameSchema = z.enum([

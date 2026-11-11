@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "Evidence-rules staged diff review",
-      "description": "User-triggered: asks the agent to review the staged git diff against the evidence-rules invariants — every claim must have a citation, and the verifier may not change unless a spec task is referenced.",
+      "description": "User-triggered: asks the agent to review the staged git diff against the evidence-rules invariants — every memory and speculation claim needs a citation with an exact quote, silence claims are never verified, and the verifier may only become stricter.",
       "trigger": "UserPromptSubmit",
       "matcher": "^/review-evidence\\b",
       "action": {
         "type": "agent",
-        "prompt": "The user has requested an evidence-rules review of the current staged diff.\n\n1. Run: git diff --cached\n2. Read: .kiro/steering/evidence-rules.md\n3. Check EVERY changed line in src/ghost/verifier.ts against the invariants listed there — reject any change that weakens a verifier invariant unless the commit message references a spec task ID.\n4. For any GhostAnswer or EvidenceItem changes, confirm that all claims still require at least one { sha7, quote? } citation.\n5. Output a short checklist: ✅ or ❌ per invariant, with the offending line if failing."
+        "prompt": "The user has requested an evidence-rules review of the current staged diff.\n\n1. Run: git diff --cached\n2. Read: .kiro/steering/evidence-rules.md\n3. Check EVERY changed line in src/ghost/verifier.ts and src/ghost/schema.ts against the invariants listed there. The verifier may only become stricter: reject any change that lets a claim be verified that was rejected before, whatever the commit message says.\n4. For any GhostAnswer, Claim, Citation or EvidenceItem change, confirm that every memory and speculation claim still requires at least one { sha7, quote } citation (the quote is mandatory, 8 to 500 characters, found in one single field of the cited item) and that a silence claim can never land in `verified`.\n5. If test/fixtures/**/*.json or recordings/*.json changed, say so: those files come only from real model calls and are never edited by hand.\n6. Output a short checklist: ✅ or ❌ per invariant, with the offending line if failing."
       }
     }
   ]

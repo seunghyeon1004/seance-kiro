@@ -96,17 +96,17 @@ Covers: R11.1, R11.2.
 
 ## T5 — The sleepy host (page)
 
-- [ ] Write the failing property tests CP4 (`shouldRetry`) and CP5 (`waitInWords`) in `test/ui/pbt/first-seance.pbt.ts`, extracting the functions from `public/app.js` as `test/ui/pbt/ui.pbt.ts` does (R5.4, R5.5, R10.2, N6).
-- [ ] Write the failing `test/e2e/wake.test.ts`, flow 4 of design.md §10.3, including the case where our own JSON 503 `BUSY` is not retried (R5.4–R5.6, R11.3).
-- [ ] Add to `test/e2e/harness.test.ts`:
+- [x] Write the failing property tests CP4 (`shouldRetry`) and CP5 (`waitInWords`) in `test/ui/pbt/first-seance.pbt.ts`, extracting the functions from `public/app.js` as `test/ui/pbt/ui.pbt.ts` does (R5.4, R5.5, R10.2, N6).
+- [x] Write the failing `test/e2e/wake.test.ts`, flow 4 of design.md §10.3, including the case where our own JSON 503 `BUSY` is not retried (R5.4–R5.6, R11.3).
+- [x] Add to `test/e2e/harness.test.ts`:
   - the first request after load is `GET /api/health`;
   - with `samples: ['crypt']` (possessed not built), the `possessed` option is removed from `#repo-list`;
   - with `model: false`, `#model-note` is shown with the R5.2 text (R5.2);
   - a 429 JSON body with `Retry-After: 300`, returned by the harness `proxy` for `/api/summon`, shows its message followed by "Try again in 5 minutes." (R10.2);
   - a summon of a remote URL, held open by a `proxy` promise that resolves later with a crafted summon body, shows `REMOTE_TEXT` in `#summon-status` and "1 second so far" in `#summon-elapsed` after one second (fake timers), and clears it when the summon ends (R10.4).
-- [ ] In `public/app.js`, implement `RETRY_DELAYS_MS`, `WAKE_TEXT`, `NET_FAIL`, `proxyFail`, `shouldRetry`, `wait`, the new `api(path, body, opts)`, `waitInWords`, `wake()`, `REMOTE_TEXT` and `startElapsed()` (design.md §8.2–§8.5). Callers pass `summon-status`, `ask-status` and `exorcise-status`. The plant path passes `ask-status` until T7 adds `#ward-status` (R5.3–R5.7, R10.2, R10.4).
-- [ ] In `public/index.html`, add `#summon-elapsed` and `#model-note` (design.md §8.9). In `public/styles.css`, add `#summon-elapsed:empty` (design.md §8.10).
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] In `public/app.js`, implement `RETRY_DELAYS_MS`, `WAKE_TEXT`, `NET_FAIL`, `proxyFail`, `shouldRetry`, `wait`, the new `api(path, body, opts)`, `waitInWords`, `wake()`, `REMOTE_TEXT` and `startElapsed()` (design.md §8.2–§8.5). Callers pass `summon-status`, `ask-status` and `exorcise-status`. The plant path passes `ask-status` until T7 adds `#ward-status` (R5.3–R5.7, R10.2, R10.4).
+- [x] In `public/index.html`, add `#summon-elapsed` and `#model-note` (design.md §8.9). In `public/styles.css`, add `#summon-elapsed:empty` (design.md §8.10).
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R5.2–R5.7 (R5.7 for summon, ask and exorcise), R10.2, R10.4, R11.3 (flow 4), N6.
 
@@ -114,13 +114,13 @@ Covers: R5.2–R5.7 (R5.7 for summon, ask and exorcise), R10.2, R10.4, R11.3 (fl
 
 ## T6 — Hero, the line in question, and pasted URLs (page)
 
-- [ ] Write the failing property tests CP1–CP3 for `normaliseRepoInput` in `test/ui/pbt/first-seance.pbt.ts` (R9.1–R9.3, N6).
-- [ ] Write the failing static tests in `test/ui/first-seance.test.ts`:
+- [x] Write the failing property tests CP1–CP3 for `normaliseRepoInput` in `test/ui/pbt/first-seance.pbt.ts` (R9.1–R9.3, N6).
+- [x] Write the failing static tests in `test/ui/first-seance.test.ts`:
   - the R1.1–R1.3 copy is exact, the page contains neither "any line" nor "any repository", and the visible words in `#summon` number at most 85 (R1.1–R1.5);
   - `#source`, `#h-source`, `#source-meta`, `#source-lines`, `#crypt-shallow`, `#repo-note` exist with their attributes from design.md §8.9;
   - `app.js` has no `ghostName` and never reads `voice` for the name (R2.4);
   - the three `GITHUB_URL_RE` definitions are byte-identical to `3486e14` (R9.6).
-- [ ] Write the failing DOM checks in `test/e2e/harness.test.ts`. Where a state cannot come from the real samples, the harness `proxy` returns a crafted `/api/summon` body:
+- [x] Write the failing DOM checks in `test/e2e/harness.test.ts`. Where a state cannot come from the real samples, the harness `proxy` returns a crafted `/api/summon` body:
   - after summoning `crypt`, `#source-lines` shows line 7 with `value` 7 and `#source-meta` the R2.3 text, and `#ghost-name` is `${persona.author}, speaking only from the commits.` (R2.3, R2.4);
   - a crafted body with `lines: []` shows "The text of these lines could not be read.";
   - a form range of 41 lines with a crafted body of 40 lines shows " Showing the first 40 lines." (R2.3);
@@ -128,10 +128,10 @@ Covers: R5.2–R5.7 (R5.7 for summon, ask and exorcise), R10.2, R10.4, R11.3 (fl
   - a crafted body with `shallow: true` shows `#crypt-shallow` (R8.4);
   - pasting `https://github.com/o/r/blob/main/src/a.ts#L10-L20` into `#repo` and firing `change` fills `https://github.com/o/r`, `src/a.ts`, 10 and 20, and shows the R9.3 note; a tree link fills the folder and the R9.4 note (R9.3–R9.5);
   - a file typed as `/legacy/tax.js` is sent as `legacy/tax.js` (R9.5).
-- [ ] In `public/index.html`, apply the R1 copy, `#source`, `.seance-col`, `#crypt-shallow` and `#repo-note` (design.md §8.9).
-- [ ] In `public/app.js`, implement `normaliseRepoInput`, the `#repo` change handler, the `validate()` changes, `sourceMeta`, `renderSource`, the `#ghost-name` rule, the empty and shallow crypt states, and delete `ghostName` (design.md §8.1, §8.5, §8.8) (R2.3, R2.4, R8.2, R8.4, R9.1–R9.5).
-- [ ] In `public/styles.css`, add `.lede`, `.seance-col` and `.source-lines` (design.md §8.10).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] In `public/index.html`, apply the R1 copy, `#source`, `.seance-col`, `#crypt-shallow` and `#repo-note` (design.md §8.9).
+- [x] In `public/app.js`, implement `normaliseRepoInput`, the `#repo` change handler, the `validate()` changes, `sourceMeta`, `renderSource`, the `#ghost-name` rule, the empty and shallow crypt states, and delete `ghostName` (design.md §8.1, §8.5, §8.8) (R2.3, R2.4, R8.2, R8.4, R9.1–R9.5).
+- [x] In `public/styles.css`, add `.lede`, `.seance-col` and `.source-lines` (design.md §8.10).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R1.1–R1.5, R2.3, R2.4, R8.2, R8.4, R9.1–R9.6, N4, N6.
 
@@ -139,8 +139,8 @@ Covers: R1.1–R1.5, R2.3, R2.4, R8.2, R8.4, R9.1–R9.6, N4, N6.
 
 ## T7 — The guided path, planted claims and the accessibility fixes (page)
 
-- [ ] Write the failing flow tests `test/e2e/crypt.test.ts`, `test/e2e/possessed.test.ts`, `test/e2e/recorded.test.ts` and `test/e2e/session.test.ts`, flows 1, 2, 3 and 5 of design.md §10.3, each with the design.md §10.1 header (R11.2, R11.3).
-- [ ] Add to `test/ui/first-seance.test.ts`:
+- [x] Write the failing flow tests `test/e2e/crypt.test.ts`, `test/e2e/possessed.test.ts`, `test/e2e/recorded.test.ts` and `test/e2e/session.test.ts`, flows 1, 2, 3 and 5 of design.md §10.3, each with the design.md §10.1 header (R11.2, R11.3).
+- [x] Add to `test/ui/first-seance.test.ts`:
   - the guide's structure, ids, classes and copy from design.md §8.9 and §9;
   - `CHIP_QUESTIONS` in `app.js` deep-equals `SAMPLE_QUESTIONS` plus `OTHER_QUESTIONS` from `src/ghost/recordings.ts`;
   - `#q` has no `required` and the R3.9 placeholder;
@@ -151,7 +151,7 @@ Covers: R1.1–R1.5, R2.3, R2.4, R8.2, R8.4, R9.1–R9.6, N4, N6.
   - `#verified-counter` and `#ex-verified` carry no `aria-live`, and the tally `el()` call carries no `role`, `aria-live` or `aria-atomic`;
   - no new `innerHTML` in `app.js`;
   - the CSS rules of design.md §8.10 for C12 and C14 exist (R3.1–R3.9, R10.1, R12.1, R12.3, R12.5, R12.6, N4).
-- [ ] Add to the flow tests, where they fit:
+- [x] Add to the flow tests, where they fit:
   - an empty ask shows `#q-err` with the R3.8 text, sets `aria-invalid` and `aria-describedby` on `#q`, moves focus to `#q` and sends nothing, and typing clears it (R3.8);
   - a verified memory claim has the "Verified" label, and a lit row contains "Cited in the latest answer" (R12.7);
   - a ghost turn's `.turn-q` starts with a `.visually-hidden` "You asked: " (R12.8);
@@ -159,12 +159,12 @@ Covers: R1.1–R1.5, R2.3, R2.4, R8.2, R8.4, R9.1–R9.6, N4, N6.
   - a second planted claim after the first leaves `state.lastReport` untouched, which shows as an unchanged copied report (R4.1);
   - `#exorcise-status` keeps the R12.3 text after the request ends (R12.3);
   - after a summon, `#summon-status` reads the R12.4 text and focus is on `#h-guide` (R12.4).
-- [ ] Update `test/ui/dom.test.ts` and `test/ui/spooky-ui.test.ts` as design.md §12.2 lists: the counter after a planted claim, presets that send at once, the inverted P10 live-region checks, P11's location, and the copy button as `hidden` (N5).
-- [ ] In `public/index.html`, add `#guide` with its three steps, `#ward-status`, `#q-err` and `#ex-recorded`. Move `.plant-presets`, `#exorcise-btn` (text "Start the exorcism") and `#exorcise-status` into the guide. Drop `required` from `#q`, the live attributes from `#verified-counter` and `#ex-verified`, and `disabled` from `#copy-report-btn` in favour of `hidden`. Set the `#plant` help text (design.md §8.9).
-- [ ] In `public/app.js`, implement `CHIP_QUESTIONS`, `chipQuestions`, `sampleFor`, `renderGuide`, `setDone`, `presetClaim`, `askQuestion`, `plant`, `endSeance`, `openSeance`, `showQError` and `clearQError`. Change `renderAnswer` (planted guard, labels, recorded label, tally without live attributes), `claimNode` ("Verified"), `lightRows` (hidden text) and the exorcise handler (status text, `#ex-recorded`, `setDone`) (design.md §8.5–§8.8) (R3, R4, R7.10, R10.1, R10.3, R12).
-- [ ] In `public/styles.css`, add the guide, chip, done, recorded, planted, C12 and C14 rules (design.md §8.10). In `public/tokens.css`, add the row `text: --color-accent | bg: --color-paper-3` and run `npm run contrast` (R12.9, N4).
-- [ ] Read every new UI string against design.md §9 and confirm that none claims the ward checks names outside the ledger, months or days, or the meaning of a sentence.
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Update `test/ui/dom.test.ts` and `test/ui/spooky-ui.test.ts` as design.md §12.2 lists: the counter after a planted claim, presets that send at once, the inverted P10 live-region checks, P11's location, and the copy button as `hidden` (N5).
+- [x] In `public/index.html`, add `#guide` with its three steps, `#ward-status`, `#q-err` and `#ex-recorded`. Move `.plant-presets`, `#exorcise-btn` (text "Start the exorcism") and `#exorcise-status` into the guide. Drop `required` from `#q`, the live attributes from `#verified-counter` and `#ex-verified`, and `disabled` from `#copy-report-btn` in favour of `hidden`. Set the `#plant` help text (design.md §8.9).
+- [x] In `public/app.js`, implement `CHIP_QUESTIONS`, `chipQuestions`, `sampleFor`, `renderGuide`, `setDone`, `presetClaim`, `askQuestion`, `plant`, `endSeance`, `openSeance`, `showQError` and `clearQError`. Change `renderAnswer` (planted guard, labels, recorded label, tally without live attributes), `claimNode` ("Verified"), `lightRows` (hidden text) and the exorcise handler (status text, `#ex-recorded`, `setDone`) (design.md §8.5–§8.8) (R3, R4, R7.10, R10.1, R10.3, R12).
+- [x] In `public/styles.css`, add the guide, chip, done, recorded, planted, C12 and C14 rules (design.md §8.10). In `public/tokens.css`, add the row `text: --color-accent | bg: --color-paper-3` and run `npm run contrast` (R12.9, N4).
+- [x] Read every new UI string against design.md §9 and confirm that none claims the ward checks names outside the ledger, months or days, or the meaning of a sentence.
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R3.1–R3.9, R4.1–R4.4, R5.7 (ward), R7.10, R10.1, R10.3, R11.2, R11.3 (flows 1, 2, 3, 5), R12.1–R12.9, N4, N5.
 
@@ -174,28 +174,28 @@ Covers: R3.1–R3.9, R4.1–R4.4, R5.7 (ward), R7.10, R10.1, R10.3, R11.2, R11.3
 
 No model is called in this task, by the code or by its tests. The scripted answer comes from `src/ghost/possessed-ghost.ts` only (R13.12, N7).
 
-- [ ] Write the failing tests in `test/ghost/possessed-ghost.test.ts` per design.md §16.8:
+- [x] Write the failing tests in `test/ghost/possessed-ghost.test.ts` per design.md §16.8:
   - on the possessed default ledger, `possessedAnswer` returns the five claims of the design.md §16.2 table in the order A1–A5, with `voice: 'scripted'`, and the A1 and A2 citations have no `quote` key (R13.2);
   - `verify` on it gives no verified claim, the four rejected claims with their R13.6 reasons, and the A4 silence claim (R13.6);
   - it returns `null` on the crypt ledger, on the possessed ledger for `auth/throttle.js` line 1 (after asserting it holds fewer than seven items), and on the default ledger with one item removed or one item duplicated (R13.2);
   - for each attack, `WorstCaseClient`'s claims deep-equal that attack's claims inside `possessedAnswer` (R13.3);
   - the module's source has no `node:` import, no `llm.js` import, no `Date` and no `Math.random` (R13.1).
-- [ ] Write the failing property test CP12 in `test/ghost/pbt/possessed-ghost.pbt.ts` (R13.1, R13.2, N6).
-- [ ] Write the failing tests in `test/server/possess.test.ts` per design.md §16.8:
+- [x] Write the failing property test CP12 in `test/ghost/pbt/possessed-ghost.pbt.ts` (R13.1, R13.2, N6).
+- [x] Write the failing tests in `test/server/possess.test.ts` per design.md §16.8:
   - the 200 response parses with `PossessResponseSchema`, has `scripted: true`, has no `sessionId` or `recorded` key, has the R13.6 buckets, reasons and tally, and apart from `scripted` deep-equals the `/api/ward` response for the same claims (R13.4–R13.6);
   - a crypt session and possessed sessions for line 1 and for lines 1 to 7 give 400 `NOT_POSSESSED` with the exact message (R13.4);
   - an unknown or missing `sessionId` and a body that is not JSON give the `/api/ward` 404 `SESSION_NOT_FOUND` body; a body over 64 KB gives 413 with `wardLimiter.size()` still 0 (R13.4);
   - after five possess calls, `modelLimiter.size()` is 0, `wardLimiter.size()` is 1, the injected model client was never called, and the route logged nothing (R13.4, R13.12);
   - `/api/ward`, `/api/ask` and `/api/exorcise` responses have no `scripted` key (R13.5).
-- [ ] Write the failing `test/server/possess-limits.test.ts` (it sets `WARD_RATE_LIMIT_MAX=3`, `RATE_LIMIT_MAX=1`, `MAX_MODEL_CALLS_PER_DAY=1` and an empty `RECORDINGS_DIR` before the server loads): three possess calls give 200 and the fourth the ward limiter's 429, and one ask afterwards still gets 200, then a second ask gets the model limiter's 429 (R13.4).
-- [ ] Extend `test/e2e/possessed.test.ts` with steps 6–10 of flow 2 and `test/e2e/crypt.test.ts` with step 10 of flow 1 (design.md §10.3). Add `F9` to `REASONS` in `test/e2e/harness.ts` (design.md §10.1) (R13.7–R13.10, R13.13).
-- [ ] Add to `test/ui/first-seance.test.ts`: `#possess-btn` is a `<button type="button">` with `hidden` and the exact R13.7 text, and is the first button in `#guide-step-ward`; `app.js` contains the R13.8 label verbatim, and `/api/possess` appears only in `possess()` (R13.7, R13.8, R13.12).
-- [ ] Implement `src/ghost/possessed-ghost.ts` per design.md §16.2, moving `SUBJECTS` and `ATTACKS` out of `test/adversarial/worst-case-client.ts` verbatim (R13.1, R13.2).
-- [ ] Refactor `test/adversarial/worst-case-client.ts` per design.md §16.3. Confirm that `test/adversarial/` passes and that `git diff 3486e14 -- test/adversarial/possessed.test.ts test/adversarial/self-quote.test.ts` is empty (R13.3).
-- [ ] In `src/ghost/schema.ts`, add `PossessRequestSchema` and `PossessResponseSchema`. In `src/server.ts`, add the ward limiter on `/api/possess`, `isPossessedDefault`, `NOT_POSSESSED_MESSAGE` and the route (design.md §16.4) (R13.4, R13.5, N3).
-- [ ] In `public/index.html`, add `#possess-btn` (design.md §16.5). In `public/app.js`, add `SCRIPTED_LABEL`, `possess()`, `scriptedStatus()`, the `#possess-btn` line in `renderGuide`, and the `scripted` option of `renderAnswer` (design.md §16.5, §16.6). In `public/styles.css`, add `.lab.scripted` to the `.lab.recorded` rule (R13.7–R13.11).
-- [ ] Read every new string against design.md §9 and §16.7. Confirm that the label says the answer is scripted and that no model was called, and that no string suggests a model produced it (R13.12).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. Confirm `git diff 3486e14 -- src/ghost/verifier.ts src/ratelimit.ts test/server/ratelimit.test.ts` is empty (N2).
+- [x] Write the failing `test/server/possess-limits.test.ts` (it sets `WARD_RATE_LIMIT_MAX=3`, `RATE_LIMIT_MAX=1`, `MAX_MODEL_CALLS_PER_DAY=1` and an empty `RECORDINGS_DIR` before the server loads): three possess calls give 200 and the fourth the ward limiter's 429, and one ask afterwards still gets 200, then a second ask gets the model limiter's 429 (R13.4).
+- [x] Extend `test/e2e/possessed.test.ts` with steps 6–10 of flow 2 and `test/e2e/crypt.test.ts` with step 10 of flow 1 (design.md §10.3). Add `F9` to `REASONS` in `test/e2e/harness.ts` (design.md §10.1) (R13.7–R13.10, R13.13).
+- [x] Add to `test/ui/first-seance.test.ts`: `#possess-btn` is a `<button type="button">` with `hidden` and the exact R13.7 text, and is the first button in `#guide-step-ward`; `app.js` contains the R13.8 label verbatim, and `/api/possess` appears only in `possess()` (R13.7, R13.8, R13.12).
+- [x] Implement `src/ghost/possessed-ghost.ts` per design.md §16.2, moving `SUBJECTS` and `ATTACKS` out of `test/adversarial/worst-case-client.ts` verbatim (R13.1, R13.2).
+- [x] Refactor `test/adversarial/worst-case-client.ts` per design.md §16.3. Confirm that `test/adversarial/` passes and that `git diff 3486e14 -- test/adversarial/possessed.test.ts test/adversarial/self-quote.test.ts` is empty (R13.3).
+- [x] In `src/ghost/schema.ts`, add `PossessRequestSchema` and `PossessResponseSchema`. In `src/server.ts`, add the ward limiter on `/api/possess`, `isPossessedDefault`, `NOT_POSSESSED_MESSAGE` and the route (design.md §16.4) (R13.4, R13.5, N3).
+- [x] In `public/index.html`, add `#possess-btn` (design.md §16.5). In `public/app.js`, add `SCRIPTED_LABEL`, `possess()`, `scriptedStatus()`, the `#possess-btn` line in `renderGuide`, and the `scripted` option of `renderAnswer` (design.md §16.5, §16.6). In `public/styles.css`, add `.lab.scripted` to the `.lab.recorded` rule (R13.7–R13.11).
+- [x] Read every new string against design.md §9 and §16.7. Confirm that the label says the answer is scripted and that no model was called, and that no string suggests a model produced it (R13.12).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. Confirm `git diff 3486e14 -- src/ghost/verifier.ts src/ratelimit.ts test/server/ratelimit.test.ts` is empty (N2).
 
 Covers: R11.3 (flow 2 steps 6–10, flow 1 step 10), R12.9 (`#possess-btn`), R13.1–R13.13, N2, N3, N4, N6.
 

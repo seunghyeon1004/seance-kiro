@@ -42,8 +42,18 @@ import type {
   VerifiedRefactorPlan,
   VerifierResult,
 } from './ghost/schema.js';
-import { ExorciseRequestSchema, ExorciseResponseSchema } from './ghost/schema.js';
-import { SAMPLE_NAMES, loadRecording, recordingTargetFor } from './ghost/recordings.js';
+import {
+  ExorciseRequestSchema,
+  ExorciseResponseSchema,
+  PossessRequestSchema,
+} from './ghost/schema.js';
+import {
+  SAMPLE_NAMES,
+  SAMPLE_RANGES,
+  loadRecording,
+  recordingTargetFor,
+} from './ghost/recordings.js';
+import { possessedAnswer } from './ghost/possessed-ghost.js';
 import type {
   AskRecording,
   ExorciseRecording,
@@ -399,6 +409,20 @@ function toAnswerResponse(
   return sessionId === undefined ? response : { sessionId, ...response };
 }
 
+const NOT_POSSESSED_MESSAGE =
+  'The possessed ghost only answers on the possessed sample, auth/throttle.js line 4.';
+
+/** The possessed sample summoned with its default file and range (R13.4). */
+function isPossessedDefault(entry: SessionEntry): boolean {
+  const d = SAMPLE_RANGES.possessed;
+  return (
+    entry.sample === 'possessed' &&
+    entry.file === d.file &&
+    entry.startLine === d.startLine &&
+    entry.endLine === d.endLine
+  );
+}
+
 /** The ward report's file and lines, shared by /api/ask, /api/ward and the recorded path. */
 function reportMeta(entry: {
   file?: string;
@@ -631,6 +655,7 @@ export function createApp(deps: AppDeps = {}): Hono<AppEnv> {
   app.use('/api/exorcise', modelGate('exorcise'));
   app.use('/api/summon', summonRateLimit);
   app.use('/api/ward', wardRateLimit);
+  app.use('/api/possess', wardRateLimit); // the ward limiter; never modelGate or the model limiter
 
   registerRoutes(app, deps);
   return app;
@@ -934,6 +959,32 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     const r = verify(entry.ledger.items, parsed.data);
     const wardReport = renderWardReport(r, reportMeta(entry));
     return c.json(toAnswerResponse(entry.ledger, r, parsed.data.voice, wardReport));
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /api/possess : the scripted possessed ghost through the live ward (first-seance R13.4).
+  // No model is called and nothing is logged; the claims come from src/ghost/possessed-ghost.ts.
+  // ---------------------------------------------------------------------------
+
+  app.post('/api/possess', async (c) => {
+    const parsed = PossessRequestSchema.safeParse(await c.req.json().catch(() => null));
+    const entry = parsed.success ? sessions.get(parsed.data.sessionId) : undefined;
+    if (!entry || Date.now() > entry.expiresAt) {
+      return c.json(
+        { code: 'SESSION_NOT_FOUND', message: 'Session not found or expired' },
+        404,
+      );
+    }
+    const answer = isPossessedDefault(entry) ? possessedAnswer(entry.ledger) : null;
+    if (answer === null) {
+      return c.json({ code: 'NOT_POSSESSED', message: NOT_POSSESSED_MESSAGE }, 400);
+    }
+    const result = verify(entry.ledger.items, answer);
+    const report = renderWardReport(result, reportMeta(entry));
+    return c.json({
+      ...toAnswerResponse(entry.ledger, result, answer.voice, report),
+      scripted: true,
+    });
   });
 
   // ---------------------------------------------------------------------------

@@ -94,6 +94,8 @@ export interface OpenOptions {
   readonly nodeTimers?: boolean;
   /** Called with each successful summon body before the page sees it (scripted clients read the ledger here). */
   readonly onSummon?: (data: { items: SummonItem[] }) => void;
+  /** Open the page with ANTHROPIC_API_KEY unset, so the server has no model (flow 3 case a). */
+  readonly noKey?: boolean;
 }
 
 type ServerModule = typeof import('../../src/server.js');
@@ -107,6 +109,8 @@ export interface Page {
     method: string;
     body: unknown;
     status: number;
+    /** The response body parsed as JSON, or null when it is not JSON. */
+    data: unknown;
   }>;
   $(id: string): HTMLElement;
   input(id: string): HTMLInputElement;
@@ -127,6 +131,8 @@ export const REASONS = {
   F4: (sha: string): string => `Commit ${sha} is not in the ledger.`,
   F6: (sha: string): string =>
     `The citation of ${sha} has no quote. The ward accepts a citation only with the exact words from the commit.`,
+  F9: (sha: string): string =>
+    `The quote cited from ${sha} is not in that commit's subject, message or diff.`,
   F10: (year: string): string =>
     `The claim names the year ${year}, but no cited commit is dated ${year} or mentions it.`,
   F11: (name: string): string =>
@@ -158,7 +164,8 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
   process.env['CRYPT_DIR'] = opts.samples.crypt; // read when src/server.ts loads
   process.env['POSSESSED_DIR'] = opts.samples.possessed;
   delete process.env['ANTHROPIC_FIXTURE'];
-  process.env['ANTHROPIC_API_KEY'] = DUMMY_KEY;
+  if (opts.noKey) delete process.env['ANTHROPIC_API_KEY'];
+  else process.env['ANTHROPIC_API_KEY'] = DUMMY_KEY;
   vi.stubGlobal(
     'fetch',
     vi.fn(() => {
@@ -232,10 +239,13 @@ export async function openPage(opts: OpenOptions): Promise<Page> {
         ? await opts.proxy({ path: p, method, attempt })
         : undefined;
       const res = proxied ?? (await app.request(p, init));
-      requests.push({ path: p, method, body, status: res.status });
+      const data: unknown = await res
+        .clone()
+        .json()
+        .catch(() => null);
+      requests.push({ path: p, method, body, status: res.status, data });
       if (proxied === undefined && p === '/api/summon' && res.ok) {
-        const data = (await res.clone().json()) as { items: SummonItem[] };
-        opts.onSummon?.(data);
+        opts.onSummon?.(data as { items: SummonItem[] });
       }
       return res;
     } finally {

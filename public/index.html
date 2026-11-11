@@ -31,7 +31,9 @@
           <div class="hero-copy">
             <h1 id="h-hero">Ask the one who wrote it.</h1>
             <p class="lede">
-              The ghost behind any line of code answers from its commits.
+              Pick a line in a sample or a public GitHub repository, and its author's
+              ghost answers from the commits. Every claim is checked against the commits,
+              and invented ones are struck out.
             </p>
 
             <form id="summon-form" class="summon" novalidate>
@@ -43,7 +45,7 @@
                   value="crypt"
                   autocomplete="off"
                   spellcheck="false"
-                  aria-describedby="repo-help"
+                  aria-describedby="repo-help repo-note"
                   list="repo-list"
                 />
                 <datalist id="repo-list">
@@ -52,10 +54,11 @@
                 </datalist>
                 <p class="err" id="repo-err" role="alert" hidden></p>
                 <p class="help" id="repo-help">
-                  crypt is the sample repo. possessed is a hostile sample whose commits
-                  try to give the ghost orders. Or paste a public
-                  https://github.com/owner/repo.
+                  crypt and possessed are samples; possessed's commits try to give the
+                  ghost orders. Or paste a public GitHub link: Séance reads its default
+                  branch and the last 100 commits.
                 </p>
+                <p class="help" id="repo-note" role="status" hidden></p>
               </div>
               <div class="field wide">
                 <label for="file">File</label>
@@ -111,8 +114,13 @@
                   role="status"
                   aria-live="polite"
                 ></span>
+                <span class="meta" id="summon-elapsed"></span>
               </div>
               <p class="err form-err" id="summon-err" role="alert" hidden></p>
+              <p class="help form-err" id="model-note" hidden>
+                The model is resting on this server. The sample questions have recorded
+                answers, which the ward checks again; the ward demo works as always.
+              </p>
             </form>
           </div>
 
@@ -127,14 +135,27 @@
 
       <section class="seance" id="seance" aria-label="Séance" hidden>
         <div class="container seance-in">
-          <aside class="crypt" aria-labelledby="h-crypt">
-            <div class="crypt-head">
-              <h2 id="h-crypt">The crypt</h2>
-              <p class="meta" id="crypt-meta"></p>
-            </div>
-            <div class="planchette" id="planchette" aria-hidden="true"><span></span></div>
-            <ol class="ledger" id="ledger"></ol>
-          </aside>
+          <div class="seance-col">
+            <section class="source" id="source" aria-labelledby="h-source">
+              <h2 id="h-source">The line in question</h2>
+              <p class="meta" id="source-meta"></p>
+              <ol class="source-lines" id="source-lines"></ol>
+            </section>
+            <aside class="crypt" aria-labelledby="h-crypt">
+              <div class="crypt-head">
+                <h2 id="h-crypt">The crypt</h2>
+                <p class="meta" id="crypt-meta"></p>
+                <p class="meta" id="crypt-shallow" hidden>
+                  Only the most recent 100 commits were read. Older history is not in the
+                  crypt.
+                </p>
+              </div>
+              <div class="planchette" id="planchette" aria-hidden="true">
+                <span></span>
+              </div>
+              <ol class="ledger" id="ledger"></ol>
+            </aside>
+          </div>
 
           <section class="talk" aria-labelledby="h-talk">
             <div class="talk-head">
@@ -147,17 +168,75 @@
                 <p class="meta" id="ghost-name">Speaks only from the commits.</p>
               </div>
             </div>
-            <p
-              class="verified-counter"
-              id="verified-counter"
-              aria-live="polite"
-              aria-atomic="true"
-            ></p>
+            <p class="verified-counter" id="verified-counter"></p>
             <p class="meta" id="ward-limit">
               The ward checks that each quote is really in the cited commit. It cannot
               check that the ghost's sentence says the same thing as the quote, so read
               both.
             </p>
+
+            <section class="guide" id="guide" aria-labelledby="h-guide">
+              <h3 id="h-guide" tabindex="-1">Try it in three clicks</h3>
+              <ol class="guide-steps">
+                <li id="guide-step-ask" data-done="false">
+                  <p class="guide-title">
+                    Ask the ghost <span class="guide-done" hidden>done</span>
+                  </p>
+                  <div class="chips" id="guide-chips"></div>
+                </li>
+                <li id="guide-step-ward" data-done="false">
+                  <p class="guide-title">
+                    Try to fool the ward <span class="guide-done" hidden>done</span>
+                  </p>
+                  <p class="help" id="guide-ward-help">
+                    Each button sends a false claim straight to the ward. No model is
+                    involved.
+                  </p>
+                  <div class="plant-presets">
+                    <button class="btn small ghost" id="possess-btn" type="button" hidden>
+                      Let a possessed ghost answer
+                    </button>
+                    <button class="btn small ghost" type="button" data-preset="invent">
+                      Invent a citation
+                    </button>
+                    <button class="btn small ghost" type="button" data-preset="misquote">
+                      Misquote a real commit
+                    </button>
+                    <button
+                      class="btn small ghost"
+                      type="button"
+                      data-preset="wrongauthor"
+                    >
+                      Blame the wrong author
+                    </button>
+                  </div>
+                  <span
+                    class="status"
+                    id="ward-status"
+                    role="status"
+                    aria-live="polite"
+                  ></span>
+                </li>
+                <li id="guide-step-exorcise" data-done="false">
+                  <p class="guide-title">
+                    Run the exorcism <span class="guide-done" hidden>done</span>
+                  </p>
+                  <p class="help">
+                    A haunting score and a refactor plan. Steps the ward cannot back are
+                    struck out. This can take a minute.
+                  </p>
+                  <button class="btn small ghost" id="exorcise-btn" type="button">
+                    Start the exorcism
+                  </button>
+                  <span
+                    class="status"
+                    id="exorcise-status"
+                    role="status"
+                    aria-live="polite"
+                  ></span>
+                </li>
+              </ol>
+            </section>
 
             <div class="log" id="log" aria-live="off"></div>
 
@@ -166,27 +245,12 @@
               <textarea
                 id="q"
                 rows="2"
-                placeholder="Why is there a three second wait here?"
-                required
+                placeholder="Or type your own question"
               ></textarea>
+              <p class="err" id="q-err" hidden></p>
               <div class="ask-actions">
                 <button class="btn" id="ask-btn" type="submit">Ask the ghost</button>
-                <button class="btn ghost" id="exorcise-btn" type="button">
-                  Run the exorcism
-                </button>
-                <span
-                  class="status"
-                  id="exorcise-status"
-                  role="status"
-                  aria-live="polite"
-                ></span>
-                <button
-                  class="btn ghost"
-                  id="copy-report-btn"
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                >
+                <button class="btn ghost" id="copy-report-btn" type="button" hidden>
                   Copy ward report
                 </button>
                 <span
@@ -200,21 +264,7 @@
 
             <details class="plant" id="plant">
               <summary>Plant a false memory</summary>
-              <p class="help">
-                Send a claim straight to the ward and watch it refuse what the commits do
-                not support.
-              </p>
-              <div class="plant-presets">
-                <button class="btn small ghost" type="button" data-preset="invent">
-                  Invent a citation
-                </button>
-                <button class="btn small ghost" type="button" data-preset="misquote">
-                  Misquote a real commit
-                </button>
-                <button class="btn small ghost" type="button" data-preset="wrongauthor">
-                  Blame the wrong author
-                </button>
-              </div>
+              <p class="help">Write your own claim and send it to the ward.</p>
               <label for="plant-text">Claim</label>
               <input
                 id="plant-text"
@@ -248,6 +298,9 @@
         <div class="container" id="exorcism-wrap" hidden>
           <section class="exorcism" id="exorcism" aria-labelledby="h-ex" tabindex="-1">
             <h2 id="h-ex">The exorcism</h2>
+            <p class="lab recorded" id="ex-recorded" hidden>
+              A recorded plan (the model is resting). The ward checked it again just now.
+            </p>
             <div class="ex-top">
               <p class="score">
                 <span class="num" id="ex-score">0</span
@@ -260,7 +313,7 @@
               The model's words, not checked
             </p>
             <p class="summary" id="ex-summary"></p>
-            <p class="meta" id="ex-verified" role="status" aria-live="polite"></p>
+            <p class="meta" id="ex-verified"></p>
             <h3>Write these tests first</h3>
             <p class="lab unchecked" id="ex-tests-lab">
               The model's words, not checked. Read each test before you run it.
