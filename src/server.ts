@@ -24,7 +24,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { buildLedger, validateLedgerInput } from './evidence/ledger.js';
+import {
+  buildLedger,
+  validateLedgerInput,
+  validateWholeFileInput,
+} from './evidence/ledger.js';
 import { isSuspicious } from './evidence/refs.js';
 import { buildPrompt, mostFrequentAuthor } from './ghost/persona.js';
 import { askGhost, modelConfigured } from './ghost/llm.js';
@@ -39,6 +43,7 @@ import type {
   EvidenceItem,
   ExorciseResponse,
   LedgerResult,
+  LineRange,
   ScoredResult,
   VerifiedAnswerResponse,
   VerifiedRefactorPlan,
@@ -195,17 +200,33 @@ const SummonRequestSchema = z
         { message: 'remote URLs must be https://github.com/<owner>/<repo>' },
       ),
     file: z.string().min(1),
-    startLine: z.number().int().min(1),
-    endLine: z.number().int().min(1),
+    // Either both lines, or wholeFile: true and neither (haunting-map R6.2, design.md §6.3)
+    startLine: z.number().int().min(1).optional(),
+    endLine: z.number().int().min(1).optional(),
+    wholeFile: z.boolean().optional(),
     githubToken: z.string().optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.endLine < val.startLine) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['endLine'],
-        message: `endLine (${val.endLine}) must be >= startLine (${val.startLine})`,
-      });
+    const issue = (message: string, at: string): void => {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [at], message });
+    };
+    const hasLine = val.startLine !== undefined || val.endLine !== undefined;
+    if (val.wholeFile === true && hasLine) {
+      issue('Send a line range or wholeFile, not both.', 'wholeFile');
+    } else if (
+      val.wholeFile !== true &&
+      (val.startLine === undefined || val.endLine === undefined)
+    ) {
+      issue('Send a line range (startLine and endLine) or wholeFile: true.', 'startLine');
+    } else if (
+      val.startLine !== undefined &&
+      val.endLine !== undefined &&
+      val.endLine < val.startLine
+    ) {
+      issue(
+        `endLine (${val.endLine}) must be >= startLine (${val.startLine})`,
+        'endLine',
+      );
     }
   });
 
@@ -715,13 +736,22 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
     try {
       // design.md §8.4: validate (R10.1), resolve, take a clone slot for remote URLs (R10.6)
-      const valid = validateLedgerInput({
-        repoUrl: input.repoUrl,
-        file: input.file,
-        startLine: input.startLine,
-        endLine: input.endLine,
-        githubToken: input.githubToken,
-      });
+      // A whole-file request passes the same file, repository and token rules (haunting-map R6.3)
+      const valid =
+        input.wholeFile === true
+          ? validateWholeFileInput({
+              repoUrl: input.repoUrl,
+              file: input.file,
+              wholeFile: true,
+              githubToken: input.githubToken,
+            })
+          : validateLedgerInput({
+              repoUrl: input.repoUrl,
+              file: input.file,
+              startLine: input.startLine,
+              endLine: input.endLine,
+              githubToken: input.githubToken,
+            });
       const repoUrl = resolveRepo(valid.repoUrl);
 
       let release: (() => void) | undefined;
@@ -741,20 +771,28 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         release = acquired;
       }
 
-      let ledger: LedgerResult;
+      let built: LedgerResult;
       try {
-        ledger = await buildLedger({ ...valid, repoUrl });
+        built = await buildLedger({ ...valid, repoUrl }, { hauntingMap: true });
       } finally {
         release?.();
       }
+
+      // The map never enters the session, so no prompt or verification can see it (R4.4)
+      const { haunting, ...ledger } = built;
+      let range: LineRange;
+      if (ledger.range !== undefined) range = ledger.range;
+      else if ('startLine' in valid)
+        range = { startLine: valid.startLine, endLine: valid.endLine };
+      else throw new Error('buildLedger returned no range for a whole-file summon');
 
       const sessionId = crypto.randomUUID();
       rememberSession(sessionId, {
         ledger,
         expiresAt: Date.now() + SESSION_TTL_MS,
         file: valid.file,
-        startLine: valid.startLine,
-        endLine: valid.endLine,
+        startLine: range.startLine,
+        endLine: range.endLine,
         ...(isSampleName(valid.repoUrl) ? { sample: valid.repoUrl } : {}),
       });
 
@@ -780,6 +818,13 @@ function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         lines: ledger.lines ?? [], // R2.1
         persona: personaOf(ledger.items), // R2.2, R2.5
         shallow: ledger.shallow ?? false, // R8.3
+        range, // haunting-map R4.3
+        // map or mapNote, never both (haunting-map R4.1)
+        ...(haunting?.kind === 'map'
+          ? { map: haunting.map }
+          : haunting?.kind === 'note'
+            ? { mapNote: haunting.note }
+            : {}),
       });
     } catch (err: unknown) {
       return errorResponse(c, err);

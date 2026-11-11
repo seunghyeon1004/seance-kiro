@@ -55,6 +55,11 @@ export const LedgerResultSchema = z.object({
   // first-seance §7: optional, so existing ledger mocks still type-check
   lines: z.array(SourceLineSchema).max(40).readonly().optional(),
   shallow: z.boolean().optional(),
+  // haunting-map §3: optional for the same reason
+  /** The range the ledger was built for. */
+  range: z.lazy(() => LineRangeSchema).optional(),
+  /** Present only when buildLedger was asked for the map. */
+  haunting: z.lazy(() => HauntingOutcomeSchema).optional(),
 });
 
 export type LedgerResult = z.infer<typeof LedgerResultSchema>;
@@ -215,21 +220,121 @@ export interface VerifierResult {
 }
 
 // ---------------------------------------------------------------------------
+// Haunting map (haunting-map design.md §3). Computed from git with no model; display only.
+// ---------------------------------------------------------------------------
+
+const IsoUtcSchema = z.string().datetime(); // toISOString form
+const GhostIdSchema = z.string().regex(/^G[1-9][0-9]*$/);
+
+export const MapGhostSchema = z.object({
+  id: GhostIdSchema, // G1, G2, … in ghost order (R3.4)
+  name: z.string().min(1), // untrusted, display only
+  glyph: z.string().min(1).max(16), // design.md §5.5
+  suspicious: z.boolean(), // isSuspicious(name) (R8.2)
+  lastSeen: IsoUtcSchema, // the ghost's newest author date in the history used
+  files: z.number().int().positive(), // listed files this ghost haunts
+});
+export type MapGhost = z.infer<typeof MapGhostSchema>;
+
+export const MapFileSchema = z
+  .object({
+    path: z.string().min(1), // untrusted, display only
+    hauntedBy: z.string().min(1).nullable(), // null when tended by the living
+    ghostId: GhostIdSchema.nullable(),
+    departedTouches: z.number().int().nonnegative(),
+    totalTouches: z.number().int().positive(),
+    lastSha7: Sha7Schema,
+    lastSeen: IsoUtcSchema,
+  })
+  .refine((f) => f.departedTouches <= f.totalTouches, {
+    message: 'departedTouches > totalTouches',
+  })
+  .refine((f) => (f.ghostId === null) === (f.hauntedBy === null), {
+    message: 'ghostId and hauntedBy disagree',
+  })
+  .refine((f) => (f.ghostId === null) === (f.departedTouches === 0), {
+    message: 'haunted iff a ghost touched it',
+  });
+export type MapFile = z.infer<typeof MapFileSchema>;
+
+export const HauntingMapSchema = z
+  .object({
+    repoNow: IsoUtcSchema,
+    departedAfterDays: z.number().int().positive(),
+    commitsRead: z.number().int().positive().max(2000),
+    historyCut: z.boolean(), // more than 2,000 commits were available (R2.9)
+    truncated: z.boolean(), // the 300-file cap cut files (R2.10)
+    filesConsidered: z.number().int().nonnegative(), // files that qualified before the cap
+    ghosts: z.array(MapGhostSchema),
+    files: z.array(MapFileSchema).max(300),
+  })
+  .superRefine((m, ctx) => {
+    const issue = (message: string): void => {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    };
+    const byId = new Map(m.ghosts.map((g) => [g.id, g]));
+    m.ghosts.forEach((g, i) => {
+      if (g.id !== `G${i + 1}`) issue(`ghost ${i} has id ${g.id}, expected G${i + 1}`);
+    });
+    if (new Set(m.ghosts.map((g) => g.glyph)).size !== m.ghosts.length) {
+      issue('glyphs are not unique');
+    }
+    const counts = new Map<string, number>();
+    m.files.forEach((f, i) => {
+      if (f.ghostId === null) return;
+      const g = byId.get(f.ghostId);
+      if (!g) issue(`file ${i} names unknown ghost ${f.ghostId}`);
+      else if (g.name !== f.hauntedBy)
+        issue(`file ${i} disagrees with ${f.ghostId} on the name`);
+      counts.set(f.ghostId, (counts.get(f.ghostId) ?? 0) + 1);
+    });
+    for (const g of m.ghosts) {
+      if ((counts.get(g.id) ?? 0) !== g.files) issue(`${g.id} files count is wrong`);
+    }
+    if (m.truncated !== m.filesConsidered > m.files.length) {
+      issue('truncated disagrees with filesConsidered');
+    }
+  });
+export type HauntingMap = z.infer<typeof HauntingMapSchema>;
+
+export const HauntingOutcomeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('map'), map: HauntingMapSchema }),
+  z.object({ kind: z.literal('note'), note: z.string().min(1) }),
+]);
+export type HauntingOutcome = z.infer<typeof HauntingOutcomeSchema>;
+
+/** A 1-based inclusive line range (haunting-map R4.3). */
+export const LineRangeSchema = z.object({
+  startLine: z.number().int().positive(),
+  endLine: z.number().int().positive(),
+});
+export type LineRange = z.infer<typeof LineRangeSchema>;
+
+// ---------------------------------------------------------------------------
 // API response shapes
 // ---------------------------------------------------------------------------
 
 /** POST /api/summon, success (first-seance §7: lines R2.1, persona R2.2, shallow R8.3). */
-export const SummonResponseSchema = z.object({
-  sessionId: z.string().uuid(),
-  ledgerSize: z.number().int().nonnegative(),
-  truncated: z.boolean(),
-  buildDurationMs: z.number().nonnegative(),
-  items: z.array(z.unknown()), // the existing item shape, unchanged
-  lines: z.array(SourceLineSchema).max(40),
-  /** suspicious: isSuspicious(author), so the page never prints a name that gives orders (R2.5). */
-  persona: z.object({ author: z.string().min(1), suspicious: z.boolean() }),
-  shallow: z.boolean(),
-});
+export const SummonResponseSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+    ledgerSize: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    buildDurationMs: z.number().nonnegative(),
+    items: z.array(z.unknown()), // the existing item shape, unchanged
+    lines: z.array(SourceLineSchema).max(40),
+    /** suspicious: isSuspicious(author), so the page never prints a name that gives orders (R2.5). */
+    persona: z.object({ author: z.string().min(1), suspicious: z.boolean() }),
+    shallow: z.boolean(),
+    /** The range the ledger was built for (haunting-map R4.3). */
+    range: LineRangeSchema,
+    /** The haunting map, or the sentence that says why there is none (haunting-map R4.1). */
+    map: HauntingMapSchema.optional(),
+    mapNote: z.string().min(1).optional(),
+  })
+  .refine((r) => !(r.map !== undefined && r.mapNote !== undefined), {
+    message: 'a summon carries map or mapNote, never both',
+  });
 
 export type SummonResponse = z.infer<typeof SummonResponseSchema>;
 

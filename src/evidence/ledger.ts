@@ -12,18 +12,39 @@ export { EvidenceItemSchema, LedgerResultSchema } from '../ghost/schema.js';
 // ---------------------------------------------------------------------------
 // LedgerInput — the validated input type consumed by buildLedger
 // ---------------------------------------------------------------------------
-export type { LedgerInput } from './ledger.input.js';
-export { LedgerInputSchema, validateLedgerInput } from './ledger.input.js';
+export type { LedgerInput, WholeFileInput } from './ledger.input.js';
+export {
+  LedgerInputSchema,
+  validateLedgerInput,
+  WholeFileInputSchema,
+  validateWholeFileInput,
+} from './ledger.input.js';
 
 // ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
 
-import { blame, logL, showHunk, changedFiles, cloneRepo, readLines } from './git.js';
+import {
+  blame,
+  logL,
+  showHunk,
+  changedFiles,
+  cloneRepo,
+  readLines,
+  lineCountAtHead,
+  WHOLE_FILE_MAX_LINES,
+} from './git.js';
 import { parseRefs, isSuspicious } from './refs.js';
 import { parseGitHubRemote, fetchGitHubRef } from './github.js';
-import type { LedgerInput } from './ledger.input.js';
-import type { EvidenceItem, LedgerResult } from '../ghost/schema.js';
+import { readHauntingMap, MAP_NOTE_FAILED } from './haunting.read.js';
+import { GitError, ValidationError } from '../errors.js';
+import type { LedgerInput, WholeFileInput } from './ledger.input.js';
+import type {
+  EvidenceItem,
+  HauntingOutcome,
+  LedgerResult,
+  LineRange,
+} from '../ghost/schema.js';
 import type { RawCommit } from './git.js';
 
 // ---------------------------------------------------------------------------
@@ -32,6 +53,62 @@ import type { RawCommit } from './git.js';
 
 const MAX_ITEMS = 50;
 const MAX_HUNK_BYTES = 512 * 1024; // 512 KB combined
+
+// ---------------------------------------------------------------------------
+// Whole-file summons and the map option (haunting-map design.md §6.2)
+// ---------------------------------------------------------------------------
+
+export const WHOLE_FILE_UNREADABLE =
+  'Séance could not read that file in the latest commit. Check the path.';
+export const WHOLE_FILE_EMPTY =
+  'That file is empty in the latest commit, so there is no line to ask about.';
+
+export interface BuildLedgerOptions {
+  /** Read the haunting map while the repository directory exists (R1.1). */
+  readonly hauntingMap?: boolean;
+}
+
+/** Pure: lines 1 to min(n, 500) of a file with n >= 1 lines (R6.4). */
+export function wholeFileRange(n: number): LineRange {
+  return { startLine: 1, endLine: Math.min(n, WHOLE_FILE_MAX_LINES) };
+}
+
+/**
+ * Start the map read now, as a promise that never rejects (R1.6). The reader does not reject or
+ * throw; the guards keep the summon alive even if it did, synchronously or not.
+ */
+function startHauntingMap(repoRoot: string): Promise<HauntingOutcome> {
+  const failed = (err: unknown): HauntingOutcome => {
+    console.error('[seance] haunting map failed', {
+      code: 'UNKNOWN',
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { kind: 'note', note: MAP_NOTE_FAILED };
+  };
+  try {
+    return readHauntingMap(repoRoot).catch(failed);
+  } catch (err) {
+    return Promise.resolve(failed(err));
+  }
+}
+
+/** The line range for a whole-file input; refuses an unreadable or empty file (R6.4, R6.5). */
+async function resolveWholeFile(repoRoot: string, file: string): Promise<LineRange> {
+  let n: number;
+  try {
+    n = await lineCountAtHead(repoRoot, file);
+  } catch (err) {
+    if (!(err instanceof GitError)) throw err;
+    // the path and git's stderr go to the log only, never to the response (R6.5)
+    console.error('[seance] whole-file read failed', {
+      code: err.code,
+      message: err.message,
+    });
+    throw new ValidationError(WHOLE_FILE_UNREADABLE);
+  }
+  if (n === 0) throw new ValidationError(WHOLE_FILE_EMPTY);
+  return wholeFileRange(n);
+}
 
 // ---------------------------------------------------------------------------
 // buildLedger (R4, R7, R8, R10, R11)
@@ -52,7 +129,10 @@ const MAX_HUNK_BYTES = 512 * 1024; // 512 KB combined
  *   9. Optionally enrich with GitHub PR/issue text.
  *  10. Assign IDs E1…En, freeze, return.
  */
-export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
+export async function buildLedger(
+  input: LedgerInput | WholeFileInput,
+  opts: BuildLedgerOptions = {},
+): Promise<LedgerResult> {
   const t0 = performance.now();
   const isRemote =
     input.repoUrl.startsWith('http://') || input.repoUrl.startsWith('https://');
@@ -60,6 +140,7 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
   let repoRoot = input.repoUrl;
   let cleanup: (() => Promise<void>) | undefined;
   let shallow = false;
+  let mapRun: Promise<HauntingOutcome> | undefined;
 
   try {
     // Step 1 — clone remote repo
@@ -71,19 +152,29 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
       shallow = resolved.shallow === true;
     }
 
+    // The haunting map starts as soon as the directory is ready, alongside the ledger's own
+    // git calls (haunting-map R1.1, R1.5). The reader never rejects; the catch is a guard.
+    if (opts.hauntingMap === true) mapRun = startHauntingMap(repoRoot);
+
+    // The range: given, or the whole file at HEAD (haunting-map R6.4, R6.5)
+    const range: LineRange =
+      'wholeFile' in input
+        ? await resolveWholeFile(repoRoot, input.file)
+        : { startLine: input.startLine, endLine: input.endLine };
+
     // Step 2 — blame to collect commit SHAs in the range
     const blameEntries = await blame(
       repoRoot,
       input.file,
-      input.startLine,
-      input.endLine,
+      range.startLine,
+      range.endLine,
     );
 
     // Step 3 — log -L for ordered history + rename events
-    const logCommits = await logL(repoRoot, input.file, input.startLine, input.endLine);
+    const logCommits = await logL(repoRoot, input.file, range.startLine, range.endLine);
 
     // The selected lines at HEAD, read before the clone is deleted (first-seance R2.1)
-    const lines = await readLines(repoRoot, input.file, input.startLine, input.endLine);
+    const lines = await readLines(repoRoot, input.file, range.startLine, range.endLine);
 
     // Step 4 — deduplicate SHAs (blame + log combined)
     const blameShas = new Set(blameEntries.map((e) => e.sha));
@@ -129,8 +220,8 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
           repoRoot,
           commit.sha,
           input.file,
-          input.startLine,
-          input.endLine,
+          range.startLine,
+          range.endLine,
         );
         const hunkBytes = Buffer.byteLength(hunk, 'utf8');
         if (combinedHunkBytes + hunkBytes > MAX_HUNK_BYTES) {
@@ -212,8 +303,13 @@ export async function buildLedger(input: LedgerInput): Promise<LedgerResult> {
       buildDurationMs,
       lines,
       shallow,
+      range,
+      ...(mapRun ? { haunting: await mapRun } : {}),
     };
   } finally {
+    // The reader settles before the clone is deleted, whether the ledger succeeded or not, so
+    // no git process reads a directory being removed (haunting-map R1.8)
+    if (mapRun) await mapRun;
     // Always clean up cloned repos (R8.2)
     if (cleanup) {
       await cleanup();

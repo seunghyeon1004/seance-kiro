@@ -512,6 +512,8 @@ describe('SummonResponseSchema', () => {
     lines: [{ n: 7, text: '  await sleep(3000);' }],
     persona: { author: 'Ada Lovelace', suspicious: false },
     shallow: false,
+    // haunting-map T4 (design.md §3): the range the ledger was built for is required
+    range: { startLine: 7, endLine: 7 },
   };
 
   it('accepts a valid SummonResponse', () => {
@@ -519,8 +521,8 @@ describe('SummonResponseSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects a response without the first-seance fields', () => {
-    for (const key of ['items', 'lines', 'persona', 'shallow'] as const) {
+  it('rejects a response without the first-seance fields, or without range (haunting-map R4.3)', () => {
+    for (const key of ['items', 'lines', 'persona', 'shallow', 'range'] as const) {
       const { [key]: _drop, ...rest } = valid;
       expect(SummonResponseSchema.safeParse(rest).success).toBe(false);
     }

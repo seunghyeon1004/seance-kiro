@@ -454,6 +454,84 @@ export async function readLines(
 }
 
 // ---------------------------------------------------------------------------
+// The whole file at HEAD (haunting-map R6.4, design.md §6.2)
+// ---------------------------------------------------------------------------
+
+/** The existing range cap: a whole-file summon reads lines 1 to min(n, 500). */
+export const WHOLE_FILE_MAX_LINES = 500;
+
+/** Pure: the sliceSourceLines rule. "" → 0; a final "\n" adds no line. */
+export function countLines(text: string): number {
+  if (text === '') return 0;
+  const n = text.split('\n').length;
+  return text.endsWith('\n') ? n - 1 : n;
+}
+
+/**
+ * `git cat-file blob HEAD:<file>`, capped at 5 MB, then countLines. `cat-file blob` refuses a
+ * tree and a submodule, so a directory is never counted as the lines of its listing. Throws
+ * GitError (missing, tree, submodule, too big, timeout). `file` has passed FileSchema, and
+ * `HEAD:<file>` is one array element, so git cannot read it as an option.
+ */
+export async function lineCountAtHead(repo: string, file: string): Promise<number> {
+  const text = await runGit(
+    ['cat-file', 'blob', `HEAD:${file}`],
+    repo,
+    DEFAULT_TIMEOUT_MS,
+    {
+      maxBuffer: SOURCE_MAX_BYTES,
+    },
+  );
+  return countLines(text);
+}
+
+// ---------------------------------------------------------------------------
+// The haunting map's two reads (haunting-map R1.2, design.md §4.1)
+// ---------------------------------------------------------------------------
+
+export const MAP_LOG_MAX_BYTES = 32 * 1024 * 1024;
+export const MAP_TREE_MAX_BYTES = 16 * 1024 * 1024;
+
+/**
+ * git log for the map: commits and trees only, never a blob (R1.3). `-z` turns off path
+ * quoting; `--root`, `--no-renames` and `--no-mailmap` make the output independent of the
+ * machine's config. Throws GitError on failure, timeout or a full buffer.
+ */
+export async function logNameOnly(
+  repo: string,
+  maxCount: number,
+  timeoutMs: number,
+): Promise<string> {
+  return runGit(
+    [
+      'log',
+      '--root',
+      '--no-merges',
+      '--no-renames',
+      '--no-mailmap',
+      '--no-show-signature',
+      '--name-only',
+      '-z',
+      '--format=%x1e%H%x1f%an%x1f%ae%x1f%aI',
+      '-n',
+      String(maxCount),
+      'HEAD',
+      '--',
+    ],
+    repo,
+    timeoutMs,
+    { maxBuffer: MAP_LOG_MAX_BYTES },
+  );
+}
+
+/** git ls-tree for the map (R1.2): the paths at HEAD, NUL-separated. Throws GitError likewise. */
+export async function lsTreeNames(repo: string, timeoutMs: number): Promise<string> {
+  return runGit(['ls-tree', '-r', '-z', '--name-only', 'HEAD'], repo, timeoutMs, {
+    maxBuffer: MAP_TREE_MAX_BYTES,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // showHunk (R4.3)
 // ---------------------------------------------------------------------------
 

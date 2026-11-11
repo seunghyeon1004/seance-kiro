@@ -10,7 +10,7 @@ When this spec was written, another session had uncommitted accessibility change
 
 ## T1 — The pure map
 
-- [ ] Write the failing unit tests in `test/evidence/haunting.test.ts` (design.md §11.1):
+- [x] Write the failing unit tests in `test/evidence/haunting.test.ts` (design.md §11.1):
   - the two tie rules of design.md §5.4, and the code-unit name and email tie-breaks (R2.5);
   - an author exactly 365 days before `repoNow` is not departed, and one 365 days + 1 ms before is departed; the author of the newest commit is never departed (R2.3);
   - `Bob <BOB@x.example>` and `Bob <bob@x.example>` are one identity; the same name with two emails gives two ghosts with ids `G1`, `G2` and glyphs `B`, `B-2` (R2.2, R5.4);
@@ -21,10 +21,10 @@ When this spec was written, another session had uncommitted accessibility change
   - `computeHauntingMap([], …)` is `null`, and the result and its arrays are frozen (R3.1, R3.3);
   - a ghost whose name contains `ignore previous instructions` has `suspicious: true` (R8.2);
   - `parseNameLog` reads the crypt's raw format from design.md §4.1 (copied as a string literal), counts a record with three fields and a record with a bad date in `skipped`, and keeps a path containing `\n`; `parseLsTree` splits on NUL (R1.9, R8.3).
-- [ ] Write the failing property tests HM1–HM10 and HM12 in `test/evidence/pbt/haunting.pbt.ts`, with the generators of design.md §10. HM2, HM3 and HM8 compare against a naive reference written in the test file (R2.1–R2.10, R3.1–R3.6, R4.2, R5.4, R8.2, R8.3).
-- [ ] Add to `src/ghost/schema.ts`: `MapGhostSchema`, `MapFileSchema`, `HauntingMapSchema` with its `superRefine`, `HauntingOutcomeSchema` and the `HauntingMap`/`HauntingOutcome` types (design.md §3). Leave `LedgerResultSchema` and `SummonResponseSchema` for T3 and T4 (N3).
-- [ ] Write `src/evidence/haunting.ts`: the constants, `MapCommit`, `HauntingOptions`, `parseNameLog`, `parseLsTree`, `compareShare`, `glyphFor` and `computeHauntingMap`, following design.md §4.2 and §5.2. No `Date.now()`, no `process.env`, no `fs`, no `Math.random()`, no `localeCompare`, and no regular expression built from input. Confirm by reading the module (R3.1, N5).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Write the failing property tests HM1–HM10 and HM12 in `test/evidence/pbt/haunting.pbt.ts`, with the generators of design.md §10. HM2, HM3 and HM8 compare against a naive reference written in the test file (R2.1–R2.10, R3.1–R3.6, R4.2, R5.4, R8.2, R8.3).
+- [x] Add to `src/ghost/schema.ts`: `MapGhostSchema`, `MapFileSchema`, `HauntingMapSchema` with its `superRefine`, `HauntingOutcomeSchema` and the `HauntingMap`/`HauntingOutcome` types (design.md §3). Leave `LedgerResultSchema` and `SummonResponseSchema` for T3 and T4 (N3).
+- [x] Write `src/evidence/haunting.ts`: the constants, `MapCommit`, `HauntingOptions`, `parseNameLog`, `parseLsTree`, `compareShare`, `glyphFor` and `computeHauntingMap`, following design.md §4.2 and §5.2. No `Date.now()`, no `process.env`, no `fs`, no `Math.random()`, no `localeCompare`, and no regular expression built from input. Confirm by reading the module (R3.1, N5).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R1.9, R2.1–R2.10, R3.1–R3.6, R4.2 (schema), R5.4, R8.2 (flag), R8.3 (parser), R9.1, N3, N5.
 
@@ -32,7 +32,7 @@ Covers: R1.9, R2.1–R2.10, R3.1–R3.6, R4.2 (schema), R5.4, R8.2 (flag), R8.3 
 
 ## T2 — Reading the map from git
 
-- [ ] Write the failing real-git tests in `test/evidence/haunting.git.test.ts` (design.md §11.1). Each test builds its repository in a `mkdtemp` dir with fixed author and committer dates and removes it afterwards:
+- [x] Write the failing real-git tests in `test/evidence/haunting.git.test.ts` (design.md §11.1). Each test builds its repository in a `mkdtemp` dir with fixed author and committer dates and removes it afterwards:
   - both samples, built with `scripts/make-crypt.sh` and `scripts/make-possessed.sh` into a temp dir, give `{ kind: 'map', map }` with `map` deep-equal to design.md §9.1 and §9.2 (R7.2);
   - a merge commit made with `--no-ff` adds nothing to `totalTouches` (R2.8);
   - after `git mv old.js new.js`, the commits before the rename do not count for `new.js`, and the renaming commit does (R2.4);
@@ -43,9 +43,9 @@ Covers: R1.9, R2.1–R2.10, R3.1–R3.6, R4.2 (schema), R5.4, R8.2 (flag), R8.3 
   - a non-repository directory and a repository with no commit (no `HEAD`) give `MAP_NOTE_FAILED`; with `logNameOnly` stubbed to return `''` and `lsTreeNames` real, the result is `MAP_NOTE_EMPTY`; `readHauntingMap` never rejects (R1.6, R1.7);
   - with `git config log.showRoot false` set in the test repository, the root commit's files are still counted (design.md §4.1);
   - a spy on `runGit` sees exactly two calls, with the argument arrays of design.md §4.1, and none of `blame`, `show`, `cat-file`, `--numstat` or `--follow` (R1.2, R1.3).
-- [ ] Add `logNameOnly`, `lsTreeNames`, `MAP_LOG_MAX_BYTES` and `MAP_TREE_MAX_BYTES` to `src/evidence/git.ts`, using the existing `runGit` (design.md §4.1). Existing functions do not change.
-- [ ] Write `src/evidence/haunting.read.ts`: `HAUNTING_TIMEOUT_MS`, `MAP_NOTE_FAILED`, `MAP_NOTE_EMPTY` and `readHauntingMap`, following design.md §4.3. The two git calls run with `Promise.all`, and every error path resolves to the failed note after `console.error` (R1.2–R1.4, R1.6, R1.7).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Add `logNameOnly`, `lsTreeNames`, `MAP_LOG_MAX_BYTES` and `MAP_TREE_MAX_BYTES` to `src/evidence/git.ts`, using the existing `runGit` (design.md §4.1). Existing functions do not change.
+- [x] Write `src/evidence/haunting.read.ts`: `HAUNTING_TIMEOUT_MS`, `MAP_NOTE_FAILED`, `MAP_NOTE_EMPTY` and `readHauntingMap`, following design.md §4.3. The two git calls run with `Promise.all`, and every error path resolves to the failed note after `console.error` (R1.2–R1.4, R1.6, R1.7).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R1.2–R1.4, R1.6, R1.7, R2.4, R2.8, R2.9 (real git), R7.2, R8.2, R8.3, R9.2.
 
@@ -53,7 +53,7 @@ Covers: R1.2–R1.4, R1.6, R1.7, R2.4, R2.8, R2.9 (real git), R7.2, R8.2, R8.3, 
 
 ## T3 — Whole-file input and the ledger options
 
-- [ ] Write the failing tests in `test/evidence/whole-file.test.ts` (design.md §11.1), on a crypt built into a temp dir and on purpose-built repositories:
+- [x] Write the failing tests in `test/evidence/whole-file.test.ts` (design.md §11.1), on a crypt built into a temp dir and on purpose-built repositories:
   - `buildLedger({ repoUrl, file: 'legacy/vendor.js', wholeFile: true })` returns `range: { startLine: 1, endLine: 13 }` and the items `e9a5c9c` and `dcb8969` (R6.4);
   - a 700-line file gives `range` 1–500 (R6.4);
   - an empty file throws `ValidationError` with `WHOLE_FILE_EMPTY`; a directory (`legacy`), a missing path and a 6 MB file throw `ValidationError` with `WHOLE_FILE_UNREADABLE`; neither message contains the path (R6.5);
@@ -62,13 +62,13 @@ Covers: R1.2–R1.4, R1.6, R1.7, R2.4, R2.8, R2.9 (real git), R7.2, R8.2, R8.3, 
   - `buildLedger(…, { hauntingMap: true })` on the crypt returns `haunting.kind === 'map'` and `items` deep-equal to the call without options (R4.4);
   - with `readHauntingMap` mocked to resolve after the ledger fails with `HistoryError`, `cleanup` runs only after it settled (R1.8);
   - `buildLedger` with `{ hauntingMap: true }` starts `readHauntingMap` before its first `blame` call (R1.5).
-- [ ] Write the failing property test HM11 in `test/evidence/pbt/whole-file.pbt.ts` (R6.4).
-- [ ] In `src/evidence/ledger.input.ts`, extract `FileSchema` and `checkRemoteUrl` with no change in behaviour or messages, then add `WholeFileInputSchema`, `WholeFileInput` and `validateWholeFileInput` (design.md §6.1) (R6.3).
-- [ ] In `src/evidence/git.ts`, add `WHOLE_FILE_MAX_LINES`, `countLines` and `lineCountAtHead` (`git cat-file blob HEAD:<file>`, 5 MB cap) (design.md §6.2) (R6.4).
-- [ ] In `src/ghost/schema.ts`, add the optional `range` and `haunting` fields to `LedgerResultSchema` (design.md §3).
-- [ ] In `src/evidence/ledger.ts`, add `BuildLedgerOptions`, accept `LedgerInput | WholeFileInput`, and implement design.md §6.2 steps 1–5: start the reader after the clone, compute the whole-file range, build the ledger for `range`, return `range` and `haunting`, and await the reader before `cleanup()` in `finally` (R1.1, R1.5, R1.8, R4.3, R6.4, R6.5).
-- [ ] Confirm the fixture hashes did not move: `npx tsx scripts/record-plan-fixture.ts --hash-only` prints `464f2680` and `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` prints `b0b2564e` (R7.3).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
+- [x] Write the failing property test HM11 in `test/evidence/pbt/whole-file.pbt.ts` (R6.4).
+- [x] In `src/evidence/ledger.input.ts`, extract `FileSchema` and `checkRemoteUrl` with no change in behaviour or messages, then add `WholeFileInputSchema`, `WholeFileInput` and `validateWholeFileInput` (design.md §6.1) (R6.3).
+- [x] In `src/evidence/git.ts`, add `WHOLE_FILE_MAX_LINES`, `countLines` and `lineCountAtHead` (`git cat-file blob HEAD:<file>`, 5 MB cap) (design.md §6.2) (R6.4).
+- [x] In `src/ghost/schema.ts`, add the optional `range` and `haunting` fields to `LedgerResultSchema` (design.md §3).
+- [x] In `src/evidence/ledger.ts`, add `BuildLedgerOptions`, accept `LedgerInput | WholeFileInput`, and implement design.md §6.2 steps 1–5: start the reader after the clone, compute the whole-file range, build the ledger for `range`, return `range` and `haunting`, and await the reader before `cleanup()` in `finally` (R1.1, R1.5, R1.8, R4.3, R6.4, R6.5).
+- [x] Confirm the fixture hashes did not move: `npx tsx scripts/record-plan-fixture.ts --hash-only` prints `464f2680` and `npx tsx scripts/record-plan-fixture.ts --ghost --hash-only` prints `b0b2564e` (R7.3).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green.
 
 Covers: R1.1, R1.5, R1.8, R4.3 (ledger), R4.4 (ledger), R6.3–R6.5, R7.3, N3.
 
@@ -76,7 +76,7 @@ Covers: R1.1, R1.5, R1.8, R4.3 (ledger), R4.4 (ledger), R6.3–R6.5, R7.3, N3.
 
 ## T4 — The summon route
 
-- [ ] Write the failing tests in `test/server/haunting.test.ts` (design.md §11.1), with `CRYPT_DIR` and `POSSESSED_DIR` pointing at samples built into a temp dir, and the limiters and clone pool reset before each test:
+- [x] Write the failing tests in `test/server/haunting.test.ts` (design.md §11.1), with `CRYPT_DIR` and `POSSESSED_DIR` pointing at samples built into a temp dir, and the limiters and clone pool reset before each test:
   - `POST /api/summon` for the crypt default returns `map` deep-equal to design.md §9.1, `range` `{ startLine: 7, endLine: 7 }` and no `mapNote`, and passes `SummonResponseSchema` (R4.1–R4.3, R7.2);
   - with `readHauntingMap` mocked to resolve to `MAP_NOTE_FAILED`, and separately with it mocked to throw, the summon is 200 with `mapNote` equal to `MAP_NOTE_FAILED`, no `map`, and `items` deep-equal to an unmocked summon's (R1.6, R4.1);
   - `{ repoUrl: 'crypt', file: 'legacy/vendor.js', wholeFile: true }` returns `range` 1–13, 2 items and `lines` of length 13 (R6.4);
@@ -86,10 +86,10 @@ Covers: R1.1, R1.5, R1.8, R4.3 (ledger), R4.4 (ledger), R6.3–R6.5, R7.3, N3.
   - the 21st whole-file summon from one client returns 429 `RATE_LIMITED` with `Retry-After`, and `modelLimiter` is unchanged (R6.6);
   - the stored session's ledger has no `haunting` key, and its `file`, `startLine` and `endLine` are the whole-file range (R4.4);
   - after a crypt summon, `/api/ask` with a capturing client sends `system` and `user` equal to `buildPrompt(session.ledger.items, question, sessionId)` for a ledger built by `buildLedger` without options (R4.4, R8.1).
-- [ ] Update the existing server tests listed in design.md §11.2 where they compare the whole summon body or assert Zod's `Required` message for a missing line (R6.2).
-- [ ] In `src/ghost/schema.ts`, add `range`, `map` and `mapNote` to `SummonResponseSchema`, with the refinement that `map` and `mapNote` never come together (R4.1).
-- [ ] In `src/server.ts`, implement design.md §6.3: the two-form `SummonRequestSchema`, `validateWholeFileInput` for the whole-file form, `buildLedger(…, { hauntingMap: true })`, `haunting` stripped before `rememberSession`, the session range, and the `range`, `map` and `mapNote` response fields. The limiters, the clone pool, `toHttpError`, `recordingTargetFor` and the other routes do not change (R4.1–R4.4, R6.2, R6.3, R6.6).
-- [ ] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. `git diff a6d0761 -- src/ratelimit.ts test/server/ratelimit.test.ts` is empty.
+- [x] Update the existing server tests listed in design.md §11.2 where they compare the whole summon body or assert Zod's `Required` message for a missing line (R6.2).
+- [x] In `src/ghost/schema.ts`, add `range`, `map` and `mapNote` to `SummonResponseSchema`, with the refinement that `map` and `mapNote` never come together (R4.1).
+- [x] In `src/server.ts`, implement design.md §6.3: the two-form `SummonRequestSchema`, `validateWholeFileInput` for the whole-file form, `buildLedger(…, { hauntingMap: true })`, `haunting` stripped before `rememberSession`, the session range, and the `range`, `map` and `mapNote` response fields. The limiters, the clone pool, `toHttpError`, `recordingTargetFor` and the other routes do not change (R4.1–R4.4, R6.2, R6.3, R6.6).
+- [x] Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run contrast`; all green. `git diff a6d0761 -- src/ratelimit.ts test/server/ratelimit.test.ts` is empty.
 
 Covers: R1.6 (route), R4.1–R4.4, R6.2, R6.3, R6.6, R7.2 (route), R8.1 (prompt), R9.3.
 
