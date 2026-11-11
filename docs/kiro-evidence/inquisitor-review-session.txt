@@ -1,0 +1,541 @@
+# Kiro CLI 3.2.0 (V3 engine, --agent inquisitor, gpt-5.6-sol), 2026-11-11: a second, independent adversarial review by a new read-only custom agent on a different model family, after the ward-hardening, first-seance, accessibility and haunting-map work. Unedited output; only the home directory prefix is replaced with ~. The agent's git and vitest shell calls were denied (non-interactive V3 without --trust-all-tools, although the agent file allows them), so it worked from file reads only and ran no test. Its agentSpawn and stop hooks fired (inquisitor-hook-fires.log: changed-files=0). It confirmed eight findings; the follow-up session fixes them.
+
+$ kiro-cli chat --no-interactive --v3 --agent inquisitor --trust-workspace --model gpt-5.6-sol "$(cat prompt)"
+--- prompt ---
+Re-attack the ward. Since commit d738258 (the security audit in docs/kiro-evidence/audit-security-session.txt) this repository gained: the ward-hardening spec (mandatory quotes checked one field at a time, year and ledger-author checks, a separate silent bucket, ambiguous short hashes refused, rules in the system parameter with escaped ledger text, plan steps without a verified claim dropped, abuse limits), the first-seance spec (recorded answers served when the model is down, a scripted "possessed ghost" route, error mapping, a guided page), accessibility fixes, and the haunting-map spec (a map computed from git, whole-file summons). HEAD is the state to review.
+
+Your job: find anything that still lets text reach the user marked verified, or looking verified, without its evidence having been found by a deterministic check; and anything the new routes and features opened up. Start with `git diff --stat d738258 HEAD -- src public scripts`, then read the code paths end to end. Specifically try to break:
+1. src/ghost/verifier.ts as it is now: Unicode tricks in quotes and names (normalisation, homoglyphs, zero-width characters, case), quotes that are trivially true but unrelated (does a minimum of 8 characters mean anything against "the the the"?), year and author checks (two-digit years, "last year", names split across punctuation, an author named like a common word), claims that cite several commits where only one supports the year or name, speculation claims, the F1 path with raw text, index/ordering.
+2. The recorded-answer path (src/ghost/recordings.ts, the gate in src/server.ts): can a recording be served for the wrong ledger, the wrong question, another repository, or without the ward? Can a visitor cause a recording to be shown as live or a live failure to be hidden? Path handling of RECORDINGS_DIR and keys.
+3. /api/possess and src/ghost/possessed-ghost.ts: can it be triggered on other repositories, can its output ever count as the ghost's, can it be used to make a "verified" ward report for attacker text?
+4. /api/ward and the ward report: can a visitor still mint a report that reads as verified for a sentence the commits do not support (the self-quote limit is documented; look for anything beyond it)? Is the report's Markdown escaping complete?
+5. The page (public/app.js): any path where rejected, silent, planted, scripted or recorded content is rendered or counted as verified ghost claims; the séance counter; the candle; "The words the ward found"; innerHTML or attribute injection; the GitHub URL normaliser (can it turn a non-GitHub host into an accepted URL?); the retry logic (can it repeat a model-calling POST the server already accepted?).
+6. The haunting map and whole-file summon: path and name injection, the `wholeFile` branch reading files outside the repository or huge files, git argument injection through file names starting with dashes or containing NUL/newline, DoS through pathological histories, the map leaking emails or absolute paths.
+7. The limits: body limit, summon/ward limiters, clone pool, session cap. Any route that does real work without a bound (/api/possess, /api/health, whole-file summons).
+8. The prompt (src/ghost/persona.ts, src/exorcism/plan.ts): any ledger or user value that still reaches `system`, any way out of the escaped elements, what happens with lone surrogates or very long fields.
+
+Run the test suite if you want evidence (`npx vitest run <file>`), but do not modify anything. Report in this order: CONFIRMED findings (ranked by severity, each with file:line, the concrete input, the smallest fix and the failing test that would prove it), then SUSPECTED, then areas you judge sound with one line of reasoning each, then the five things you would fix first. Do not pad; if the ward holds, say so plainly.
+
+--- output ---
+[INFO] [KRS] <-- GenerateAssistantResponseCommand done totalEvents=9
+[tool] Summarize reviewed changes since security audit
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Summarize reviewed changes since security audit
+[tool] Summarize reviewed changes since security audit
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Summarize reviewed changes since security audit
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Inspect every staged repository change
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Inspect every staged repository change
+[tool] Review ward and schema changes line by line
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] Check changed generated model recordings and fixtures
+[tool] status: Failed: Review ward and schema changes line by line
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Check changed generated model recordings and fixtures
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] File Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] File Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Read File
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] List Directory
+[tool] status: InProgress
+[tool] List Directory
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+[tool] Grep Search
+[tool] status: InProgress
+[tool] status: Completed
+## CONFIRMED
+
+### HIGH — “Verified” still means only that an unrelated literal quote exists
+
+**Files:** `src/ghost/verifier.ts:239`, `src/server.ts:997-1021`, `src/ghost/report.ts:82-118`, `public/app.js:841-844`, `src/exorcism/plan.ts:123-129`
+
+The ward never compares `claim.text` with the quoted evidence. Eight generic characters are enough.
+
+**Concrete input**
+
+Given a ledger item whose body contains `wait for downstream to stabilise`:
+
+```json
+{
+  "voice": "planted",
+  "sessionId": "<session>",
+  "claims": [{
+    "kind": "memory",
+    "text": "The maintainers approved removing authentication.",
+    "citations": [{
+      "sha7": "abc1234",
+      "quote": "wait for downstream to stabilise"
+    }]
+  }]
+}
+```
+
+`/api/ward` returns `1 of 1 claims verified`, the page labels the sentence `Verified`, and the Markdown places it under `## Verified`. The deterministic check found the quoted string but found no evidence for the sentence.
+
+The same mechanism keeps an arbitrary exorcism step if one accompanying claim cites an unrelated generic phrase. The UI labels the step text unchecked, which limits the damage, but the step remains part of the plan.
+
+**Smallest fix:** Stop calling the sentence verified. Show the literal quote as verified evidence and label `claim.text` as an unchecked model paraphrase. If a memory sentence itself must be verified deterministically, require its text to be a literal substring of one cited field. The existing self-quote test intentionally pins the unsafe behavior and would need to change.
+
+**Proving test:** In `test/server/hardening.test.ts`, submit the body above and expect either `verified: []` or a response label such as `citationMatched`, never a Markdown `## Verified` entry containing the unrelated sentence.
+
+---
+
+### HIGH — Spoofed `X-Forwarded-For` bypasses every per-IP abuse limit
+
+**Files:** `src/server.ts:589-599`, `src/ratelimit.ts:63-70`
+
+The server trusts the leftmost `X-Forwarded-For` value without establishing that the request came through a trusted proxy.
+
+**Concrete input:** From one TCP address, send 100 summons with:
+
+```http
+X-Forwarded-For: 198.51.100.1
+X-Forwarded-For: 198.51.100.2
+...
+```
+
+Every value gets a fresh limiter bucket. This bypasses summon, ward, possess, and model per-IP limits. It also creates an unbounded number of limiter-map keys during the window and lets one visitor consume the global model allowance.
+
+**Smallest fix:** Ignore forwarding headers unless a trusted-proxy setting is enabled. When enabled, derive the client from a configured trusted-hop policy rather than accepting the leftmost value.
+
+**Proving test:** Two requests with the same socket address and different client-supplied `X-Forwarded-For` values must consume the same default limiter bucket.
+
+---
+
+### HIGH — Clone size and time caps end before the expensive archaeology starts
+
+**Files:** `src/evidence/git.ts:604-606, 674-735`, `src/evidence/ledger.ts:157-176, 213-239`
+
+The clone poller and 30-second controller stop when `git clone --filter=blob:none` finishes. Subsequent `blame`, `log -L`, `show`, and `changedFiles` calls can fetch omitted blobs and grow the repository without a size cap. Up to 50 commits are processed sequentially, with separate ten-second deadlines and no request-wide deadline.
+
+**Concrete input:** A public GitHub repository with a small blobless clone but 50 revisions of a large file. Summon a line changed in every revision. The clone passes the 200 MB check, then repeated `git show` calls fetch historical blobs. Three requests can occupy every clone slot for minutes and grow well beyond the configured clone limit.
+
+**Smallest fix:** Keep one abort controller and size monitor alive until `buildLedger` and the haunting-map read finish. Apply a request-wide deadline, pass its signal to every git call, and put explicit output limits on `showHunk` and `changedFiles`. Prefer reusing the patch already emitted by `log -L` instead of running `git show` once per commit.
+
+**Proving test:** Mock 50 slow per-commit git calls and assert the summon fails within the overall deadline, cleans the clone, and releases the clone slot. A second test should simulate post-clone growth beyond `CLONE_MAX_BYTES` and expect `CloneError`.
+
+---
+
+### MEDIUM — Unicode and casing bypass the year and known-author checks
+
+**Files:** `src/ghost/verifier.ts:82, 264-269, 327-343`
+
+Years are recognized only as ASCII digits. Author matching uses exact, case-sensitive `indexOf` on the original strings. It performs no normalization, default-ignorable removal, case folding, or confusable detection.
+
+**Concrete input:** Ledger authors are `Alice` and `Bob`; the claim cites a valid quote from Bob’s 2020 commit:
+
+```json
+{
+  "kind": "memory",
+  "text": "A\u200Blice wrote this in ２０２４.",
+  "citations": [{
+    "sha7": "<Bob's sha7>",
+    "quote": "a generic phrase from Bob"
+  }]
+}
+```
+
+The zero-width character prevents matching `Alice`, and full-width digits prevent detecting `2024`. The sentence is visually an unsupported attribution to Alice in 2024 but is accepted. Lowercase `alice` and canonically equivalent composed/decomposed names bypass the same check. Cyrillic homoglyphs need confusable-skeleton handling beyond Unicode normalization.
+
+**Smallest fix:** For author/year detection only, compare NFKC-normalized, case-folded text after removing default-ignorable characters. Keep quote verification raw and case-sensitive. Either use UTS #39 confusable skeletons or reject mixed-script/confusable author references that cannot be checked safely.
+
+**Proving test:** Add cases for `alice`, `A\u200Blice`, decomposed names, and `２０２４`; each must be rejected when only Bob’s 2020 commit is cited.
+
+---
+
+### MEDIUM — A filename containing the map record separator can forge map commits
+
+**Files:** `src/evidence/haunting.ts:45-46, 64-86`
+
+`parseNameLog` splits the entire git output on ASCII Record Separator, but repository paths are attacker-controlled and may legally contain that character.
+
+**Concrete input:** Commit both `z.ts` and a filename equivalent to:
+
+```text
+a<RS>ffffffffffffffffffffffffffffffffffffffff<US>Mallory<US>m@x<US>2000-01-01T00:00:00Z
+```
+
+The `<RS>` starts a second parser record. The following NUL and `z.ts` path let the parser construct a fake commit by `Mallory` that touched `z.ts`. The map can then show an attacker-chosen ghost and SHA for a real file even though no such commit exists.
+
+**Smallest fix:** Do not multiplex arbitrary paths and commit headers with in-band separators. Read commit metadata and changed paths separately, keyed by full SHA, using NUL-delimited git output for each field.
+
+**Proving test:** Feed `parseNameLog` a real record whose path contains `RS + valid fake header`; assert that it produces only the real commit and never attributes the following path to the forged SHA.
+
+---
+
+### MEDIUM — Browser retries can replay accepted model-calling POSTs
+
+**File:** `public/app.js:104-132`
+
+Every request, including POST, is retried after a network exception or a non-JSON 502/503/504. A proxy may accept and forward the first request, lose its response, and then cause the browser to submit it three more times.
+
+**Concrete input:** `/api/ask` reaches the server and calls the model, but the connection drops before the browser receives the response. The browser repeats the same POST and can trigger four model calls. `/api/summon` can similarly create four sessions and repeat cloning.
+
+**Smallest fix:** Retry only GET requests unless POSTs carry a client-generated idempotency key that the server caches with the completed response.
+
+**Proving test:** Stub the first fetch so the server processes `/api/ask` and then the client observes a network failure. Assert one model invocation after the browser finishes retry handling.
+
+---
+
+### MEDIUM — Recorded-answer requests become unlimited when no model is configured
+
+**Files:** `src/server.ts:647-653, 690-691`
+
+When an applicable recording exists and the model is unavailable, `modelGate` bypasses the model limiter entirely. No separate per-client limiter applies to recorded asks or recorded exorcisms.
+
+**Concrete input:** Summon the default `crypt` range once, remove the model key, then repeatedly POST the exact chip question or `/api/exorcise`. Every request synchronously reads a recording, parses it, runs the ward, and renders a report. The same IP can do this indefinitely. At the daily model cap, applicable recordings receive the same unlimited path.
+
+**Smallest fix:** Keep the per-client request limit for recorded responses while exempting them only from the global model-call counter, or add a separate recorded-response limiter.
+
+**Proving test:** `test/server/recorded-limits.test.ts` currently confirms ten unrestricted requests. Change it to expect 429 after the configured per-client maximum while confirming that the global model-call count remains unchanged.
+
+---
+
+### LOW — `ledgerShas` is recorded but never checked when serving a recording
+
+**Files:** `src/ghost/recordings.ts:75-77, 146-184`, `src/server.ts:563-565`
+
+Eligibility checks the sample name, file, range, question, and recording key. It does not compare the recording’s `ledgerShas` with the current session ledger.
+
+**Concrete input:** Rebuild or replace `CRYPT_DIR` with a changed sample that retains the default path. With no model key, ask an exact chip question. The old recording is served despite having been generated from a different ledger. The live ward prevents absent quotes from being marked verified, but generic surviving citations can leave an answer from the wrong repository state.
+
+**Smallest fix:** Require exact equality between `rec.ledgerShas` and `entry.ledger.items.map(i => i.shortSha)` before treating the recording as applicable.
+
+**Proving test:** Create a recording with `ledgerShas: ["abc1234"]` and a session ledger containing `def5678`; expect the recording gate to return no recording.
+
+## SUSPECTED
+
+### MEDIUM — Runtime evidence construction does not enforce the declared author or total-prompt bounds
+
+**Files:** `src/evidence/git.ts:243-262`, `src/evidence/ledger.ts:273-289`, `src/ghost/schema.ts:17-28`, `src/ghost/persona.ts:41-55`
+
+`EvidenceItemSchema` caps authors at 256 characters, but `buildLedger` constructs typed objects without parsing them through that schema. `parseFullerHeader` accepts an unbounded author. A specially constructed commit can therefore produce an oversized prompt and map response. Whether GitHub accepts an author large enough for practical remote denial depends on its object validation.
+
+**Smallest fix:** Parse every assembled item through `EvidenceItemSchema`, bound all nested arrays and PR fields, and enforce a total prompt-byte limit.
+
+**Proving test:** Supply a mocked `RawCommit` with a 257-character author and assert that ledger construction refuses or safely truncates it before prompt construction.
+
+### LOW — Bidirectional controls can visually reorder untrusted text
+
+**Files:** `public/app.js:791-849`, `src/ghost/report.ts:37-43`
+
+The DOM uses `textContent`, so this is not script injection. However, neither the page nor the Markdown report strips bidi controls or isolates untrusted text. A claim, quote, author, or path containing RLO/LRO/PDF controls may visually reorder nearby text. Browser and target Markdown-renderer tests are needed to establish whether fixed labels can be made misleading.
+
+**Smallest fix:** Apply `unicode-bidi: plaintext` or isolation to untrusted text containers, and replace bidi formatting controls with visible escapes in copied reports.
+
+**Proving test:** Render claims containing U+202E/U+202C in a real browser and a supported Markdown renderer; assert fixed status labels and SHA/field boundaries retain their visual order.
+
+## Areas judged sound
+
+- **Literal quote verification:** Quotes are mandatory, 8–500 characters after trimming, case-sensitive, checked against one field only, and hunks are limited to the same first 4,000 characters shown to the user.
+- **Ambiguous hashes:** A short hash shared by multiple ledger items is refused.
+- **Silence:** Valid silence claims enter only `silent`; the UI and report say they were not checked, and they are excluded from the checked-claim denominator.
+- **Speculation:** It receives the same citation checks as memory and is visually labelled as speculation.
+- **Recorded-answer ward:** Every loaded answer and plan is run through the current `verify()` or `verifyPlanClaims()` before being returned.
+- **Possessed route:** It requires a `possessed` sample session at exactly `auth/throttle.js:4`, creates claims server-side, runs the live ward, sets `scripted: true`, and the page excludes it from the séance counter and candle.
+- **Browser XSS:** Repository and model strings are inserted with `textContent` or text nodes. No `innerHTML`, `document.write`, or HTML-string parsing path exists.
+- **Counters:** Rejected claims remain checked but unverified, silence is separate, and planted/scripted turns do not alter the persistent ghost counter. Recorded turns are labelled and count as ghost turns.
+- **GitHub normalizer:** It either preserves the trimmed input or emits a canonical URL matching the server’s anchored GitHub allowlist. I found no non-GitHub host that normalizes to an accepted remote.
+- **Whole-file traversal and argument injection:** Absolute paths and `..` are rejected; git uses argument arrays and appropriate `--` separators. Whole-file blobs are capped at 5 MB and the resulting range at 500 lines. NUL causes refusal rather than option injection.
+- **Prompt placement:** Repository strings and questions remain in the user turn with `& < > "` escaped. The system parameter contains only fixed rules and a server-generated UUID. Lone surrogates do not form tags or attributes.
+- **Markdown structure:** CR/LF are flattened and CommonMark structural delimiters used for HTML, code, emphasis, links, and tables are escaped. The remaining problem is the meaning of “Verified,” not ordinary Markdown injection.
+- **Health route:** It performs only process uptime/config checks and two local `.git` existence checks.
+
+## Evidence-rule checklist
+
+- ✅ Memory and speculation require 1–10 citations: `src/ghost/schema.ts:104-116`.
+- ✅ Every strict citation requires a quote: `src/ghost/schema.ts:95`.
+- ✅ Quote length is 8–500 characters after trimming.
+- ✅ Quotes are literal, case-sensitive substrings of one field: `src/ghost/verifier.ts:239`.
+- ✅ Only the first 4,000 hunk characters are eligible.
+- ✅ Missing and ambiguous short hashes are refused.
+- ✅ Silence cannot enter `verified`.
+- ✅ Score uses `verified / (verified + rejected + silent)`.
+- ✅ The verifier is pure and does not mutate its inputs.
+- ✅ Current behavior is stricter than the frozen `d738258` verifier for its old accepted input shape.
+- ❌ Known-author and year checks can be bypassed with case and visually equivalent Unicode: `src/ghost/verifier.ts:82, 265-269, 327-343`.
+- ❌ Ledger immutability is only shallow: `Object.freeze(item)` does not freeze `files`, `refs`, or `pr`.
+- ⚠️ The quote invariants prove literal occurrence, not that the quote supports the verified sentence.
+
+The current tree contains eight `recordings/*.json` files and four model fixtures. The requested read-only git commands and test commands did not execute because tool approval failed before execution, so I could not independently determine their staged/change status or report a test run.
+
+## Five fixes first
+
+1. Replace sentence-level “Verified” with quote-level verification, or require literal memory text.
+2. Stop trusting arbitrary `X-Forwarded-For`.
+3. Apply size and time bounds through the entire clone and archaeology lifetime.
+4. Normalize author/year detection and handle default-ignorable/confusable characters.
+5. Replace the haunting-map in-band record parser so filenames cannot forge commits.
+exit 0
