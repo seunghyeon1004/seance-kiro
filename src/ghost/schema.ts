@@ -280,6 +280,8 @@ export const VerifiedAnswerResponseSchema = z.object({
   tally: TallySchema,
   score: z.number().min(0).max(1),
   report: z.string(),
+  /** /api/ask always sets it; /api/ward never does (first-seance R7.5) */
+  recorded: z.boolean().optional(),
 });
 
 export type VerifiedAnswerResponse = z.infer<typeof VerifiedAnswerResponseSchema>;
@@ -422,5 +424,7 @@ export const ExorciseResponseSchema = z.object({
   markerLocations: z.array(MarkerLocationSchema),
   plan: PlanResponseSchema,
   verifierScore: z.number().min(0).max(1),
+  /** /api/exorcise always sets it (first-seance R7.5) */
+  recorded: z.boolean().optional(),
 });
 export type ExorciseResponse = z.infer<typeof ExorciseResponseSchema>;

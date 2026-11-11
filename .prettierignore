@@ -10,6 +10,7 @@ coverage/
 
 # Recorded fixtures and raw Kiro CLI session logs are kept byte-for-byte
 test/fixtures/
+recordings/
 docs/kiro-evidence/
 data/crypt/
 data/possessed/

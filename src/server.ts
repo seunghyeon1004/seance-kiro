@@ -3,8 +3,8 @@
  *
  * Routes:
  *   POST /api/summon    (summon limiter, clone slots for remote URLs)
- *   POST /api/ask       (model limiter)
- *   POST /api/exorcise  (model limiter)
+ *   POST /api/ask       (model gate: recordings, then the model limiter)
+ *   POST /api/exorcise  (model gate: recordings, then the model limiter)
  *   POST /api/ward      (ward limiter)
  *   GET  /api/health
  *   Static public/ directory
@@ -33,13 +33,23 @@ import { GhostAnswerWireSchema, HUNK_UI_CHARS } from './ghost/schema.js';
 import { renderWardReport } from './ghost/report.js';
 import type { WardReportMeta } from './ghost/report.js';
 import { computeScore } from './exorcism/score.js';
-import { buildPlan } from './exorcism/plan.js';
+import { buildPlan, verifyPlanClaims } from './exorcism/plan.js';
 import type {
+  ExorciseResponse,
   LedgerResult,
+  ScoredResult,
   VerifiedAnswerResponse,
+  VerifiedRefactorPlan,
   VerifierResult,
 } from './ghost/schema.js';
 import { ExorciseRequestSchema, ExorciseResponseSchema } from './ghost/schema.js';
+import { SAMPLE_NAMES, loadRecording, recordingTargetFor } from './ghost/recordings.js';
+import type {
+  AskRecording,
+  ExorciseRecording,
+  Recording,
+  SampleName,
+} from './ghost/recordings.js';
 import {
   ValidationError,
   GitError,
@@ -72,6 +82,16 @@ type SessionEntry = {
   endLine?: number;
   /** Set when the repoUrl was 'crypt' or 'possessed' (design.md §3.2); the range is checked by recordingTargetFor. */
   sample?: SampleName;
+};
+
+/** How a recording came to be served (design.md §3.4). */
+type RecordedVia = 'no-model' | 'daily-cap' | 'model-failure';
+/** Per-request values set by modelGate and read by the /api/ask and /api/exorcise handlers. */
+type AppEnv = {
+  Variables: {
+    recording: Recording | undefined;
+    recordedVia: RecordedVia | undefined;
+  };
 };
 
 const sessions = new Map<string, SessionEntry>();
@@ -264,6 +284,16 @@ function errorResponse(c: Context, err: unknown): Response {
   return c.json({ code, message }, status, headers);
 }
 
+/** The failures R7.3 lets a recording answer for (the daily cap is handled in the gate). */
+function isModelUnavailable(err: unknown): boolean {
+  return (
+    err instanceof ModelConfigError ||
+    err instanceof ModelBusyError ||
+    err instanceof TimeoutError ||
+    err instanceof ConfigError
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Hono app
 // ---------------------------------------------------------------------------
@@ -275,8 +305,7 @@ const ALLOW_LOCAL = process.env['ALLOW_LOCAL'] === '1';
 const REDACT = process.env['REDACT_REJECTED'] === '1';
 const REDACTED_TEXT = '[claim redacted - failed verification]';
 
-type SampleName = 'crypt' | 'possessed';
-const SAMPLE_ORDER: readonly SampleName[] = ['crypt', 'possessed'];
+const SAMPLE_ORDER: readonly SampleName[] = SAMPLE_NAMES;
 
 function isSampleName(s: string): s is SampleName {
   return (SAMPLE_ORDER as readonly string[]).includes(s);
@@ -370,6 +399,112 @@ function toAnswerResponse(
   return sessionId === undefined ? response : { sessionId, ...response };
 }
 
+/** The ward report's file and lines, shared by /api/ask, /api/ward and the recorded path. */
+function reportMeta(entry: {
+  file?: string;
+  startLine?: number;
+  endLine?: number;
+}): WardReportMeta {
+  const meta: WardReportMeta = {};
+  if (entry.file !== undefined) {
+    meta.file = entry.file;
+    if (entry.startLine !== undefined && entry.endLine !== undefined) {
+      meta.lines = { start: entry.startLine, end: entry.endLine };
+    }
+  }
+  return meta;
+}
+
+/** Live ward over the recorded claims; the same builder as the live path (R7.6). */
+function recordedAnswer(
+  entry: SessionEntry,
+  sessionId: string,
+  rec: AskRecording,
+  via: RecordedVia,
+): VerifiedAnswerResponse {
+  const result = verify(entry.ledger.items, rec.answer);
+  const report = renderWardReport(result, reportMeta(entry));
+  console.info('[seance] served recording', { via, sample: rec.sample, kind: rec.kind });
+  entry.expiresAt = Date.now() + SESSION_TTL_MS;
+  return {
+    ...toAnswerResponse(entry.ledger, result, rec.answer.voice, report, sessionId),
+    recorded: true,
+  };
+}
+
+/** Shared /api/exorcise response, for the live and the recorded plan (design.md §3.4). */
+function toExorciseResponse(
+  sessionId: string,
+  scored: ScoredResult,
+  plan: VerifiedRefactorPlan,
+  recorded: boolean,
+): ExorciseResponse {
+  // With REDACT_REJECTED=1, rejected claim text and the model's words in dropped entries are hidden
+  const redactRejected = <T extends { text: string }>(r: T): T =>
+    REDACT ? { ...r, text: REDACTED_TEXT } : r;
+
+  return ExorciseResponseSchema.parse({
+    sessionId,
+    score: scored.score,
+    signalBreakdown: scored.signalBreakdown,
+    markerLocations: scored.markerLocations,
+    plan: {
+      characterizationTests: plan.characterizationTests,
+      steps: plan.steps.map((step) => ({
+        ...step,
+        rejectedClaims: step.rejectedClaims.map(redactRejected),
+      })),
+      doNotTouchList: plan.doNotTouchList.map((entry) => ({
+        ...entry,
+        rejectedClaims: entry.rejectedClaims.map(redactRejected),
+      })),
+      dropped: plan.dropped.map((d) => ({
+        ...d,
+        title: REDACT ? REDACTED_TEXT : d.title,
+        modelText: REDACT ? REDACTED_TEXT : d.modelText,
+        rejectedClaims: d.rejectedClaims.map(redactRejected),
+      })),
+      summary: plan.summary,
+    },
+    verifierScore: plan.verifierScore,
+    recorded,
+  });
+}
+
+/** Live ward over the recorded plan claims, with the haunting score computed now (R7.4). */
+function recordedExorcism(
+  entry: SessionEntry,
+  sessionId: string,
+  rec: ExorciseRecording,
+  via: RecordedVia,
+  authorGoneThresholdDays: number,
+): ExorciseResponse {
+  const nowMs = Date.now();
+  const scored = computeScore(entry.ledger, { authorGoneThresholdDays, nowMs }, nowMs);
+  const plan = verifyPlanClaims(entry.ledger, rec.plan);
+  console.info('[seance] served recording', { via, sample: rec.sample, kind: rec.kind });
+  entry.expiresAt = nowMs + SESSION_TTL_MS;
+  return toExorciseResponse(sessionId, scored, plan, true);
+}
+
+/**
+ * The recording that applies to this request, or null on any doubt (design.md §3.4). Hono caches
+ * the parsed body, so the handler's own c.req.json() sees the same result.
+ */
+async function recordingForRequest(
+  c: Context<AppEnv>,
+  kind: 'ask' | 'exorcise',
+): Promise<Recording | null> {
+  const body: unknown = await c.req.json().catch(() => null);
+  if (body === null || typeof body !== 'object') return null;
+  const { sessionId, question } = body as { sessionId?: unknown; question?: unknown };
+  if (typeof sessionId !== 'string') return null;
+  const entry = sessions.get(sessionId);
+  if (!entry || Date.now() > entry.expiresAt) return null;
+  const target = recordingTargetFor(entry, kind, kind === 'ask' ? question : '');
+  return target ? loadRecording(target) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Hono app — createApp(deps); sessions and limiters stay module-level and shared
 // ---------------------------------------------------------------------------
@@ -382,11 +517,16 @@ export interface AppDeps {
 /**
  * Per-client limiter middleware with the model limiter's response shape: 429,
  * { error, code: 'RATE_LIMITED' } and Retry-After (design.md §8.2).
+ *
+ * `onDaily` (first-seance design.md §3.4) is asked only when the limiter refuses with its daily
+ * reason; when it returns true the request goes on instead of the 429. A refused check records
+ * nothing, so letting the request through charges nothing.
  */
 function limitBy(
   limiter: ModelLimiter,
   messages: { client: string; daily?: string },
-): MiddlewareHandler {
+  onDaily?: (c: Context<AppEnv>) => boolean,
+): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const xff = c.req.header('x-forwarded-for');
     let remote: string | undefined;
@@ -397,6 +537,10 @@ function limitBy(
     }
     const result = limiter.check(clientKey(xff, remote));
     if (!result.ok) {
+      if (result.reason === 'daily' && onDaily !== undefined && onDaily(c)) {
+        await next();
+        return;
+      }
       const error =
         result.reason === 'daily' && messages.daily !== undefined
           ? messages.daily
@@ -413,11 +557,22 @@ function limitBy(
   };
 }
 
-/** Model rate limit on the LLM-calling routes only (model-rate-limit R1.1); same bodies as before. */
-const modelRateLimit = limitBy(modelLimiter, {
-  client: 'The spirits are tired. Let them rest a few minutes before you call again.',
-  daily: 'The séance is closed for tonight. The spirits will answer again tomorrow.',
-});
+/**
+ * Model rate limit on the LLM-calling routes only (model-rate-limit R1.1); same bodies as before.
+ * At the daily cap, a request with an applicable recording is let through to be served it (R7.7).
+ */
+const modelRateLimit = limitBy(
+  modelLimiter,
+  {
+    client: 'The spirits are tired. Let them rest a few minutes before you call again.',
+    daily: 'The séance is closed for tonight. The spirits will answer again tomorrow.',
+  },
+  (c) => {
+    if (c.get('recording') === undefined) return false;
+    c.set('recordedVia', 'daily-cap');
+    return true;
+  },
+);
 const summonRateLimit = limitBy(summonLimiter, {
   client: 'Too many summonings from here. Wait a few minutes and try again.',
 });
@@ -425,8 +580,25 @@ const wardRateLimit = limitBy(wardLimiter, {
   client: 'The ward needs a short rest. Wait a few minutes before sending more claims.',
 });
 
-export function createApp(deps: AppDeps = {}): Hono {
-  const app = new Hono();
+/**
+ * In front of /api/ask and /api/exorcise (design.md §3.4). With no model configured and a
+ * recording that applies, the limiter is not consulted (R7.7). Otherwise today's model limiter runs.
+ */
+function modelGate(kind: 'ask' | 'exorcise'): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const recording = await recordingForRequest(c, kind);
+    c.set('recording', recording ?? undefined);
+    if (recording && !modelConfigured()) {
+      c.set('recordedVia', 'no-model');
+      await next();
+      return;
+    }
+    return modelRateLimit(c, next);
+  };
+}
+
+export function createApp(deps: AppDeps = {}): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
 
   // Apply security headers to all responses
   app.use(
@@ -455,8 +627,8 @@ export function createApp(deps: AppDeps = {}): Hono {
     }),
   );
 
-  app.use('/api/ask', modelRateLimit);
-  app.use('/api/exorcise', modelRateLimit);
+  app.use('/api/ask', modelGate('ask'));
+  app.use('/api/exorcise', modelGate('exorcise'));
   app.use('/api/summon', summonRateLimit);
   app.use('/api/ward', wardRateLimit);
 
@@ -464,7 +636,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   return app;
 }
 
-function registerRoutes(app: Hono, deps: AppDeps): void {
+function registerRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
   // ---------------------------------------------------------------------------
   // GET /api/health
   // ---------------------------------------------------------------------------
@@ -596,13 +768,22 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
     }
 
     const { sessionId, question } = parsed.data;
+    const recording = c.get('recording');
+    let entry: SessionEntry | undefined;
 
     try {
-      // Look up session (throw SessionNotFoundError if absent or expired)
-      const entry = sessions.get(sessionId);
+      // Look up session (throw SessionNotFoundError if absent or expired); never serve a recording for one
+      entry = sessions.get(sessionId);
       if (!entry || Date.now() > entry.expiresAt) {
         if (entry) sessions.delete(sessionId);
+        entry = undefined;
         throw new SessionNotFoundError(`Session "${sessionId}" not found or has expired`);
+      }
+
+      // No model, or the daily cap: the gate let a recording through without a limiter charge (R7.7)
+      const via = c.get('recordedVia');
+      if (via !== undefined && recording?.kind === 'ask') {
+        return c.json(recordedAnswer(entry, sessionId, recording, via));
       }
 
       const { ledger } = entry;
@@ -613,22 +794,23 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
       const verifierResult = verify(ledger.items, ghostAnswer);
 
       // Build the ward report (R1.1, R1.3)
-      const reportMeta: WardReportMeta = {};
-      if (entry.file !== undefined) {
-        reportMeta.file = entry.file;
-        if (entry.startLine !== undefined && entry.endLine !== undefined) {
-          reportMeta.lines = { start: entry.startLine, end: entry.endLine };
-        }
-      }
-      const report = renderWardReport(verifierResult, reportMeta);
+      const report = renderWardReport(verifierResult, reportMeta(entry));
 
       // Reset session expiry (sliding window)
       entry.expiresAt = Date.now() + SESSION_TTL_MS;
 
-      return c.json(
-        toAnswerResponse(ledger, verifierResult, ghostAnswer.voice, report, sessionId),
-      );
+      return c.json({
+        ...toAnswerResponse(ledger, verifierResult, ghostAnswer.voice, report, sessionId),
+        recorded: false,
+      });
     } catch (err: unknown) {
+      if (entry !== undefined && isModelUnavailable(err) && recording?.kind === 'ask') {
+        console.error('[seance] model unavailable, serving a recording', {
+          code: (err as SeanceError).code,
+          message: (err as SeanceError).message,
+        });
+        return c.json(recordedAnswer(entry, sessionId, recording, 'model-failure'));
+      }
       return errorResponse(c, err);
     }
   });
@@ -655,13 +837,30 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
     }
 
     const { sessionId, authorGoneThresholdDays } = parsed.data;
+    const recording = c.get('recording');
+    let session: SessionEntry | undefined;
 
     try {
-      // Look up session (throw SessionNotFoundError if absent or expired)
-      const session = sessions.get(sessionId);
+      // Look up session (throw SessionNotFoundError if absent or expired); never serve a recording for one
+      session = sessions.get(sessionId);
       if (!session || Date.now() > session.expiresAt) {
         if (session) sessions.delete(sessionId);
+        session = undefined;
         throw new SessionNotFoundError(`Session "${sessionId}" not found or has expired`);
+      }
+
+      // No model, or the daily cap: the gate let a recording through without a limiter charge (R7.7)
+      const via = c.get('recordedVia');
+      if (via !== undefined && recording?.kind === 'exorcise') {
+        return c.json(
+          recordedExorcism(
+            session,
+            sessionId,
+            recording,
+            via,
+            authorGoneThresholdDays ?? 365,
+          ),
+        );
       }
 
       const nowMs = Date.now();
@@ -681,38 +880,27 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
       // Reset session expiry (sliding window)
       session.expiresAt = nowMs + SESSION_TTL_MS;
 
-      // With REDACT_REJECTED=1, rejected claim text and the model's words in dropped entries are hidden
-      const redactRejected = <T extends { text: string }>(r: T): T =>
-        REDACT ? { ...r, text: REDACTED_TEXT } : r;
-
-      return c.json(
-        ExorciseResponseSchema.parse({
-          sessionId,
-          score: scoredResult.score,
-          signalBreakdown: scoredResult.signalBreakdown,
-          markerLocations: scoredResult.markerLocations,
-          plan: {
-            characterizationTests: plan.characterizationTests,
-            steps: plan.steps.map((step) => ({
-              ...step,
-              rejectedClaims: step.rejectedClaims.map(redactRejected),
-            })),
-            doNotTouchList: plan.doNotTouchList.map((entry) => ({
-              ...entry,
-              rejectedClaims: entry.rejectedClaims.map(redactRejected),
-            })),
-            dropped: plan.dropped.map((d) => ({
-              ...d,
-              title: REDACT ? REDACTED_TEXT : d.title,
-              modelText: REDACT ? REDACTED_TEXT : d.modelText,
-              rejectedClaims: d.rejectedClaims.map(redactRejected),
-            })),
-            summary: plan.summary,
-          },
-          verifierScore: plan.verifierScore,
-        }),
-      );
+      return c.json(toExorciseResponse(sessionId, scoredResult, plan, false));
     } catch (err: unknown) {
+      if (
+        session !== undefined &&
+        isModelUnavailable(err) &&
+        recording?.kind === 'exorcise'
+      ) {
+        console.error('[seance] model unavailable, serving a recording', {
+          code: (err as SeanceError).code,
+          message: (err as SeanceError).message,
+        });
+        return c.json(
+          recordedExorcism(
+            session,
+            sessionId,
+            recording,
+            'model-failure',
+            authorGoneThresholdDays ?? 365,
+          ),
+        );
+      }
       return errorResponse(c, err);
     }
   });
@@ -744,14 +932,7 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     const r = verify(entry.ledger.items, parsed.data);
-    const wardMeta: WardReportMeta = {};
-    if (entry.file !== undefined) {
-      wardMeta.file = entry.file;
-      if (entry.startLine !== undefined && entry.endLine !== undefined) {
-        wardMeta.lines = { start: entry.startLine, end: entry.endLine };
-      }
-    }
-    const wardReport = renderWardReport(r, wardMeta);
+    const wardReport = renderWardReport(r, reportMeta(entry));
     return c.json(toAnswerResponse(entry.ledger, r, parsed.data.voice, wardReport));
   });
 
@@ -794,8 +975,11 @@ function registerRoutes(app: Hono, deps: AppDeps): void {
 // Export for testing + optional server start
 // ---------------------------------------------------------------------------
 
-export const app: Hono = createApp();
+export const app: Hono<AppEnv> = createApp();
 export { sessions };
+
+/** Test seam for CP8 (design.md §11): the recorded path and the live builder it must equal. */
+export const __test = { recordedAnswer, toAnswerResponse, reportMeta };
 
 // Start server when run directly
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/^.*\//, ''))) {

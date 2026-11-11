@@ -2,7 +2,9 @@
  * first-seance — server tests.
  *
  * T1: the model-failure rows of design.md §3.3 on /api/ask and /api/exorcise (R6.1–R6.3) and
- * GET /api/health (R5.1).
+ * GET /api/health (R5.1). T2: the summon fields (R2.1, R2.2, R8.3) and HISTORY_ERROR (R8.1).
+ * T3: recorded answers (R7.3–R7.9), written into a temp RECORDINGS_DIR by recordAnswers with a
+ * scripted client.
  *
  * Both samples are built with the real scripts into a temp dir before the server loads, because
  * CRYPT_DIR is read once when src/server.ts loads. askGhost and buildPlan are wrapped in vi.fn
@@ -10,7 +12,16 @@
  * No test calls the model or the network.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'vitest';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -63,6 +74,9 @@ const { HealthResponseSchema, SummonResponseSchema } = await import(
 );
 const { mostFrequentAuthor } = await import('../../src/ghost/persona.js');
 const errors = await import('../../src/errors.js');
+const recordings = await import('../../src/ghost/recordings.js');
+const { recordAnswers } = await import('../../scripts/record-answers.js');
+const { CryptClient } = await import('../ghost/scripted-clients.js');
 
 const KEY = 'sk-ant-first-seance-test-key';
 
@@ -409,5 +423,338 @@ describe('POST /api/summon — HISTORY_ERROR (R8.1)', () => {
     });
     expect(text).not.toContain('/tmp');
     expect(JSON.stringify(log.mock.calls)).toContain(raw);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T3 — recorded answers (R7.3–R7.9)
+// ---------------------------------------------------------------------------
+
+const REC = path.join(TMP, 'recordings');
+const REC_EMPTY = path.join(TMP, 'recordings-empty');
+
+type Json = Record<string, unknown>;
+
+async function summonSample(
+  name: 'crypt' | 'possessed',
+  overrides: Partial<{ startLine: number; endLine: number }> = {},
+): Promise<string> {
+  const res = await post('/api/summon', { ...SAMPLE_INPUT[name], ...overrides });
+  expect(res.status).toBe(200);
+  return SummonResponseSchema.parse(await res.json()).sessionId;
+}
+
+function recordingFor(
+  sessionId: string,
+  kind: 'ask' | 'exorcise',
+  question = '',
+): NonNullable<ReturnType<typeof recordings.loadRecording>> {
+  const entry = sessions.get(sessionId);
+  if (!entry) throw new Error('no session');
+  const target = recordings.recordingTargetFor(entry, kind, question);
+  if (!target) throw new Error('no target');
+  const rec = recordings.loadRecording(target, REC);
+  if (!rec) throw new Error('no recording');
+  return rec;
+}
+
+async function ask(sessionId: string, question: string): Promise<Response> {
+  return post('/api/ask', { sessionId, question });
+}
+
+/** The /api/ward verdict for the same claims on the same session: the live ward. */
+async function wardVerdict(sessionId: string, answer: unknown): Promise<Json> {
+  const res = await post('/api/ward', { sessionId, answer });
+  expect(res.status).toBe(200);
+  return (await res.json()) as Json;
+}
+
+function withoutKeys(o: Json, ...keys: string[]): Json {
+  const out: Json = { ...o };
+  for (const k of keys) delete out[k];
+  return out;
+}
+
+const MODEL_FAILURES = [
+  ['MODEL_CONFIG', () => new errors.ModelConfigError('Anthropic API 401: bad key')],
+  ['MODEL_BUSY', () => new errors.ModelBusyError('Anthropic API 529: overloaded')],
+  ['TIMEOUT', () => new errors.TimeoutError('LLM call exceeded timeout of 30000ms')],
+  ['CONFIG_ERROR', () => new errors.ConfigError('ANTHROPIC_API_KEY is not set')],
+] as const;
+
+describe('T3 — recorded answers on the server (R7.3–R7.9)', { timeout: 60_000 }, () => {
+  beforeAll(async () => {
+    fs.mkdirSync(REC);
+    fs.mkdirSync(REC_EMPTY);
+    process.env['ANTHROPIC_API_KEY'] = KEY;
+    delete process.env['ANTHROPIC_FIXTURE'];
+    try {
+      await recordAnswers({
+        outDir: REC,
+        client: new CryptClient(),
+        log: () => undefined,
+      });
+    } finally {
+      delete process.env['ANTHROPIC_API_KEY'];
+    }
+  }, 60_000);
+
+  beforeEach(() => {
+    process.env['RECORDINGS_DIR'] = REC;
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    delete process.env['RECORDINGS_DIR'];
+  });
+
+  describe('/api/ask serves the recording, run through the live ward (R7.3, R7.6)', () => {
+    it.each(MODEL_FAILURES)('%s on a crypt chip question', async (_code, make) => {
+      const sid = await summonSample('crypt');
+      const q = recordings.SAMPLE_QUESTIONS.crypt[0]!;
+      const rec = recordingFor(sid, 'ask', q);
+      if (rec.kind !== 'ask') throw new Error('not an ask recording');
+
+      askGhostMock.mockRejectedValueOnce(make());
+      const res = await ask(sid, q);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Json;
+      expect(body['recorded']).toBe(true);
+      expect(body['sessionId']).toBe(sid);
+      expect((body['tally'] as { verified: number }).verified).toBeGreaterThan(0);
+
+      // The live path, given the same claims, builds the same response (R7.6)
+      askGhostMock.mockResolvedValueOnce(rec.answer);
+      const live = (await (await ask(sid, q)).json()) as Json;
+      expect(live['recorded']).toBe(false);
+      expect(withoutKeys(body, 'recorded')).toEqual(withoutKeys(live, 'recorded'));
+
+      // …and so does /api/ward, which is the ward with no model at all
+      const ward = await wardVerdict(sid, rec.answer);
+      expect(withoutKeys(body, 'recorded', 'sessionId')).toEqual(ward);
+    });
+
+    it('every chip question of both samples is served on MODEL_BUSY', async () => {
+      for (const sample of recordings.SAMPLE_NAMES) {
+        const sid = await summonSample(sample);
+        for (const q of recordings.SAMPLE_QUESTIONS[sample]) {
+          const rec = recordingFor(sid, 'ask', q);
+          if (rec.kind !== 'ask') throw new Error('not an ask recording');
+          askGhostMock.mockRejectedValueOnce(new errors.ModelBusyError('busy'));
+          const res = await ask(sid, q);
+          expect(res.status).toBe(200);
+          const body = (await res.json()) as Json;
+          expect(body['recorded']).toBe(true);
+          expect(withoutKeys(body, 'recorded', 'sessionId')).toEqual(
+            await wardVerdict(sid, rec.answer),
+          );
+        }
+      }
+    });
+
+    it('with no key at all, the recording is served without calling askGhost', async () => {
+      const sid = await summonSample('crypt');
+      delete process.env['ANTHROPIC_API_KEY'];
+      askGhostMock.mockClear();
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[1]!);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as Json)['recorded']).toBe(true);
+      expect(askGhostMock).not.toHaveBeenCalled();
+      expect(modelLimiter.size()).toBe(0);
+    });
+
+    it('the serving is logged without the error text reaching the body', async () => {
+      const sid = await summonSample('crypt');
+      const raw = `Anthropic API 529: ${LEAKY}`;
+      askGhostMock.mockRejectedValueOnce(new errors.ModelBusyError(raw));
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      const text = await res.text();
+      expect(text).not.toContain(KEY);
+      expect(text).not.toContain('ANTHROPIC');
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain('MODEL_BUSY');
+      expect(JSON.stringify(vi.mocked(console.info).mock.calls)).toContain(
+        'served recording',
+      );
+    });
+  });
+
+  describe('/api/exorcise serves the recorded plan with a live score (R7.4, R7.6)', () => {
+    it.each(MODEL_FAILURES)('%s on crypt', async (_code, make) => {
+      const sid = await summonSample('crypt');
+      const rec = recordingFor(sid, 'exorcise');
+      if (rec.kind !== 'exorcise') throw new Error('not a plan recording');
+      vi.spyOn(Date, 'now').mockReturnValue(Date.now());
+
+      buildPlanMock.mockRejectedValueOnce(make());
+      const res = await post('/api/exorcise', { sessionId: sid });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Json;
+      expect(body['recorded']).toBe(true);
+      expect(body['sessionId']).toBe(sid);
+
+      // The live path with the same plan claims gives the same response
+      buildPlanMock.mockImplementationOnce(async (ledger) =>
+        planMod.verifyPlanClaims(ledger, rec.plan),
+      );
+      const live = (await (
+        await post('/api/exorcise', { sessionId: sid })
+      ).json()) as Json;
+      expect(live['recorded']).toBe(false);
+      expect(withoutKeys(body, 'recorded')).toEqual(withoutKeys(live, 'recorded'));
+      expect((body['plan'] as { steps: unknown[] }).steps.length).toBeGreaterThan(0);
+    });
+
+    it('with no key, the possessed plan is served without calling buildPlan', async () => {
+      const sid = await summonSample('possessed');
+      delete process.env['ANTHROPIC_API_KEY'];
+      buildPlanMock.mockClear();
+      const res = await post('/api/exorcise', { sessionId: sid });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as Json)['recorded']).toBe(true);
+      expect(buildPlanMock).not.toHaveBeenCalled();
+      expect(modelLimiter.size()).toBe(0);
+    });
+  });
+
+  describe('no recording outside R7.3 (R7.8, R7.9)', () => {
+    const busy = () => new errors.ModelBusyError('Anthropic API 529: overloaded');
+    const BUSY = {
+      code: 'MODEL_BUSY',
+      message: 'The spirits are busy. Try again in a minute.',
+    };
+
+    it('a free question gives the T1 error', async () => {
+      const sid = await summonSample('crypt');
+      askGhostMock.mockRejectedValueOnce(busy());
+      const res = await ask(sid, 'Why is the sky blue?');
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual(BUSY);
+    });
+
+    it('an OTHER_QUESTIONS chip on a sample gives the T1 error', async () => {
+      const sid = await summonSample('crypt');
+      askGhostMock.mockRejectedValueOnce(busy());
+      const res = await ask(sid, recordings.OTHER_QUESTIONS[0]!);
+      expect(res.status).toBe(503);
+    });
+
+    it('LLM_ERROR on a chip question gives the T1 error', async () => {
+      const sid = await summonSample('crypt');
+      askGhostMock.mockRejectedValueOnce(new errors.ParseError('bad envelope'));
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(503);
+      expect(((await res.json()) as Json)['code']).toBe('LLM_ERROR');
+      buildPlanMock.mockRejectedValueOnce(new errors.ParseError('bad plan'));
+      const ex = await post('/api/exorcise', { sessionId: sid });
+      expect(ex.status).toBe(503);
+      expect(((await ex.json()) as Json)['code']).toBe('LLM_ERROR');
+    });
+
+    it('an unexpected error on a chip question gives 500', async () => {
+      const sid = await summonSample('crypt');
+      askGhostMock.mockRejectedValueOnce(new Error('boom'));
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(500);
+    });
+
+    it('a non-default range of crypt gives the T1 error', async () => {
+      const sid = await summonSample('crypt', { startLine: 6 });
+      askGhostMock.mockRejectedValueOnce(busy());
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual(BUSY);
+      buildPlanMock.mockRejectedValueOnce(busy());
+      expect((await post('/api/exorcise', { sessionId: sid })).status).toBe(503);
+    });
+
+    it('a GitHub session with the same file and range gives the T1 error', async () => {
+      const sid = await summonSample('crypt');
+      const entry = sessions.get(sid);
+      if (!entry) throw new Error('no session');
+      const { sample: _sample, ...github } = entry;
+      sessions.set('github-session', github);
+      askGhostMock.mockRejectedValueOnce(busy());
+      const res = await ask('github-session', recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual(BUSY);
+      buildPlanMock.mockRejectedValueOnce(busy());
+      expect((await post('/api/exorcise', { sessionId: 'github-session' })).status).toBe(
+        503,
+      );
+    });
+
+    it('a missing recording file gives the T1 error, and with no key CONFIG_ERROR', async () => {
+      process.env['RECORDINGS_DIR'] = REC_EMPTY;
+      const sid = await summonSample('crypt');
+      askGhostMock.mockRejectedValueOnce(busy());
+      const res = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual(BUSY);
+
+      // No key and no recording: the real askGhost refuses before any model call
+      delete process.env['ANTHROPIC_API_KEY'];
+      const nokey = await ask(sid, recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(nokey.status).toBe(503);
+      expect(((await nokey.json()) as Json)['code']).toBe('CONFIG_ERROR');
+    });
+
+    it('with no key, a free question still gives CONFIG_ERROR', async () => {
+      const sid = await summonSample('crypt');
+      delete process.env['ANTHROPIC_API_KEY'];
+      const res = await ask(sid, 'Why is the sky blue?');
+      expect(res.status).toBe(503);
+      expect(((await res.json()) as Json)['code']).toBe('CONFIG_ERROR');
+    });
+
+    it('an unknown session never gets a recording', async () => {
+      delete process.env['ANTHROPIC_API_KEY'];
+      const res = await ask('no-such-session', recordings.SAMPLE_QUESTIONS.crypt[0]!);
+      expect(res.status).toBe(404);
+      const ex = await post('/api/exorcise', { sessionId: 'no-such-session' });
+      expect(ex.status).toBe(404);
+    });
+
+    it('a body that is not JSON is still a 400', async () => {
+      const res = await app.request('/api/ask', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{ not json',
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('the recorded flag (R7.5)', () => {
+    it('live answers carry recorded: false, /api/ward has no recorded key', async () => {
+      const answer = {
+        claims: [
+          {
+            kind: 'memory',
+            text: 'I added the sleep.',
+            citations: [{ sha7: 'abc1234', quote: 'wait for downstream to stabilise' }],
+          },
+        ],
+        voice: 'Ada',
+        sessionId: SID,
+      };
+      askGhostMock.mockResolvedValueOnce(answer);
+      const a = (await (await ask(SID, 'Why?')).json()) as Json;
+      expect(a).toMatchObject({ sessionId: SID });
+      expect(a['recorded']).toBe(false);
+
+      const sid = await summonSample('crypt');
+      const rec = recordingFor(sid, 'exorcise');
+      if (rec.kind !== 'exorcise') throw new Error('not a plan recording');
+      buildPlanMock.mockImplementationOnce(async (ledger) =>
+        planMod.verifyPlanClaims(ledger, rec.plan),
+      );
+      const e = (await (await post('/api/exorcise', { sessionId: sid })).json()) as Json;
+      expect(e).toMatchObject({ sessionId: sid });
+      expect(e['recorded']).toBe(false);
+
+      const w = await wardVerdict(SID, answer);
+      expect('recorded' in w).toBe(false);
+    });
   });
 });

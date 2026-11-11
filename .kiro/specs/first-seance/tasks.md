@@ -57,27 +57,27 @@ Covers: R2.1, R2.2, R8.1, R8.3, N3, N6.
 
 ## T3 — Recorded answers (server and script)
 
-- [ ] Write the failing tests in `test/ghost/recordings.test.ts`:
+- [x] Write the failing tests in `test/ghost/recordings.test.ts`:
   - `recordingTargetFor` for each sample's default range and each chip question, and `null` for another file, range, question or repository (R7.8);
   - `loadRecording` returns `null` for a missing file, and `null` plus `console.warn` for invalid JSON, a schema failure, and a file whose target fields differ from its key (R7.9);
   - `recordAnswers({ outDir: tmp, client: <scripted> })` writes exactly eight files named by `recordingKey`, each valid under `RecordingSchema`, with `model === MODEL_ID` and `ledgerShas` equal to the sample ledger's short hashes (R7.1);
   - the command line, run with `npx tsx scripts/record-answers.ts` and no key, exits 1 with the design.md §6.4 message and writes nothing, and `--keys-only` prints eight keys without a model call (R7.2).
-- [ ] Write the failing property tests CP9 and CP10 in `test/ghost/pbt/recordings.pbt.ts`, and CP8 in `test/server/recorded.pbt.ts` (R7.1, R7.6, R7.8, N6).
-- [ ] Add tests to `test/server/first-seance.test.ts`, with sessions summoned from built samples and a temp `RECORDINGS_DIR` filled by `recordAnswers`:
+- [x] Write the failing property tests CP9 and CP10 in `test/ghost/pbt/recordings.pbt.ts`, and CP8 in `test/server/recorded.pbt.ts` (R7.1, R7.6, R7.8, N6).
+- [x] Add tests to `test/server/first-seance.test.ts`, with sessions summoned from built samples and a temp `RECORDINGS_DIR` filled by `recordAnswers`:
   - each of `MODEL_CONFIG`, `MODEL_BUSY`, `TIMEOUT` and `CONFIG_ERROR` on a chip question serves the recording with `recorded: true` and the live ward's verdict (R7.3, R7.6);
   - the same for `/api/exorcise` with the recorded plan and a live score (R7.4);
   - no recording for a free question, for `LLM_ERROR`, for a non-default range of `crypt`, for a GitHub session, or when the file is missing; these give the T1 errors (R7.8, R7.9);
   - live answers carry `recorded: false`, and `/api/ward` has no `recorded` (R7.5).
-- [ ] Write the failing tests in `test/server/recorded-limits.test.ts` (it sets `MAX_MODEL_CALLS_PER_DAY=1` and `RATE_LIMIT_MAX=2` before the server loads) (R7.7):
+- [x] Write the failing tests in `test/server/recorded-limits.test.ts` (it sets `MAX_MODEL_CALLS_PER_DAY=1` and `RATE_LIMIT_MAX=2` before the server loads) (R7.7):
   - with no key, ten recorded asks leave the limiter's per-client and daily counters untouched, and a later free question with a key set still gets its slot;
   - with the daily cap used up, a chip question gets the recording and a free question gets today's 429 body and `Retry-After`;
   - with the per-client limit used up, a chip question gets today's 429, not the recording.
-- [ ] Implement `src/ghost/recordings.ts` per design.md §6.1–§6.3, and add `recorded` to the two answer response schemas (design.md §7).
-- [ ] Implement `scripts/record-answers.ts` per design.md §6.4, with the header saying that a human with a real key runs it and never edits the output.
-- [ ] Write `recordings/README.md` per design.md §6.5, with the eight keys from `--keys-only`. Do not add any `*.json` recording.
-- [ ] In `src/server.ts`, implement `AppEnv`, the `onDaily` hook on `limitBy`, `modelGate`, `recordingForRequest`, `recordedAnswer`, `reportMeta`, `toExorciseResponse` and the two handlers (design.md §3.4). Confirm that `test/server/ratelimit.test.ts` passes unchanged and that `git diff 3486e14 -- src/ratelimit.ts` is empty (R7.7, N2).
-- [ ] Document `RECORDINGS_DIR` in `.env.example`. Add `recordings/` to `.prettierignore`, as `test/fixtures/` already is, so the recorded files stay byte-for-byte as the script wrote them.
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green. With no shipped recordings yet, the fallback is simply unavailable in production until T9.
+- [x] Implement `src/ghost/recordings.ts` per design.md §6.1–§6.3, and add `recorded` to the two answer response schemas (design.md §7).
+- [x] Implement `scripts/record-answers.ts` per design.md §6.4, with the header saying that a human with a real key runs it and never edits the output.
+- [x] Write `recordings/README.md` per design.md §6.5, with the eight keys from `--keys-only`. Do not add any `*.json` recording.
+- [x] In `src/server.ts`, implement `AppEnv`, the `onDaily` hook on `limitBy`, `modelGate`, `recordingForRequest`, `recordedAnswer`, `reportMeta`, `toExorciseResponse` and the two handlers (design.md §3.4). Confirm that `test/server/ratelimit.test.ts` passes unchanged and that `git diff 3486e14 -- src/ratelimit.ts` is empty (R7.7, N2).
+- [x] Document `RECORDINGS_DIR` in `.env.example`. Add `recordings/` to `.prettierignore`, as `test/fixtures/` already is, so the recorded files stay byte-for-byte as the script wrote them.
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green. With no shipped recordings yet, the fallback is simply unavailable in production until T9.
 
 Covers: R7.1–R7.9, N3, N6, N7.
 
@@ -85,10 +85,10 @@ Covers: R7.1–R7.9, N3, N6, N7.
 
 ## T4 — The shared DOM harness
 
-- [ ] Move the setup of `test/ui/dom.test.ts` into `test/e2e/harness.ts` with the API in design.md §10.1: `buildSamples`, `openPage` (with `proxy`, `nodeTimers` and `onSummon`), `until` polling with `setImmediate`, `norm`, `REASONS`, and the scripted `CryptClient` and `DownClient` (design.md §10.2) (R11.1).
-- [ ] Rewrite `test/ui/dom.test.ts` to use the harness, with no change to its assertions in this task. It must pass against the unchanged page, which shows the move preserved behaviour.
-- [ ] Add a smoke test in `test/e2e/harness.test.ts` with the design.md §10.1 header: open the page, check that `#summon-form` exists, summon `crypt`, and see its ledger rows. Check that Node's global `fetch` was never called (R11.2). The health checks come in T5, when the page starts making that call.
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Move the setup of `test/ui/dom.test.ts` into `test/e2e/harness.ts` with the API in design.md §10.1: `buildSamples`, `openPage` (with `proxy`, `nodeTimers` and `onSummon`), `until` polling with `setImmediate`, `norm`, `REASONS`, and the scripted `CryptClient` and `DownClient` (design.md §10.2) (R11.1).
+- [x] Rewrite `test/ui/dom.test.ts` to use the harness, with no change to its assertions in this task. It must pass against the unchanged page, which shows the move preserved behaviour.
+- [x] Add a smoke test in `test/e2e/harness.test.ts` with the design.md §10.1 header: open the page, check that `#summon-form` exists, summon `crypt`, and see its ledger rows. Check that Node's global `fetch` was never called (R11.2). The health checks come in T5, when the page starts making that call.
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R11.1, R11.2.
 

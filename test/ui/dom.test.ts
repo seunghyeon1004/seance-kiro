@@ -1,14 +1,17 @@
-/* global Document, Element, HTMLElement, HTMLInputElement, HTMLTextAreaElement, Window -- DOM types only; the nodes come from jsdom */
+/* global Element, HTMLTextAreaElement -- DOM types only; the nodes come from jsdom */
 /**
  * ward-hardening T7 — the page end to end in jsdom (design.md §11).
  *
- * public/index.html is loaded into jsdom with `runScripts: 'outside-only'`, and public/app.js
- * is evaluated unmodified in that window. Both samples are built with the real scripts into a
- * temp dir. The real server (createApp from src/server.ts, with the real buildLedger, verify,
- * buildPlan and response builders) answers every request in process. Only the model is
- * scripted, by PageClient below, so the ward's verdicts on the page are the real ones.
+ * The setup (sample builds, server import, jsdom window, stubs, in-process fetch) lives in the
+ * shared harness, test/e2e/harness.ts (first-seance R11.1). public/index.html is loaded into jsdom
+ * with `runScripts: 'outside-only'`, and public/app.js is evaluated unmodified in that window. Both
+ * samples are built with the real scripts into a temp dir. The real server (createApp from
+ * src/server.ts, with the real buildLedger, verify, buildPlan and response builders) answers every
+ * request in process. Only the model is scripted, by PageClient below, so the ward's verdicts on
+ * the page are the real ones.
  *
- * Stubbed in the window, because jsdom 25 lacks them or because they would leave the process:
+ * Stubbed in the window by the harness, because jsdom 25 lacks them or because they would leave
+ * the process:
  * - `fetch`: hands the request to `app.request()` in process (no network, no listening port);
  * - `matchMedia`: jsdom has none; app.js reads `prefers-reduced-motion` at load;
  * - `Element.prototype.scrollIntoView`: jsdom has none.
@@ -18,28 +21,17 @@
  * No network: ANTHROPIC_FIXTURE is unset, the key is a dummy, and Node's global fetch throws.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { JSDOM } from 'jsdom';
 import type {
   AnthropicClient,
   AnthropicCreateParams,
   AnthropicMessage,
 } from '../../src/ghost/llm.js';
+import { REASONS, buildSamples, norm, openPage } from '../e2e/harness.js';
+import type { Page, Samples, SummonItem } from '../e2e/harness.js';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
-const appJs = fs.readFileSync(path.join(ROOT, 'public/app.js'), 'utf8');
-
-const F4 = (s: string) => `Commit ${s} is not in the ledger.`;
-const F6 = (s: string) =>
-  `The citation of ${s} has no quote. The ward accepts a citation only with the exact words from the commit.`;
-const F11 = (n: string) =>
-  `The claim names ${n}, but no cited commit is by ${n} or mentions them.`;
+const { F4, F6, F11 } = REASONS;
 
 /** Subjects of the possessed commits (design.md §10.3). */
 const P = {
@@ -49,15 +41,6 @@ const P = {
   P7: 'docs: credit the throttle',
 } as const;
 const P4_BODY_QUOTE = 'Keep the wait until the SSO lockout policy changes.';
-
-interface SummonItem {
-  shortSha: string;
-  author: string;
-  subject: string;
-  body: string;
-  hunk: string;
-  suspiciousMessage: boolean;
-}
 
 /** The scripted model. It answers from the ledger the page received. */
 class PageClient implements AnthropicClient {
@@ -171,125 +154,60 @@ class PageClient implements AnthropicClient {
 }
 
 // ---------------------------------------------------------------------------
-// Setup: samples, server, window
+// Setup: samples, server, window (test/e2e/harness.ts)
 // ---------------------------------------------------------------------------
 
-let tmp: string;
-let dom: JSDOM;
-let doc: Document;
+let samples: Samples;
+let page: Page;
 let client: PageClient;
-let requests: Array<{ path: string; body: unknown }>;
 let lastSummon: { items: SummonItem[] } | null;
-let resetLimiters: () => void;
 
-const $ = (id: string): HTMLElement => {
-  const n = doc.getElementById(id);
-  if (!n) throw new Error(`#${id} missing`);
-  return n;
+const $ = (id: string) => page.$(id);
+const input = (id: string) => page.input(id);
+/** The requests as this file has always read them: path and body. */
+const requests = {
+  get length(): number {
+    return page.requests.length;
+  },
+  at(i: number): { path: string; body: unknown } | undefined {
+    const r = page.requests.at(i);
+    return r === undefined ? undefined : { path: r.path, body: r.body };
+  },
 };
-const input = (id: string) => $(id) as HTMLInputElement;
-const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
-
-async function until(cond: () => boolean, what: string, ms = 10_000): Promise<void> {
-  const end = Date.now() + ms;
-  while (!cond()) {
-    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  // let the handler's finally block run
-  await new Promise((r) => setTimeout(r, 10));
-}
-
-function setRepo(value: string): void {
-  const w = dom.window;
-  input('repo').value = value;
-  input('repo').dispatchEvent(new w.Event('input', { bubbles: true }));
-  input('repo').dispatchEvent(new w.Event('change', { bubbles: true }));
-}
-
-function submit(id: string): void {
-  $(id).dispatchEvent(
-    new dom.window.Event('submit', { bubbles: true, cancelable: true }),
-  );
-}
-
-function click(el: Element): void {
-  el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-}
-
-const turns = () => [...doc.querySelectorAll('#log .turn')];
+const until = (cond: () => boolean, what: string, ms?: number) =>
+  page.until(cond, what, ms);
+const setRepo = (value: string) => page.setRepo(value);
+const submit = (id: string) => page.submit(id);
+const click = (el: Element) => page.click(el);
+const turns = () => page.turns();
+let doc: Page['doc'];
 
 beforeAll(async () => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'seance-dom-'));
-  const crypt = path.join(tmp, 'crypt');
-  const possessed = path.join(tmp, 'possessed');
-  execFileSync('bash', [path.join(ROOT, 'scripts/make-crypt.sh'), crypt], { cwd: ROOT });
-  execFileSync('bash', [path.join(ROOT, 'scripts/make-possessed.sh'), possessed], {
-    cwd: ROOT,
-  });
-  process.env['CRYPT_DIR'] = crypt; // read when src/server.ts loads
-  process.env['POSSESSED_DIR'] = possessed;
-  delete process.env['ANTHROPIC_FIXTURE'];
-  process.env['ANTHROPIC_API_KEY'] = 'test-dummy-key-not-a-secret';
-  vi.stubGlobal('fetch', () => {
-    throw new Error('network access is not allowed in the DOM tests');
-  });
-
-  const server = await import('../../src/server.js');
-  resetLimiters = () => {
-    server.modelLimiter.reset();
-    server.summonLimiter.reset();
-    server.wardLimiter.reset();
-    server.clonePool.reset();
-  };
+  samples = buildSamples();
   client = new PageClient();
-  const app = server.createApp({ anthropicClient: client });
-  requests = [];
   lastSummon = null;
-
-  dom = new JSDOM(html, {
-    runScripts: 'outside-only',
-    pretendToBeVisual: true,
-    url: 'http://localhost/',
-  });
-  const w = dom.window as unknown as Window &
-    typeof globalThis & { eval: (s: string) => void };
-  doc = w.document;
-  w.matchMedia = ((q: string) => ({
-    matches: false,
-    media: q,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as unknown as typeof w.matchMedia;
-  w.Element.prototype.scrollIntoView = () => undefined;
-  w.fetch = (async (p: string, init?: RequestInit) => {
-    const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
-    requests.push({ path: p, body });
-    const res = await app.request(p, init);
-    if (p === '/api/summon' && res.ok) {
-      const data = (await res.clone().json()) as { items: SummonItem[] };
+  page = await openPage({
+    samples,
+    client,
+    onSummon: (data) => {
       lastSummon = data;
       client.items = data.items;
-    }
-    return res;
-  }) as typeof w.fetch;
-
-  w.eval(appJs);
+    },
+  });
+  doc = page.doc;
 }, 60_000);
 
 afterAll(() => {
-  vi.unstubAllGlobals();
-  delete process.env['CRYPT_DIR'];
-  delete process.env['POSSESSED_DIR'];
-  dom?.window.close();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  page?.close();
+  if (samples) fs.rmSync(samples.root, { recursive: true, force: true });
 });
 
-beforeEach(() => resetLimiters());
+beforeEach(() => {
+  page.server.modelLimiter.reset();
+  page.server.summonLimiter.reset();
+  page.server.wardLimiter.reset();
+  page.server.clonePool.reset();
+});
 
 // ---------------------------------------------------------------------------
 // Tests (in order: they share one page, as a user would)
