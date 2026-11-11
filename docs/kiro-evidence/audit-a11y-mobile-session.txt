@@ -1,0 +1,256 @@
+# Kiro CLI 3.2.0 (V2 engine, claude-opus-5.5, read-only: --trust-tools=fs_read), 2026-11-11: accessibility (WCAG 2.2 AA) and mobile-layout audit of public/. Unedited output; only the home directory prefix is replaced with ~. Contrast ratios were worked out by the model by hand (its shell call was denied), so treat them as estimates.
+
+$ kiro-cli chat --no-interactive --model claude-opus-5.5 --trust-tools=fs_read "$(cat prompt)"
+--- prompt ---
+Read-only accessibility and mobile-layout audit of the static UI. Do not modify any file. Read .kiro/steering/ui-spooky.md, public/index.html, public/app.js, public/tokens.css, public/base.css, public/styles.css, scripts/contrast.mjs and test/ui/spooky-ui.test.ts.
+
+Audit against WCAG 2.2 AA and the steering file's accessibility floor. Cover: landmarks and heading order; form labels, error association (aria-describedby, aria-invalid), focus management after summon/ask/exorcise and on errors; live regions (what is announced when an answer arrives; duplicate or missing announcements); keyboard operation of ledger rows, citation buttons, details elements, the plant-a-false-memory panel; target sizes (2.5.8, 24px minimum) and touch targets on phones; colour-only signalling; contrast of every text/background pair actually used in styles.css including states (disabled, placeholder, focus, struck-through rejected claims) that scripts/contrast.mjs may not cover; reduced motion; zoom to 200% and reflow at 320 CSS px (1.4.10): look for fixed widths, min-widths, grid columns, long unbroken SHAs/quotes/paths in pre blocks that would force horizontal scroll; the layout at 390 px (button row wrapping in .ask-actions, the plant row, the ledger, the exorcism signals bars); the decorative planchette and candles.
+
+For every finding give: severity, WCAG criterion, file and line (selector), what a user experiences, and the exact fix. Separate CONFIRMED from SUSPECTED (things that need a real browser to check). Do not pad; if an area is sound, say so in one line. Finish with a ranked list of the ten fixes most worth doing.
+
+--- output ---
+[tool] Running: @filesystem/read_multiple_files
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: @filesystem/read_multiple_files
+[tool] Reading ui-spooky.md:1, index.html:1, tokens.css:1, contrast.mjs:1
+[tool] status: Completed
+[tool] Reading base.css:1, styles.css:1
+[tool] Reading app.js:1, spooky-ui.test.ts:1
+[tool] status: Completed
+[tool] status: Completed
+[tool] Running: cat <<'EOF' | node - const rad=d=>d*Math.PI/180; const T={paper:[.14,.012,60],paper2:[.185,.014,60],paper3:[.23,.016,60],ink:[.93,.02,85],ink2:[.82,.02,85],muted:[.70,.02,80],rule:[.33,.02...
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: cat <<'EOF' | node - const rad=d=>d*Math.PI/180; const T={paper:[.14,.012,60],paper2:[.185,.014,60],paper3:[.23,.016,60],ink:[.93,.02,85],ink2:[.82,.02,85],muted:[.70,.02,80],rule:[.33,.02...
+[tool] Searching for '^(\.btn\[disabled\]|\.btn\.ghost \{|\.ledger \{|\.ledger ...' in styles.css
+[tool] Searching for 'id="(repo|file|start|end|summon-form|summon-status|summon...' in index.html
+[tool] Searching for 'function fieldError|first\.closest|summon-btn'\)\.disable...' in app.js
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for '^(\.btn\[disabled\]|\.btn\.ghost \{|\.ledger \{|\.ledger ...' in styles.css
+[tool] Searching for 'id="(repo|file|start|end|summon-form|summon-status|summon...' in index.html
+[tool] Searching for 'function fieldError|first\.closest|summon-btn'\)\.disable...' in app.js
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'color-scheme|forced-colors|overflow-wrap|word-break' in public
+[tool] status: Completed
+# Séance static UI: accessibility and mobile-layout audit (WCAG 2.2 AA)
+
+I didn't modify any files. I wasn't able to run a script to compute contrast because the shell was refused in this non-interactive session. Instead I worked the ratios out by hand. I approximated luminance as L³ from the OKLab lightness, which is exact for neutral colours and close for the low-chroma tokens here. For `color-mix` with `transparent`, I blended over the backdrop in sRGB. This method reproduces the table's own values (muted on paper 7.45:1, accent on paper-2 8.42:1), so expect about ±0.3 error.
+
+## CONFIRMED (seen directly in the code)
+
+**C1. Field errors are not tied to their inputs.** High. 1.3.1, 3.3.1, 4.1.2.
+- **Where:** `app.js:78` `fieldError()`; `index.html` lines 41–90 (`#repo`, `#file`, `#start`, `#end`).
+- **What happens:** On a bad submit, up to four `role="alert"` paragraphs appear at once. Focus then jumps to the first invalid input. That input has no `aria-invalid`, and its `aria-describedby` points only at `repo-help` (or at nothing). A screen reader hears a pile of alerts, then "Repository, edit text, crypt" without the error. Tabbing to the other fields never repeats their errors.
+- **Fix:** Remove `role="alert"` from the four per-field `<p class="err">`. Keep it on `#summon-err`. Then:
+  ```js
+  function fieldError(id, msg) {
+    const p = $(id), input = $(id.replace(/-err$/, ''));
+    p.textContent = msg || ''; p.hidden = !msg;
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    const ids = new Set((input.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
+    msg ? ids.add(id) : ids.delete(id);
+    input.setAttribute('aria-describedby', [...ids].join(' '));
+  }
+  ```
+
+**C2. Announcements when an answer arrives are cumulative or missing.** High. 4.1.3.
+- **Where:** `app.js:282` (tally created with `role="status"`), `app.js:308` (`#verified-counter`), and the `finally` block that clears `#ask-status`.
+- **What happens:** "The ghost stirs…" is announced first. Then `#verified-counter` (live, atomic) announces the séance total, for example "5 of 6 claims verified this séance". That is not this answer's result. The tally is a new live region inserted with its text already inside. NVDA and JAWS usually skip that, and VoiceOver sometimes reads it, so users get the per-answer count either never or twice. No cue says the answer arrived or where it is.
+- **Fix:**
+  - Remove `role`, `aria-live` and `aria-atomic` from the tally. It becomes a static record.
+  - On success, set `#ask-status` to `` `The ghost answered: ${n} of ${total} claims verified.` `` and don't clear it in `finally`. Clear it at the start of the next ask instead.
+  - Remove `aria-live` from `#verified-counter` and leave it visible.
+  - Update the P10 tests in `spooky-ui.test.ts`, which assert the current attributes.
+
+**C3. Long unbroken text is clipped and can't be reached.** Medium. 1.4.10.
+- **Where:** `.claim` (styles.css:523), `.turn-q` (511), `.subject` (469), `.tests` (708), `.summary` (702). Also `.log`, `.turn` and `.talk` (506, 496): these are grids with an implicit `auto` column. `base.css` sets `html, body { overflow-x: clip }`.
+- **What happens:** At 320 or 390 px, a full 40-character SHA, a URL or a long file path in a claim, question, test name or plan step widens the grid track past the viewport. The overflow is clipped with no scrollbar, so the end of the text can't be read. A long commit subject makes the whole ledger scroll sideways. Only the ledger `pre` (line 492) and headings wrap today.
+- **Fix:**
+  ```css
+  .talk, .log, .turn { grid-template-columns: minmax(0, 1fr); }
+  .subject, .claim, .turn-q, .tests li, .summary, .step-body, .dnt-body, .notice, .meta, .help { overflow-wrap: anywhere; }
+  ```
+
+**C4. Errors in the plant-a-false-memory panel appear far away and aren't linked to the fields.** Medium. 3.3.1, 1.3.1, 3.3.2.
+- **Where:** `app.js:397`; `#plant-sha` and `#plant-text` (index.html:208, 215).
+- **What happens:** The error notice is appended to `#log`, which sits above the ask form. On a phone it is off-screen. Focus stays on "Send it through the ward" and neither field gets marked. The 7-hex-character format is only explained after the user gets it wrong.
+- **Fix:**
+  - Add `<p class="err" id="plant-err" role="alert" hidden>` just before `#plant-btn` and write the message there.
+  - Set `aria-invalid` and `aria-describedby="plant-err"` on the failing field, then focus it.
+  - Add `<p class="help" id="plant-sha-help">7 characters, 0–9 and a–f.</p>` and reference it from `#plant-sha` with `aria-describedby`.
+
+**C5. Text inputs fail non-text contrast.** Medium. 1.4.11.
+- **Where:** `input, textarea` (styles.css:142).
+- **What happens:** The border colour `--color-rule` measures about 1.6:1 against paper and 1.5:1 against paper-2. The paper-2 fill against paper is about 1.07:1. Empty fields are close to invisible on the dark page: `#plant-quote`, `#token`, and `#q` after each answer (it is cleared).
+- **Fix:** Add a token `--color-rule-strong: oklch(52% 0.02 60)` (about 3.6:1 on paper, 3.4:1 on paper-2) and use it for the `input, textarea` border. Add the pair to the contrast table.
+
+**C6. No `color-scheme` is declared.** Medium. 1.4.11.
+- **Where:** No `color-scheme` appears anywhere in `public/` (checked with grep). Also `tokens.css` `:root`.
+- **What happens:** Native parts are drawn for a light background on dark fields. That covers the number spinners on `#start`/`#end`, the datalist arrow on `#repo`, the password reveal icon, the `required` popup on `#q`, and autofill colours. Exactly how they look needs a browser check (see S5).
+- **Fix:** Add `:root { color-scheme: dark; }` and `<meta name="color-scheme" content="dark">`.
+
+**C7. The séance counter keeps the previous séance's numbers.** Medium. 4.1.3, and the steering rule "never invent metrics".
+- **Where:** `app.js:133`.
+- **What happens:** A new summon resets `state.totalVerified` and `state.totalClaims` but not `#verified-counter`'s text. The old "N of M" stays on screen until the next answer. `#ghost-name`, `state.lastReport` and the enabled Copy button also carry over. Planted claims are counted in the séance total too.
+- **Fix:** In the summon success path:
+  ```js
+  $('verified-counter').textContent = '';
+  $('ghost-name').textContent = 'Speaks only from the commits.';
+  state.lastReport = null;
+  $('copy-report-btn').disabled = true;
+  ```
+  Optionally, keep planted results out of the totals.
+
+**C8. The candle flicker runs forever with no way to stop it.** Medium. 2.2.2 (Level A).
+- **Where:** `.flame` (styles.css:307), with `infinite` animation.
+- **What happens:** Users who haven't set reduced motion at the OS level have no way to stop the movement next to the form and the ghost heading. The rule asks for a page control. Relying on an OS setting is not enough.
+- **Fix:** Add a "Still the candles" toggle button that sets `html.still .flame { animation: none }` and saves the choice in localStorage.
+
+**C9. Ledger rows are extra tab stops, and their focus ring is clipped.** Low-Medium. 2.4.3, 2.4.7.
+- **Where:** `app.js:178` (`tabindex: '0'`); styles.css:161 and `.ledger { overflow: auto }` (430).
+- **What happens:** Each commit costs two Tab presses (the row, then its summary), and the row has no action. The 2 px outside ring is cut off on the left and right, and on the top of the first row.
+- **Fix:** Use `tabindex: '-1'`. The row only needs to accept focus from the citation buttons through `focusCommit`. Add `.ledger li:focus-visible { outline-offset: -2px; }`.
+
+**C10. The `#exorcism` "N of M plan claims verified" line is not announced on the first run.** Low. 4.1.3.
+- **Where:** `app.js:539` fills `#ex-verified` before line 541 un-hides its container.
+- **What happens:** Changes to a hidden live region are not announced. The score is never announced either.
+- **Fix:** In the success path, set `#exorcise-status` to `` `Exorcism ready: ${d.score} of 100, ${severityLabel(d.score)}. ${ok} of ${ok+bad} plan claims verified.` `` and don't clear it in `finally`. Keep the existing focus move to `#exorcism`.
+
+**C11. After summon on narrow screens, focus lands on a field you can't see, and the result isn't announced.** Low-Medium. 2.4.7, 4.1.3.
+- **Where:** `app.js:140` and `app.js:147`.
+- **What happens:** At 60rem or less, `#q` sits below the crypt heading and up to 40vh of ledger. `focus({preventScroll: true})` puts focus there, out of view. `#summon-status` is cleared, so "N commits" is never announced.
+- **Fix:**
+  - Set `#summon-status` to `` `Found ${n} commits. Ask the ghost below.` ``.
+  - Replace the section scroll plus `preventScroll` with `$('q').focus(); $('q').scrollIntoView({block: 'center', behavior})`.
+
+**C12. Disabled buttons look exactly like enabled ones.** Low. Disabled controls are exempt from contrast, so this is a usability problem.
+- **Where:** `.btn[disabled]` (243) loses to `.btn.ghost` (249): same specificity, and `.btn.ghost` comes later. `.cite` disabled at app.js:245.
+- **What happens:** "Copy ward report" looks active before any answer exists. "Run the exorcism" looks active while it is running. Chips for unknown commits look clickable and do nothing.
+- **Fix:**
+  ```css
+  .btn.ghost[disabled], .cite:disabled { color: var(--color-muted); border-style: dashed; background: transparent; cursor: not-allowed; }
+  ```
+  Muted on paper is 7.45:1.
+
+**C13. The planchette moves out of the crypt on narrow screens.** Low (decorative).
+- **Where:** `.crypt { position: static }` at styles.css:874, with `.planchette` absolutely positioned (402) and `main { position: relative }`.
+- **What happens:** At 60rem or less, the planchette is placed at the top right of `main`, inside the hero next to the candle. It points at ledger rows far below. `.crypt-head`'s `padding-right: 5rem` then wastes 80 of the 288 px.
+- **Fix:** In the 60rem media query, use `.crypt { position: relative; }`.
+
+**C14. The `.ask-actions` row at 390 px has empty status rows.** Low (layout).
+- **Where:** styles.css:607 and 213 (`.status { min-height: 1.4em }`); index.html:170 and 185.
+- **What happens:** With full-width buttons, each empty status span takes a line of about 20 px plus a 12 px gap. That puts dead space between Exorcise and Copy and after Copy. "The ghost stirs…" appears below Copy, three buttons away from Ask.
+- **Fix:**
+  ```css
+  .ask-actions { position: relative; }
+  .ask-actions .status { order: 1; flex-basis: 100%; }
+  .ask-actions .status:empty { position: absolute; }
+  ```
+  `position: absolute` keeps the live region in the accessibility tree, which `display: none` would not. Test P11 still passes.
+
+**C15. Verified claims and cited rows are marked by colour alone.** Low. 1.4.1.
+- **Where:** `claimNode` (memory claims have no label); `.ledger li.lit` (445).
+- **What happens:** Rejected, speculation and silence claims have text labels. Verified memory claims only glow green. Lit ledger rows are colour only and give screen reader users nothing.
+- **Fix:** Give memory claims the label "Verified". In `lightRows`, append `<span class="visually-hidden">Cited in the latest answer</span>` to each lit row.
+
+**C16. The user's question has no "You asked" cue.** Low. 1.3.1.
+- **Where:** `app.js:274` `.turn-q`.
+- **What happens:** A screen reader reads the question and the claims as one stream.
+- **Fix:** Prefix the question with `<span class="visually-hidden">You asked: </span>`.
+
+**C17. The crypt is an `<aside>`, which makes it a complementary landmark inside `main`.** Low (best practice; axe flags `landmark-complementary-is-top-level`).
+- **Where:** index.html:126.
+- **Fix:** Change it to `<section>`. The crypt is core content.
+
+**C18. `scripts/contrast.mjs` checks only the hand-written comment table.** Low (process).
+- **What's missing:** It doesn't read the real `:root` values (they match today), the pairs styles.css actually uses, or any 3:1 non-text checks. The missing pairs are paper-3, the lit row, the `color-mix` backgrounds, the fog, input borders and the focus ring.
+- **Fix:** Have the script parse `:root` and check a list of usage pairs, including the ones in the table below.
+
+## SUSPECTED (needs a real browser or screen reader)
+
+**S1. Focus may be lost when a busy button is disabled.** Medium. 2.4.3.
+- **Where:** `app.js:125`, `336`, `472`.
+- **Concern:** Clicking Summon, Ask or Run the exorcism disables the button while it still has focus. Under the HTML focus-fixup rule, focus falls back to `<body>`. On an error path nothing restores it, so the next Tab starts from the top.
+- **Fix:** Keep the buttons enabled and set `aria-disabled="true"` while busy. The existing `state.busy` guard already blocks double submits. Style `[aria-disabled="true"]` like C12.
+
+**S2. `aria-busy` on the form may silence its own announcements.** Medium. 4.1.3.
+- **Where:** `app.js:127`.
+- **Concern:** The form contains `#summon-status` and `#summon-err`, and both update while it is busy. JAWS holds back changes inside a busy subtree, so "Gathering evidence…" and server errors may never be spoken.
+- **Fix:** Drop `aria-busy` from `#summon-form`, or put it on `#seance` instead.
+
+**S3. The ledger may be only about 1.5 rows tall at 200% zoom or on a phone held sideways.** Low. 1.4.10.
+- **Where:** `.ledger { max-height: 40vh }` (877).
+- **Concern:** An 800 px screen at 200% zoom gives a 400 px viewport, so the ledger is 160 px tall. A phone in landscape gives a similar result: a tiny nested scroll area.
+- **Fix:** `max-height: max(40vh, 18rem)`, or `none` inside `@media (max-height: 30rem)`.
+
+**S4. Grid layout on `<details>` may not apply in older Safari and Chrome.** Low.
+- **Where:** `.plant` and `.ledger details`.
+- **Concern:** Gaps may collapse, so the plant labels and inputs touch.
+
+**S5. Native controls may draw with light-scheme glyphs.** Medium.
+- **Concern:** This is how C6 shows up on screen: dark spinner and datalist glyphs on a dark fill. Confirm in Chrome and Safari before and after adding `color-scheme`.
+
+**S6. In Windows High Contrast (forced-colors) mode, some cues may vanish.** Low.
+- **Concern:** `.bar-fill`, the `.lit` highlight and the planchette probably disappear. The percentages and labels remain.
+- **Fix:**
+  ```css
+  @media (forced-colors: active) {
+    .bar-fill { background: CanvasText; forced-color-adjust: none; }
+    .ledger li.lit { outline: 2px solid Highlight; }
+  }
+  ```
+
+**S7. A focused ledger row may be read only as "list item".** Low.
+- **Concern:** List items don't take their name from their content, so what a screen reader says when a citation moves focus to a row varies. If NVDA says only "list item", add `aria-labelledby` pointing at the row's SHA and subject spans.
+
+## Areas that are sound
+
+- **Landmarks and headings:** banner, labelled nav, main and contentinfo are present. Headings go h1, then h2, then h3 in order. `lang="en"` is set. The skip link works.
+- **Labels:** every input and textarea has a `<label for>`. The citation `aria-label`s contain the visible SHA (2.5.3).
+- **Text contrast:** every text/background pair used passes 4.5:1 (table below).
+- **Reduced motion:** there is a global fallback and a `.flame`-specific one. The planchette moves instantly, and every `scrollIntoView` checks the setting.
+- **Flashing (2.3.1):** the flicker is transform-only with at least 333 ms per half-cycle and no brightness change.
+- **Target size (2.5.8):** the smallest targets are `.cite` (about 26 px tall) and the ledger `summary` (about 22 px tall). The summary passes through the spacing exception. Adding `padding-block: .5rem` would make it easier to tap on phones.
+- **Keyboard:** details and summaries, citation buttons and the plant panel all use native controls.
+- **Focus after exorcism:** it moves to the named `#exorcism` section.
+- **Session expiry:** an alert appears and focus goes to `#repo`.
+- **Zoom and text spacing (1.4.4, 1.4.12):** sizes are in rem, no text container has a fixed height, and the viewport meta allows zoom.
+- **Ledger `pre` blocks:** they wrap, so there is no horizontal scroll.
+- **Signal bars:** at 320 px they fit (88 px label, about 134 px bar, 42 px value).
+- **Plant row at 390 px:** it wraps cleanly.
+- **Decorative elements:** the candles, fog and planchette are `aria-hidden`, and the fog is `pointer-events: none`.
+
+### Contrast of pairs the token table doesn't cover
+
+| Pair (where used) | Ratio |
+|---|---|
+| muted on paper-3 (`.btn[disabled]`) | 6.3 |
+| ink on paper-3 (`.turn-q`) | 13.7 |
+| accent on paper (`.sha`, `.cite`, rule numbers) | 9.0 |
+| muted / accent on a lit row (verified 9%) | 6.3 / 7.6 |
+| ink on `.claim.memory` (verified 7%) | 14 |
+| ink on `.err` / `.notice` | 12.9 / 14 |
+| accent-ink on flame (`.btn:hover`) | 11.7 |
+| ink on `.btn.ghost:hover` | 14 |
+| verified on `.badge--rev`; ink on `.badge--irrev` | 11.6; 12.9 |
+| rejected / speculation on paper-2 (claims inside `.dnt li`) | 6.0 / 8.4 |
+| muted / rejected over full fog (haunting score 100) | 5.7 / 4.9 (smallest margin) |
+| focus ring on paper / paper-2 (needs 3:1) | about 14 / 13 |
+| `--color-rule` border on paper / paper-2 (needs 3:1) | 1.6 / 1.5, fails (C5) |
+
+## Ten fixes most worth doing
+
+1. **C1:** add `aria-invalid` and `aria-describedby` to field errors, and drop the stacked per-field alerts.
+2. **C2:** announce each answer once, through `#ask-status`, and make the tally and counter non-live.
+3. **C3:** wrap long text and use `minmax(0, 1fr)` columns so nothing is clipped at 320 px.
+4. **S1 and S2:** use `aria-disabled` instead of `disabled` on busy buttons, and remove `aria-busy` from the summon form.
+5. **C5:** give input borders at least 3:1 with `--color-rule-strong`.
+6. **C4:** show plant errors next to the fields, mark the field invalid, and add the 7-character hint.
+7. **C6:** declare `color-scheme: dark`.
+8. **C7:** reset the counter, ghost name and report on each summon.
+9. **C8:** add a toggle that stops the candles.
+10. **C9 and C13:** make ledger rows `tabindex="-1"` with an inset focus ring, and keep the planchette inside the crypt on narrow screens.
+exit 0

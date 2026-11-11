@@ -1,0 +1,163 @@
+# Kiro CLI 3.2.0 (V2 engine, claude-opus-5.5, read-only: --trust-tools=fs_read), 2026-11-11: first-run audit from a judge's point of view (cold start, first screen, path to a rejected claim, error states, own-repo URLs). Unedited output; only the home directory prefix is replaced with ~. Nothing was run against the live site.
+
+$ kiro-cli chat --no-interactive --model claude-opus-5.5 --trust-tools=fs_read "$(cat prompt)"
+--- prompt ---
+Read-only first-run audit from the point of view of a hackathon judge who has three minutes, opens the live URL on a laptop, and has never seen this project. Do not modify any file. Read README.md, public/index.html, public/app.js, public/styles.css, src/server.ts, src/ghost/llm.ts, src/errors.ts, src/ratelimit.ts, render.yaml, Dockerfile, package.json, scripts/make-crypt.sh.
+
+The app is hosted on Render's free plan (the container sleeps after inactivity; a cold start takes tens of seconds, and `npm start` rebuilds the sample repo then starts tsx). Answer concretely:
+1. Cold start: what does the judge see while the container wakes? Is there anything the app itself can do (startup time, health check, a loading state in the page for the first API call, retry on 502/503)?
+2. First screen: within ten seconds, does the judge understand what the product does and what to click? The form is prefilled with the sample (crypt, legacy/tax.js, line 7). Is there a one-click sample séance, including a suggested first question, or does the judge have to think of a question? What are the dead ends (empty textarea, no example questions, the exorcism button, the plant-a-false-memory panel hidden in a details element)?
+3. The "aha" moment is the ward rejecting a false claim. How many clicks from landing to seeing a rejected claim? How could it be one obvious guided path without changing what the verifier does?
+4. Error states: no API key, model timeout, rate limit (429), daily cap, session expired, GitHub clone failure, file not found, a line range with no history, network failure in fetch. For each: what does the server return, what does app.js show, is it understandable and recoverable?
+5. Trying their own repo: what happens with a typical GitHub URL (trailing slash, /tree/main/... URL, .git suffix, a file path copied from GitHub, a big repository)? How long does it take and what feedback is shown?
+6. Anything on the page that looks unfinished, misleading or untrue.
+
+For every finding give severity, file and line, what the judge experiences, and the smallest fix. Separate CONFIRMED (read in code) from SUSPECTED. Finish with a ranked top eight.
+
+--- output ---
+[tool] Running: @filesystem/read_multiple_files
+[tool] Running: cat -n public/app.js; echo ----; cat -n src/ghost/llm.ts; echo ----; wc -l public/styles.css
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: @filesystem/read_multiple_files
+[tool] status: Failed: Running: cat -n public/app.js; echo ----; cat -n src/ghost/llm.ts; echo ----; wc -l public/styles.css
+Let me try the read tool instead.
+[tool] Reading index.html:1, app.js:1, server.ts:1
+[tool] status: Completed
+[tool] Reading llm.ts:1, errors.ts:1, ratelimit.ts:1, render.yaml:1, Dockerfile:1, package.json:1, make-crypt.sh:1
+[tool] status: Completed
+[tool] Searching for 'timeout|Timeout|CloneError|GitError\(|filter=blob|depth|M...' in evidence
+[tool] Reading styles.css:1
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading git.ts:1, ledger.ts:1
+[tool] status: Completed
+[tool] Searching for 'reason:|new ParseError\(|throw new' in src
+[tool] Searching the web
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Searching the web
+[tool] status: Completed
+[tool] Reading verifier.ts:61-180, plan.ts:61-100
+[tool] status: Completed
+[tool] Searching for 'The request failed|Gathering evidence|No history found|pl...' in public
+[tool] Searching for 'GITHUB_URL_RE =|An unexpected error|ParseError &&|throw n...' in src
+[tool] Searching for 'CMD|RUN npm ci|ENV NODE_ENV|healthCheckPath|"start"|"tsx"...' in seance
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'SESSION_NOT_FOUND|class: 'notice'|Planted:|plant-btn|stat...' in app.js
+[tool] Searching for 'id="ask-btn"|id="exorcise-btn"|id="copy-report-btn"|<deta...' in index.html
+[tool] Searching for 'An unexpected error|throw new Error\(redacted\)|err.name ...' in src
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Searching for 'class APIUserAbortError|Request was aborted|\.name =|clas...' in error.js
+[tool] Searching for 'APIUserAbortError|AbortError' in core.js
+[tool] status: Completed
+[tool] status: Completed
+[tool] Reading image ~/hackathons-2026/kiroween/seance/docs/screens/1280-1-landing.png, ~/hackathons-2026/kiroween/seance/docs/screens/1280-2-ghost-answer.png, ~/hac...
+[tool] status: Completed
+I read the code and the README screenshots without changing anything. I could not run commands or search the web (both were denied in this session), so nothing was tested against the live URL. **CONFIRMED** means I read it in code or saw it in a screenshot. **SUSPECTED** means it depends on how Render, git or the model behave at runtime.
+
+## 1. Cold start
+
+**[High] The page gives no warning about the wake-up wait.** SUSPECTED, based on how Render's free plan generally behaves. The container sleeps after about 15 minutes idle. Waking it takes Render's boot time plus `npm start` (package.json:15), which starts two npm processes, runs `make-crypt.sh` (about 10 commits), then compiles TypeScript at load time with tsx, all on a 0.1 CPU free instance. Until that finishes, the judge sees a blank tab or Render's own waiting page.
+- Smallest fix: do the work at image build time. Add `RUN npm run crypt` to the Dockerfile after `COPY` (Dockerfile:6), so startup no longer runs a shell script and git. The crypt's hashes come out the same every time because every date and author is fixed in `make-crypt.sh`. Going further, compile with `tsc` at build time and use `CMD ["node", "dist/server.js"]`, so neither npm nor tsx runs at startup.
+
+**[Medium] If the tab was opened earlier, the first click looks frozen or shows a code.** SUSPECTED. If the container went to sleep while the page stayed open, the Summon POST either hangs while it wakes or gets Render's HTML error page. `api()` (app.js:47-63) has no timeout and no retry. For a non-JSON reply it shows "The request failed (502)." The "Gathering evidence…" text (app.js:126) never changes.
+- Fix: in `api()`, retry 502/503/504 and network errors two or three times with backoff, and change the status text to "Waking the spirits (the free server sleeps), up to a minute…". Optionally, `fetch('/api/health')` on page load so the container starts waking while the judge reads.
+
+**[Low] The health check works but says nothing about the model.** CONFIRMED. render.yaml:6 points at `/api/health`, which returns `{status:'ok'}` (server.ts:242). It does not say whether a model key is set. The Dockerfile `HEALTHCHECK` (Dockerfile:9) is probably ignored by Render (SUSPECTED).
+- Fix: add `model: Boolean(process.env.ANTHROPIC_API_KEY)` to the response, so the UI can say up front that only the ward demo will work.
+
+## 2. First screen (10 seconds)
+
+**[High] The judge never sees the line being investigated.** CONFIRMED (index.html, app.js, the `/api/summon` response at server.ts, screenshot 1280-1). The form says `legacy/tax.js`, line 7, and the placeholder asks about "a three second wait". Nowhere on the page does the code `await new Promise((resolve) => setTimeout(resolve, PAUSE_MS));` appear, and `PAUSE_MS = 3000` sits on line 4.
+- Fix: return the selected lines in the summon response (`git show HEAD:<file>`, slice the range) and show them in a `<pre>` above the crypt. A cheaper version is to put line 7 in the help text when the repo is `crypt`.
+
+**[High] The hero does not mention the product's main point, the ward.** CONFIRMED (index.html:32-34, screenshot 1280-1). "Ask the one who wrote it" plus a form explains the ghost. The rules that make it different ("struck out", "verified") are in "Three rules" below the fold.
+- Fix: one more sentence in `.lede`: "Every claim is checked against the commits; invented ones are struck out."
+
+**[Medium] Clicking "Ask the ghost" right away fails.** CONFIRMED (index.html:160-161). The suggested question is only a `placeholder`, and the textarea is `required`. The browser shows "Please fill out this field." In the dark theme the placeholder looks like text that is already filled in (screenshot 1280-3).
+- Fix: make it the `value`, or add two or three question chips that submit directly ("Why is there a 3 second wait?", "Is it safe to delete?").
+
+**[Medium] When the summon finds no history, the message is hidden off-screen.** CONFIRMED (app.js:140-147). "No history found for that range." is written to `#summon-status` in the hero, and the next line scrolls to the séance section. The judge lands on an empty crypt that reads "0 commits touched these lines."
+- Fix: put that message in the crypt panel or the log instead.
+
+**[Low] "Copy ward report" is disabled with no explanation.** CONFIRMED (index.html:176). It sits next to the main buttons and looks broken.
+- Fix: hide it until the first answer arrives.
+
+**[Low] "Run the exorcism" next to "Ask" invites a slow, risky first click.** CONFIRMED placement (index.html:165). The failure risk is covered in section 4.
+
+**[Medium] The planted-memory panel is collapsed and below the fold.** CONFIRMED (index.html:192, screenshot 1280-3). It is the last thing in the right column, after the ask buttons. After one answer it sits below the 800 px fold.
+
+## 3. Path to the "aha"
+
+CONFIRMED click counts:
+- **Ward path: 3 clicks, no typing, no model call, no rate limit.** Summon, open "Plant a false memory", then "Send it through the ward". The fields are prefilled with `deadbee`, and `/api/ward` is not rate-limited (server.ts:234-235).
+- **Obvious path: Summon, type a question, Ask, wait 5-30 s.** It most likely shows **0 rejections**. Screenshot 1280-2 shows "4 of 4 claims verified". A judge who follows the obvious path may never see the ward refuse anything.
+
+How to make it one guided path without touching the verifier:
+1. Just after summon, show a three-step strip in the talk column: **① Ask** (chip with the sample question), **② Try to fool it** (one button that sends the `invent` preset to `/api/ward`), **③ Misquote a real commit** (one button for the `misquote` preset, app.js:376-384). The preset code and handlers already exist, so this is only HTML and click wiring.
+2. If you want even less change: give `<details class="plant">` the `open` attribute when the repo is `crypt`, and move it above the ask form.
+3. **[Medium] The refusal reason uses internal terms.** CONFIRMED (verifier.ts, screenshot 1280-3). The judge reads `The ward refused it: sha7 "deadbee" not found in ledger`, while the UI calls it "the crypt" and "commit". A plainer sentence ("commit deadbee is not in the crypt") can be built in app.js:264 or verifier.ts. Only the reason string changes, not the verification logic.
+4. **[Medium] Planted claims count against the ghost.** CONFIRMED (app.js:293, app.js:305). The planted claim is added to "N of M claims verified this séance" and dims the candle. After the demo the header reads "4 of 5", which looks like the ghost got one wrong.
+- Fix: skip the counter and the `setConfidence` call when the turn is planted.
+
+## 4. Error states
+
+| Case | Server returns | app.js shows | Understandable / recoverable |
+|---|---|---|---|
+| No API key | 503 `CONFIG_ERROR` "ANTHROPIC_API_KEY environment variable is not set or is empty" (llm.ts:132, server.ts) | That text in the log (app.js:352) | Text meant for the operator; the judge cannot fix it. Summon and the ward still work, but nothing says so. **[High if the key is unset]** CONFIRMED |
+| Model timeout (30 s, llm.ts:79) | The SDK throws `APIUserAbortError`, whose `name` is not `'AbortError'` (node_modules/@anthropic-ai/sdk/error.js:68). The check at llm.ts:187 misses it, so it is re-thrown as a plain `Error` (llm.ts:196) and becomes **500 "An unexpected error occurred"** (server.ts:156) | "An unexpected error occurred" | No. **[High]** CONFIRMED. Fix: also test `err instanceof Anthropic.APIUserAbortError` or `controller.signal.aborted` |
+| Invalid key, Anthropic 429 or 529 overloaded, unknown model | Plain `Error`, 500 generic (llm.ts:196) | Same | No. **[High]** CONFIRMED. Fix: map `Anthropic.APIError.status` (401/404 → config error, 429/529 → "the spirits are busy, try again in a minute") |
+| Model returns a broken answer | Ask: retried once (llm.ts:109), so up to 60 s of "The ghost stirs…", then 503 with the **raw Zod error JSON** as the message. Exorcise: never retried, because plan validation happens after `askGhost` (plan.ts:87) | Raw Zod JSON in the log | No. **[Medium]** CONFIRMED. Fix: send a fixed message to the client and log the details |
+| Exorcism generation time | `max_tokens: 4096` (llm.ts:156) for a whole plan within a 30 s timeout | A timeout lands in the 500 row above | **[High]** SUSPECTED: a long plan can take longer than 30 s. Fix: a 90 s timeout for plan mode |
+| Rate limit (10 per 10 min) | 429 `{error, code:'RATE_LIMITED'}` + `Retry-After` (server.ts:221-227) | "The spirits are tired…" (`data.error`, app.js:59) | Clear; `Retry-After` is not shown. **[Low]** CONFIRMED |
+| Daily cap (300, shared by all visitors) | 429 "closed for tonight… tomorrow" | That text | One visitor can use up the cap for every judge. The reset is at UTC midnight (16:00 PST, 09:00 JST), not "tomorrow". **[Medium]** CONFIRMED. Fix: say "the ward demo still works", and raise the cap during judging |
+| Session expired or server restarted | 404 `SESSION_NOT_FOUND` | Ask and exorcise handle it well (app.js:345, 548). **The plant button does not** (app.js:412): it only shows "Session not found or expired" in the log | After a sleep, the ward demo (the part most likely to be tried) hits a dead end. **[Medium]** CONFIRMED. Fix: copy the same branch into the plant handler |
+| GitHub clone fails or times out | 422 `CLONE_ERROR` "Clone of "…" aborted: exceeded time or size limit" or "Failed to clone …: <git stderr>" (git.ts) | That text in `#summon-err` (app.js:149) | Understandable-ish; recoverable. CONFIRMED |
+| File not found | blame fails, so a 422 `GIT_ERROR` carrying execa's whole message (the command line plus `fatal: no such path …`) | Raw text | Ugly but readable. **[Low]** The code path is CONFIRMED; the exact wording is SUSPECTED |
+| Line range past the end of the file | Git says "file X has only N lines", which does not match the `'no lines to blame'` check at git.ts:227, so it becomes a 422 with raw stderr | Raw text | SUSPECTED |
+| `git log -L` fails or times out (10 s per call, git.ts:38) | **Returns `[]` silently** (git.ts:291-292), so the summon succeeds with 0 items | "0 commits touched these lines." | **Misleading. [High]** CONFIRMED. Fix: re-throw as `GitError`, or set a `partial` flag the UI shows |
+| Network failure | `fetch` throws a TypeError | The browser's own text ("Failed to fetch", "Load failed") | No context. **[Low]** CONFIRMED. Fix: catch it in `api()` and say "Could not reach the server; it may be waking up" |
+
+## 5. Trying their own repo
+
+CONFIRMED from the URL check (server.ts:89, also ledger.input.ts:7 and git.ts:454): `^https://github\.com/[\w.-]+/[\w.-]+(\.git)?$`.
+- `https://github.com/o/r` and `…/r.git`: accepted.
+- `…/r/` (trailing slash), `…/tree/main/src`, `…/blob/main/src/x.ts#L10-L20`, `http://…`, `www.github.com`: **400 "remote URLs must be https://github.com/<owner>/<repo>"**. That is recoverable, but a judge who pastes from the address bar will hit it. **[High]**
+  - Smallest fix: normalize the URL in `validate()` (app.js). Strip the trailing `/` and `.git`, and when the URL contains `/blob/<ref>/<path>#Lx-Ly`, split it into the File and line fields. github.ts:34 already has a looser regex for this. Note that the ref is ignored: blame always runs on the default branch HEAD, which is worth one line of help text.
+- `github.com/o/r` without the scheme: "Use the sample crypt or a https://github.com/<owner>/<repo> URL" (server.ts:171). Acceptable.
+- A file path with a leading `/`: SUSPECTED git error with raw stderr. Fix: strip leading `/` in `validate()`.
+- **[High] Big or active repo, history cut at 100 commits.** The clone is `--filter=blob:none --depth 100` (git.ts:546). The depth is CONFIRMED; the effects are SUSPECTED. In an active repo, 100 commits may be only weeks of history. The shallow boundary commit then looks like the commit that *added* the line, the real "why" commit is missing, and the ghost answers confidently from the wrong commit. Nothing on the page says the history was cut (`truncated` only reflects the 50-item cap, ledger.ts:33).
+  - Fix: drop `--depth` (blob:none already keeps the history cheap), or at least flag a shallow clone in the response and show "history cut at 100 commits".
+- **Time and feedback.** CONFIRMED caps: clone ≤30 s (git.ts:449), then blame, `log -L`, and two git calls per commit for up to 50 commits, one after another, each ≤10 s. On a blobless clone each call also downloads file contents on demand (SUSPECTED to be slow on Render free). Feedback is a fixed "Gathering evidence…" with no elapsed time or stage.
+  - Fix: show an elapsed-seconds counter plus "A GitHub repo takes 10–60 s" in `#summon-status`.
+
+## 6. Unfinished, misleading or untrue
+
+- "The ghost behind **any** line of code" (index.html:34). It actually covers public GitHub only, the default branch, ≤200 MB, a 30 s clone and 100 commits of depth. **[Low]** CONFIRMED.
+- "0 commits touched these lines" can appear when git actually failed (git.ts:291). **[High]** CONFIRMED.
+- "4 of 5 claims verified this séance" counts planted claims against the ghost (app.js:305). **[Medium]** CONFIRMED.
+- "Closed for tonight… tomorrow" is wrong about when the cap resets (server.ts:221). **[Low]** CONFIRMED.
+- The footer says "open source under the MIT license" but has no repo link (index.html:280). A judge cannot get from the live page to the code or `.kiro/`. **[Medium]** CONFIRMED. Fix: one `<a>`.
+- Rule 1 says "nothing else", but pull request text is added when a token is given (index.html "How it works"). **[Low]** CONFIRMED.
+- The `ANTHROPIC_API_KEY` message exposes server configuration to visitors. **[Low]** CONFIRMED.
+- The README says "418 tests". I could not run them, so this is not checked.
+- The plant button has no busy state. Clicking it while an answer is loading does nothing and gives no feedback (app.js:388). **[Low]** CONFIRMED.
+- Rate limiting uses the leftmost `X-Forwarded-For` entry (server.ts:209). If Render passes client-supplied values through, anyone can bypass the per-IP limit and use up the daily cap. **[Low for judges]** SUSPECTED.
+
+## Ranked top eight
+
+1. **Model failures all become "An unexpected error occurred".** Timeouts (abort check misses the SDK error), 529 overloaded, bad key (llm.ts:187, 196 → server.ts:156). Map `APIUserAbortError` and `APIError.status` to clear 503 messages.
+2. **The default path shows no rejection.** Add a guided strip after summon: question chip, then "Try to fool it" and "Misquote a real commit" one-click buttons. Or at least open the plant `<details>` and move it above the ask form (index.html:192).
+3. **The judge never sees the code being investigated.** Return the selected lines from `/api/summon` and show them above the crypt.
+4. **Cold start with no feedback.** Build the crypt (and ideally compile the JS) at image build time. Add retry with backoff on 502/503/network errors in `api()`, a "waking the server" message, and a health ping on page load.
+5. **Pasted GitHub URLs are rejected.** Normalize trailing slashes and `/tree/…`/`/blob/…#L…` URLs in `validate()`, filling the file and line fields.
+6. **Silent empty ledger and shallow history give confidently wrong results.** Stop swallowing `log -L` errors (git.ts:291), drop or flag `--depth 100` (git.ts:546), and show the "no history" message in the séance panel (app.js:142).
+7. **The exorcism will likely time out, and model errors show raw Zod JSON.** Use a longer timeout for plan mode (llm.ts:79), retry plan validation, and never send `parsed.error.message` to the client (plan.ts:87).
+8. **The ward demo can dead-end.** Handle `SESSION_NOT_FOUND` in the plant handler (app.js:412). Leave planted claims out of the session counter and candle (app.js:293, 305). Reword "sha7 … not found in ledger" in plain language.
+
+Honorable mention: a repo link in the footer (index.html:280) costs one line and helps a judge who wants to see `.kiro/`.
+exit 0
