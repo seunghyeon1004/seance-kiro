@@ -15,7 +15,8 @@ import path from 'node:path';
 import { buildLedger } from '../../src/evidence/ledger.js';
 import { computeScore } from '../../src/exorcism/score.js';
 import { buildPlan, buildPlanPrompt } from '../../src/exorcism/plan.js';
-import { GhostAnswerSchema, RefactorPlanSchema } from '../../src/ghost/schema.js';
+import { GhostAnswerWireSchema, RefactorPlanSchema } from '../../src/ghost/schema.js';
+import { z } from 'zod';
 import type { LedgerResult, ScoredResult } from '../../src/ghost/schema.js';
 import {
   FIXTURE_INPUT,
@@ -49,12 +50,15 @@ describe('canonical exorcism plan fixture (T7)', () => {
     expect(fs.existsSync(path.join(FIXTURE_DIR, `${hash}.json`))).toBe(true);
   });
 
-  it('has the GhostAnswer shape with a RefactorPlan in its first claim, citing the ledger', () => {
+  it('has the answer envelope shape with a RefactorPlan in its first claim, citing the ledger', () => {
     const raw = JSON.parse(
       fs.readFileSync(path.join(FIXTURE_DIR, `${hash}.json`), 'utf8'),
     );
-    const answer = GhostAnswerSchema.parse(raw);
-    const plan = RefactorPlanSchema.parse(JSON.parse(answer.claims[0]!.text));
+    // The envelope claim cites the placeholder 0000000 without a quote, so the envelope is read
+    // with the wire schema; the plan inside is parsed with the strict RefactorPlanSchema.
+    const answer = GhostAnswerWireSchema.parse(raw);
+    const envelopeClaim = z.object({ text: z.string() }).parse(answer.claims[0]);
+    const plan = RefactorPlanSchema.parse(JSON.parse(envelopeClaim.text));
     expect(plan.steps.length).toBeGreaterThanOrEqual(2);
     expect(plan.doNotTouchList.length).toBeGreaterThanOrEqual(1);
     const shas = new Set(ledger.items.map((i) => i.shortSha));

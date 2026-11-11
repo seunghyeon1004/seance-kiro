@@ -46,16 +46,34 @@ export const LedgerResultSchema = z.object({
 export type LedgerResult = z.infer<typeof LedgerResultSchema>;
 
 // ---------------------------------------------------------------------------
+// Ward constants (ward-hardening design.md §3)
+// ---------------------------------------------------------------------------
+
+export const QUOTE_MIN_CHARS = 8; // after trim()
+export const QUOTE_MAX_CHARS = 500; // untrimmed length
+export const SILENCE_MAX_CHARS = 300; // text and silenceReason
+export const MAX_CLAIMS = 50; // per answer, and per plan step or entry
+export const MAX_CITATIONS = 10; // per claim
+export const HUNK_UI_CHARS = 4000; // hunk as sent to the browser, the prompt and the verifier
+
+// ---------------------------------------------------------------------------
 // Citation — one piece of evidence backing a claim
 // ---------------------------------------------------------------------------
 
-export const CitationSchema = z.object({
-  sha7: z
-    .string()
-    .length(7)
-    .regex(/^[0-9a-f]{7}$/),
-  quote: z.string().min(1).optional(),
-});
+const Sha7Schema = z
+  .string()
+  .length(7)
+  .regex(/^[0-9a-f]{7}$/);
+
+export const QuoteSchema = z
+  .string()
+  .max(QUOTE_MAX_CHARS)
+  .refine((q) => q.trim().length >= QUOTE_MIN_CHARS, {
+    message: `quote must have at least ${QUOTE_MIN_CHARS} characters after trimming`,
+  });
+
+/** Strict citation: the quote is mandatory (R1.1). */
+export const CitationSchema = z.object({ sha7: Sha7Schema, quote: QuoteSchema });
 
 export type Citation = z.infer<typeof CitationSchema>;
 
@@ -63,28 +81,28 @@ export type Citation = z.infer<typeof CitationSchema>;
 // Claim kinds — discriminated union on "kind"
 // ---------------------------------------------------------------------------
 
-/** Memory claim — asserted fact from the ledger; requires ≥1 citation */
+/** Memory claim — asserted fact from the ledger; requires 1–10 quoted citations */
 export const MemoryClaimSchema = z.object({
   kind: z.literal('memory'),
   text: z.string().min(1),
-  citations: z.array(CitationSchema).min(1),
+  citations: z.array(CitationSchema).min(1).max(MAX_CITATIONS),
 });
 export type MemoryClaim = z.infer<typeof MemoryClaimSchema>;
 
-/** Speculation claim — inference beyond the ledger; requires ≥1 citation */
+/** Speculation claim — inference beyond the ledger; requires 1–10 quoted citations */
 export const SpeculationClaimSchema = z.object({
   kind: z.literal('speculation'),
   text: z.string().min(1),
-  citations: z.array(CitationSchema).min(1),
+  citations: z.array(CitationSchema).min(1).max(MAX_CITATIONS),
 });
 export type SpeculationClaim = z.infer<typeof SpeculationClaimSchema>;
 
-/** Silence claim — no evidence; requires exactly 0 citations and a reason */
+/** Silence claim — no evidence; exactly 0 citations, bounded text and a reason */
 export const SilenceClaimSchema = z.object({
   kind: z.literal('silence'),
-  text: z.string().min(1),
+  text: z.string().min(1).max(SILENCE_MAX_CHARS),
   citations: z.array(CitationSchema).length(0),
-  silenceReason: z.string().min(1),
+  silenceReason: z.string().min(1).max(SILENCE_MAX_CHARS),
 });
 export type SilenceClaim = z.infer<typeof SilenceClaimSchema>;
 
@@ -95,42 +113,92 @@ export const ClaimSchema = z.discriminatedUnion('kind', [
 ]);
 
 export type Claim = z.infer<typeof ClaimSchema>;
+export type CheckedClaim = MemoryClaim | SpeculationClaim;
+
+/**
+ * Lenient shape, used only inside the verifier so that a missing or bad quote
+ * produces a precise reason instead of a generic format error. Never used to accept a claim.
+ */
+export const ClaimShapeSchema = z.object({
+  kind: z.enum(['memory', 'speculation', 'silence']),
+  text: z.string().min(1),
+  citations: z.array(
+    z.object({ sha7: z.string().min(1).max(40), quote: z.string().optional() }),
+  ),
+  silenceReason: z.string().optional(),
+});
 
 // ---------------------------------------------------------------------------
 // GhostAnswer — structured output from the LLM ghost persona
 // ---------------------------------------------------------------------------
 
+/** Strict, typed answer (tests and internal callers). */
 export const GhostAnswerSchema = z.object({
-  claims: z.array(ClaimSchema).min(1),
+  claims: z.array(ClaimSchema).min(1).max(MAX_CLAIMS),
   voice: z.string().min(1),
   sessionId: z.string().min(1),
 });
 
 export type GhostAnswer = z.infer<typeof GhostAnswerSchema>;
 
+/** What the model and /api/ward send: the envelope is strict, and each claim is checked by the verifier (R1.8). */
+export const GhostAnswerWireSchema = z.object({
+  claims: z.array(z.unknown()).min(1).max(MAX_CLAIMS),
+  voice: z.string().min(1),
+  sessionId: z.string().min(1),
+});
+
+export type GhostAnswerWire = z.infer<typeof GhostAnswerWireSchema>;
+
 // ---------------------------------------------------------------------------
 // VerifierResult — output of the deterministic Verifier
 // ---------------------------------------------------------------------------
 
-export const VerifiedClaimSchema = z.object({
-  claim: ClaimSchema,
-  speculative: z.boolean(),
-});
-export type VerifiedClaim = z.infer<typeof VerifiedClaimSchema>;
+export const QuoteFieldSchema = z.enum(['subject', 'body', 'hunk']);
+export type QuoteField = z.infer<typeof QuoteFieldSchema>;
 
-export const RejectedClaimSchema = z.object({
-  claim: ClaimSchema,
-  reason: z.string(),
+export const VerifiedQuoteSchema = z.object({
+  sha7: Sha7Schema,
+  quote: z.string(),
+  field: QuoteFieldSchema,
 });
-export type RejectedClaim = z.infer<typeof RejectedClaimSchema>;
+export type VerifiedQuote = z.infer<typeof VerifiedQuoteSchema>;
 
-export const VerifierResultSchema = z.object({
-  verified: z.array(VerifiedClaimSchema),
-  rejected: z.array(RejectedClaimSchema),
-  score: z.number().min(0).max(1),
-});
+export interface VerifiedClaim {
+  /** Position in the input claims array */
+  index: number;
+  /** Memory or speculation only */
+  claim: CheckedClaim;
+  speculative: boolean;
+  /** One per citation, same order */
+  quotes: VerifiedQuote[];
+}
 
-export type VerifierResult = z.infer<typeof VerifierResultSchema>;
+export interface SilentClaim {
+  index: number;
+  claim: SilenceClaim;
+}
+
+export interface RejectedClaim {
+  index: number;
+  /** null when the claim did not match ClaimShapeSchema/ClaimSchema */
+  claim: Claim | null;
+  /** claim.kind, or the raw kind if it is a string of at most 32 chars, else "unknown" */
+  kind: string;
+  /** claim.text, or the raw text if it is a string, else "" */
+  text: string;
+  /** sha7 strings the claim tried to cite (used for citesSuspicious) */
+  citedSha7s: string[];
+  reason: string;
+}
+
+export interface VerifierResult {
+  verified: VerifiedClaim[];
+  rejected: RejectedClaim[];
+  silent: SilentClaim[];
+  /** verified / (verified + rejected + silent), 1 when empty (R4.4) */
+  score: number;
+}
 
 // ---------------------------------------------------------------------------
 // API response shapes
@@ -145,24 +213,42 @@ export const SummonResponseSchema = z.object({
 
 export type SummonResponse = z.infer<typeof SummonResponseSchema>;
 
+export const ClaimResponseSchema = z.object({
+  text: z.string(),
+  kind: z.enum(['memory', 'speculation']),
+  citations: z.array(CitationSchema),
+  speculative: z.boolean(),
+  quotes: z.array(VerifiedQuoteSchema).min(1),
+  citesSuspicious: z.boolean(),
+});
+export type ClaimResponse = z.infer<typeof ClaimResponseSchema>;
+
+export const RejectedResponseSchema = z.object({
+  text: z.string(),
+  kind: z.string(),
+  reason: z.string(),
+  citesSuspicious: z.boolean(),
+});
+export type RejectedResponse = z.infer<typeof RejectedResponseSchema>;
+
+export const SilentResponseSchema = z.object({
+  text: z.string(),
+  silenceReason: z.string(),
+});
+
+export const TallySchema = z.object({
+  verified: z.number().int().nonnegative(),
+  checked: z.number().int().nonnegative(), // verified + rejected
+  silent: z.number().int().nonnegative(),
+});
+
 export const VerifiedAnswerResponseSchema = z.object({
-  sessionId: z.string(),
+  sessionId: z.string().optional(), // present on /api/ask, absent on /api/ward
   voice: z.string(),
-  verified: z.array(
-    z.object({
-      text: z.string(),
-      kind: z.enum(['memory', 'speculation', 'silence']),
-      citations: z.array(CitationSchema),
-      speculative: z.boolean(),
-    }),
-  ),
-  rejected: z.array(
-    z.object({
-      text: z.string(),
-      kind: z.string(),
-      reason: z.string(),
-    }),
-  ),
+  verified: z.array(ClaimResponseSchema),
+  rejected: z.array(RejectedResponseSchema),
+  silent: z.array(SilentResponseSchema),
+  tally: TallySchema,
   score: z.number().min(0).max(1),
   report: z.string(),
 });

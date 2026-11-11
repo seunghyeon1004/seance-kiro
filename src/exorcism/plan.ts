@@ -15,8 +15,12 @@ import type {
   RefactorPlan,
 } from '../ghost/schema.js';
 import { RefactorPlanSchema } from '../ghost/schema.js';
-import type { EvidenceItem } from '../ghost/schema.js';
+import type { Claim, EvidenceItem, VerifierResult } from '../ghost/schema.js';
 import { ParseError } from '../errors.js';
+import { z } from 'zod';
+
+/** The plan envelope's first claim carries the plan JSON as text (removed in ward-hardening T2). */
+const PlanEnvelopeClaimSchema = z.object({ text: z.string() });
 
 // ---------------------------------------------------------------------------
 // buildPlanPrompt — pure, deterministic
@@ -65,19 +69,19 @@ export async function buildPlan(
     tool: 'refactor_plan',
   });
 
-  // The LLM wraps the plan JSON as a text claim inside GhostAnswer
+  // The LLM wraps the plan JSON as a text claim inside the answer envelope
   // Extract the raw plan JSON from the first claim's text field
-  const firstClaim = ghostAnswer.claims[0];
-  if (!firstClaim) {
-    throw new ParseError('LLM returned a GhostAnswer with no claims');
+  const firstClaim = PlanEnvelopeClaimSchema.safeParse(ghostAnswer.claims[0]);
+  if (!firstClaim.success) {
+    throw new ParseError('LLM returned a plan envelope with no text claim');
   }
 
   let planJson: unknown;
   try {
-    planJson = JSON.parse(firstClaim.text);
+    planJson = JSON.parse(firstClaim.data.text);
   } catch {
     throw new ParseError(
-      `LLM plan claim text is not valid JSON: ${firstClaim.text.slice(0, 200)}`,
+      `LLM plan claim text is not valid JSON: ${firstClaim.data.text.slice(0, 200)}`,
     );
   }
 
@@ -104,39 +108,30 @@ function verifyPlanClaims(
 
   // Verify each step's claims
   const verifiedSteps = plan.steps.map((step) => {
-    const answer = {
-      claims: step.claims,
-      voice: '',
-      sessionId: '',
-    };
-    const result = verify(ledger.items, answer);
+    const result = verify(ledger.items, { claims: step.claims });
 
     totalVerified += result.verified.length;
-    totalRejected += result.rejected.length;
+    // A silence claim is not part of a plan; it counts as rejected (ward-hardening T1)
+    totalRejected += result.rejected.length + result.silent.length;
 
     return {
       ...step,
       claims: result.verified.map((v) => v.claim),
-      rejectedClaims: result.rejected.map((r) => r.claim),
+      rejectedClaims: struckClaims(result),
     };
   });
 
   // Verify each doNotTouchEntry's claims
   const verifiedDoNotTouchList = plan.doNotTouchList.map((entry) => {
-    const answer = {
-      claims: entry.claims,
-      voice: '',
-      sessionId: '',
-    };
-    const result = verify(ledger.items, answer);
+    const result = verify(ledger.items, { claims: entry.claims });
 
     totalVerified += result.verified.length;
-    totalRejected += result.rejected.length;
+    totalRejected += result.rejected.length + result.silent.length;
 
     return {
       ...entry,
       claims: result.verified.map((v) => v.claim),
-      rejectedClaims: result.rejected.map((r) => r.claim),
+      rejectedClaims: struckClaims(result),
     };
   });
 
@@ -149,6 +144,19 @@ function verifyPlanClaims(
     doNotTouchList: verifiedDoNotTouchList,
     verifierScore,
   };
+}
+
+/**
+ * Rejected and silence claims in input order. Plan claims were parsed with the strict
+ * ClaimSchema, so every rejected claim has a parsed `claim`; a null is skipped for type safety.
+ */
+function struckClaims(result: VerifierResult): Claim[] {
+  return [
+    ...result.rejected.map((r) => ({ index: r.index, claim: r.claim })),
+    ...result.silent.map((s) => ({ index: s.index, claim: s.claim })),
+  ]
+    .sort((a, b) => a.index - b.index)
+    .flatMap((x) => (x.claim === null ? [] : [x.claim]));
 }
 
 // ---------------------------------------------------------------------------

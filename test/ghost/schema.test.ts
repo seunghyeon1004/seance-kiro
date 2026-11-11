@@ -1,54 +1,94 @@
 /**
- * T1 unit tests for src/ghost/schema.ts
+ * Unit tests for src/ghost/schema.ts
  *
- * Tests:
- * - Parse a valid GhostAnswer for each claim kind (memory, speculation, silence)
- * - Each invalid variant produces a Zod error
+ * ghost-verifier T1 tests, updated for ward-hardening T1 (design.md §3, §13.2):
+ * quotes are mandatory and bounded, silence text is capped, the wire envelope
+ * bounds the claim count, and the ask/ward response carries quotes, silent and tally.
  */
 
 import { describe, it, expect } from 'vitest';
 import {
+  QUOTE_MIN_CHARS,
+  QUOTE_MAX_CHARS,
+  SILENCE_MAX_CHARS,
+  MAX_CLAIMS,
+  MAX_CITATIONS,
+  HUNK_UI_CHARS,
   CitationSchema,
+  QuoteSchema,
   MemoryClaimSchema,
   SpeculationClaimSchema,
   SilenceClaimSchema,
   ClaimSchema,
+  ClaimShapeSchema,
   GhostAnswerSchema,
-  VerifierResultSchema,
+  GhostAnswerWireSchema,
   SummonResponseSchema,
   VerifiedAnswerResponseSchema,
 } from '../../src/ghost/schema.js';
 
+const Q = 'fix race condition';
+
 // ---------------------------------------------------------------------------
-// CitationSchema
+// Constants
+// ---------------------------------------------------------------------------
+
+describe('ward constants (design.md §3)', () => {
+  it('have the values the spec names', () => {
+    expect(QUOTE_MIN_CHARS).toBe(8);
+    expect(QUOTE_MAX_CHARS).toBe(500);
+    expect(SILENCE_MAX_CHARS).toBe(300);
+    expect(MAX_CLAIMS).toBe(50);
+    expect(MAX_CITATIONS).toBe(10);
+    expect(HUNK_UI_CHARS).toBe(4000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CitationSchema (R1.1)
 // ---------------------------------------------------------------------------
 
 describe('CitationSchema', () => {
-  it('accepts a valid sha7 without quote', () => {
+  it('rejects a citation without a quote', () => {
     const result = CitationSchema.safeParse({ sha7: 'abc1234' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a valid sha7 with a quote of at least 8 characters', () => {
+    const result = CitationSchema.safeParse({ sha7: 'abc1234', quote: Q });
     expect(result.success).toBe(true);
   });
 
-  it('accepts a valid sha7 with a non-empty quote', () => {
-    const result = CitationSchema.safeParse({
-      sha7: 'abc1234',
-      quote: 'fix race condition',
-    });
-    expect(result.success).toBe(true);
+  it('accepts a quote of exactly 8 characters', () => {
+    expect(CitationSchema.safeParse({ sha7: 'abc1234', quote: '12345678' }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects a quote of 7 characters after trim()', () => {
+    expect(
+      CitationSchema.safeParse({ sha7: 'abc1234', quote: '   1234567   ' }).success,
+    ).toBe(false);
+  });
+
+  it('accepts a quote of 500 characters and rejects 501 (untrimmed length)', () => {
+    expect(QuoteSchema.safeParse('q'.repeat(500)).success).toBe(true);
+    expect(QuoteSchema.safeParse('q'.repeat(501)).success).toBe(false);
+    expect(QuoteSchema.safeParse(' '.repeat(493) + '12345678').success).toBe(false);
   });
 
   it('rejects sha7 that is not 7 chars', () => {
-    const result = CitationSchema.safeParse({ sha7: 'abc123' });
+    const result = CitationSchema.safeParse({ sha7: 'abc123', quote: Q });
     expect(result.success).toBe(false);
   });
 
   it('rejects sha7 with uppercase hex', () => {
-    const result = CitationSchema.safeParse({ sha7: 'ABC1234' });
+    const result = CitationSchema.safeParse({ sha7: 'ABC1234', quote: Q });
     expect(result.success).toBe(false);
   });
 
   it('rejects sha7 with non-hex chars', () => {
-    const result = CitationSchema.safeParse({ sha7: 'zzzzzz1' });
+    const result = CitationSchema.safeParse({ sha7: 'zzzzzz1', quote: Q });
     expect(result.success).toBe(false);
   });
 
@@ -67,9 +107,18 @@ describe('MemoryClaimSchema', () => {
     const result = MemoryClaimSchema.safeParse({
       kind: 'memory',
       text: 'I added this for legacy callers',
-      citations: [{ sha7: 'abc1234' }],
+      citations: [{ sha7: 'abc1234', quote: Q }],
     });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects a memory claim whose citation has no quote', () => {
+    const result = MemoryClaimSchema.safeParse({
+      kind: 'memory',
+      text: 'I added this for legacy callers',
+      citations: [{ sha7: 'abc1234' }],
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rejects memory claim with empty citations array', () => {
@@ -81,11 +130,22 @@ describe('MemoryClaimSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts 10 citations and rejects 11', () => {
+    const cite = { sha7: 'abc1234', quote: Q };
+    const make = (n: number) => ({
+      kind: 'memory',
+      text: 't',
+      citations: Array.from({ length: n }, () => cite),
+    });
+    expect(MemoryClaimSchema.safeParse(make(10)).success).toBe(true);
+    expect(MemoryClaimSchema.safeParse(make(11)).success).toBe(false);
+  });
+
   it('rejects memory claim with empty text', () => {
     const result = MemoryClaimSchema.safeParse({
       kind: 'memory',
       text: '',
-      citations: [{ sha7: 'abc1234' }],
+      citations: [{ sha7: 'abc1234', quote: Q }],
     });
     expect(result.success).toBe(false);
   });
@@ -100,7 +160,7 @@ describe('SpeculationClaimSchema', () => {
     const result = SpeculationClaimSchema.safeParse({
       kind: 'speculation',
       text: 'This might have been a performance fix',
-      citations: [{ sha7: 'def5678' }],
+      citations: [{ sha7: 'def5678', quote: Q }],
     });
     expect(result.success).toBe(true);
   });
@@ -110,6 +170,15 @@ describe('SpeculationClaimSchema', () => {
       kind: 'speculation',
       text: 'Some guess',
       citations: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a speculation claim whose citation has no quote', () => {
+    const result = SpeculationClaimSchema.safeParse({
+      kind: 'speculation',
+      text: 'Some guess',
+      citations: [{ sha7: 'def5678' }],
     });
     expect(result.success).toBe(false);
   });
@@ -134,7 +203,7 @@ describe('SilenceClaimSchema', () => {
     const result = SilenceClaimSchema.safeParse({
       kind: 'silence',
       text: 'Cannot say',
-      citations: [{ sha7: 'abc1234' }],
+      citations: [{ sha7: 'abc1234', quote: Q }],
       silenceReason: 'No evidence',
     });
     expect(result.success).toBe(false);
@@ -157,6 +226,26 @@ describe('SilenceClaimSchema', () => {
       silenceReason: '',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('caps text at 300 characters', () => {
+    const base = { kind: 'silence', citations: [], silenceReason: 'why' };
+    expect(SilenceClaimSchema.safeParse({ ...base, text: 's'.repeat(300) }).success).toBe(
+      true,
+    );
+    expect(SilenceClaimSchema.safeParse({ ...base, text: 's'.repeat(301) }).success).toBe(
+      false,
+    );
+  });
+
+  it('caps silenceReason at 300 characters', () => {
+    const base = { kind: 'silence', citations: [], text: 'quiet' };
+    expect(
+      SilenceClaimSchema.safeParse({ ...base, silenceReason: 'r'.repeat(300) }).success,
+    ).toBe(true);
+    expect(
+      SilenceClaimSchema.safeParse({ ...base, silenceReason: 'r'.repeat(301) }).success,
+    ).toBe(false);
   });
 });
 
@@ -181,7 +270,7 @@ describe('ClaimSchema', () => {
     const result = ClaimSchema.safeParse({
       kind: 'speculation',
       text: 'Probably a race condition',
-      citations: [{ sha7: 'def5678' }],
+      citations: [{ sha7: 'def5678', quote: Q }],
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -213,7 +302,31 @@ describe('ClaimSchema', () => {
 });
 
 // ---------------------------------------------------------------------------
-// GhostAnswerSchema
+// ClaimShapeSchema — lenient, used only inside the verifier for precise reasons
+// ---------------------------------------------------------------------------
+
+describe('ClaimShapeSchema', () => {
+  it('lets a quoteless citation through so the verifier can name it (F6)', () => {
+    const result = ClaimShapeSchema.safeParse({
+      kind: 'memory',
+      text: 't',
+      citations: [{ sha7: 'abc1234' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('still refuses an unknown kind and a non-string text', () => {
+    expect(
+      ClaimShapeSchema.safeParse({ kind: 'rumour', text: 't', citations: [] }).success,
+    ).toBe(false);
+    expect(
+      ClaimShapeSchema.safeParse({ kind: 'memory', text: 1, citations: [] }).success,
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GhostAnswerSchema (strict) and GhostAnswerWireSchema (envelope only)
 // ---------------------------------------------------------------------------
 
 describe('GhostAnswerSchema', () => {
@@ -241,7 +354,7 @@ describe('GhostAnswerSchema', () => {
         {
           kind: 'speculation',
           text: 'This might be related to a race condition.',
-          citations: [{ sha7: 'def5678' }],
+          citations: [{ sha7: 'def5678', quote: Q }],
         },
       ],
     });
@@ -266,6 +379,11 @@ describe('GhostAnswerSchema', () => {
   it('rejects GhostAnswer with empty claims array', () => {
     const result = GhostAnswerSchema.safeParse({ ...validAnswer, claims: [] });
     expect(result.success).toBe(false);
+  });
+
+  it('rejects GhostAnswer with more than 50 claims', () => {
+    const claims = Array.from({ length: 51 }, () => validAnswer.claims[0]);
+    expect(GhostAnswerSchema.safeParse({ ...validAnswer, claims }).success).toBe(false);
   });
 
   it('rejects GhostAnswer with missing sessionId', () => {
@@ -300,7 +418,7 @@ describe('GhostAnswerSchema', () => {
         {
           kind: 'memory',
           text: '',
-          citations: [{ sha7: 'abc1234' }],
+          citations: [{ sha7: 'abc1234', quote: Q }],
         },
       ],
     });
@@ -314,7 +432,7 @@ describe('GhostAnswerSchema', () => {
         {
           kind: 'silence',
           text: 'Cannot say',
-          citations: [{ sha7: 'abc1234' }],
+          citations: [{ sha7: 'abc1234', quote: Q }],
           silenceReason: 'No evidence',
         },
       ],
@@ -337,45 +455,45 @@ describe('GhostAnswerSchema', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// VerifierResultSchema
-// ---------------------------------------------------------------------------
+describe('GhostAnswerWireSchema (R1.8)', () => {
+  const env = { voice: 'v', sessionId: 's' };
 
-describe('VerifierResultSchema', () => {
-  it('accepts a valid VerifierResult', () => {
-    const result = VerifierResultSchema.safeParse({
-      verified: [
-        {
-          claim: {
-            kind: 'memory',
-            text: 'Some fact',
-            citations: [{ sha7: 'abc1234' }],
-          },
-          speculative: false,
-        },
-      ],
-      rejected: [],
-      score: 1,
+  it('refuses 0 claims', () => {
+    expect(GhostAnswerWireSchema.safeParse({ ...env, claims: [] }).success).toBe(false);
+  });
+
+  it('refuses 51 claims and accepts 50', () => {
+    const claim = { kind: 'memory', text: 't', citations: [] };
+    expect(
+      GhostAnswerWireSchema.safeParse({
+        ...env,
+        claims: Array.from({ length: 51 }, () => claim),
+      }).success,
+    ).toBe(false);
+    expect(
+      GhostAnswerWireSchema.safeParse({
+        ...env,
+        claims: Array.from({ length: 50 }, () => claim),
+      }).success,
+    ).toBe(true);
+  });
+
+  it('leaves each claim to the verifier, so a quoteless claim does not fail the envelope', () => {
+    const result = GhostAnswerWireSchema.safeParse({
+      ...env,
+      claims: [{ kind: 'memory', text: 't', citations: [{ sha7: 'abc1234' }] }],
     });
     expect(result.success).toBe(true);
   });
 
-  it('rejects score < 0', () => {
-    const result = VerifierResultSchema.safeParse({
-      verified: [],
-      rejected: [],
-      score: -0.1,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects score > 1', () => {
-    const result = VerifierResultSchema.safeParse({
-      verified: [],
-      rejected: [],
-      score: 1.1,
-    });
-    expect(result.success).toBe(false);
+  it('still requires a voice and a sessionId', () => {
+    expect(
+      GhostAnswerWireSchema.safeParse({ claims: [{}], voice: '', sessionId: 's' })
+        .success,
+    ).toBe(false);
+    expect(GhostAnswerWireSchema.safeParse({ claims: [{}], voice: 'v' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -406,27 +524,94 @@ describe('SummonResponseSchema', () => {
 });
 
 // ---------------------------------------------------------------------------
-// VerifiedAnswerResponseSchema
+// VerifiedAnswerResponseSchema (R2.1, R4.3, R6.4)
 // ---------------------------------------------------------------------------
 
 describe('VerifiedAnswerResponseSchema', () => {
+  const valid = {
+    sessionId: 'session-abc',
+    voice: 'Ada Lovelace',
+    verified: [
+      {
+        text: 'I added the delay.',
+        kind: 'memory',
+        citations: [{ sha7: 'abc1234', quote: Q }],
+        speculative: false,
+        quotes: [{ sha7: 'abc1234', quote: Q, field: 'body' }],
+        citesSuspicious: false,
+      },
+    ],
+    rejected: [{ text: 'bad', kind: 'memory', reason: 'r', citesSuspicious: true }],
+    silent: [{ text: 'quiet', silenceReason: 'why' }],
+    tally: { verified: 1, checked: 2, silent: 1 },
+    score: 1 / 3,
+    report: '# Ward report\n**1 of 2 claims verified**',
+  };
+
   it('accepts a valid VerifiedAnswerResponse', () => {
-    const result = VerifiedAnswerResponseSchema.safeParse({
-      sessionId: 'session-abc',
-      voice: 'Ada Lovelace',
-      verified: [
-        {
-          text: 'I added the delay.',
-          kind: 'memory',
-          citations: [{ sha7: 'abc1234' }],
-          speculative: false,
-        },
-      ],
-      rejected: [],
-      score: 1,
-      report: '# Ward report\n**1 of 1 claims verified**',
-    });
-    expect(result.success).toBe(true);
+    expect(VerifiedAnswerResponseSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('accepts a response without sessionId (/api/ward)', () => {
+    const { sessionId: _, ...noSession } = valid;
+    expect(VerifiedAnswerResponseSchema.safeParse(noSession).success).toBe(true);
+  });
+
+  it('requires quotes on every verified entry, with at least one quote', () => {
+    const { quotes: _, ...noQuotes } = valid.verified[0]!;
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({ ...valid, verified: [noQuotes] }).success,
+    ).toBe(false);
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({
+        ...valid,
+        verified: [{ ...valid.verified[0], quotes: [] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a quote field other than subject, body or hunk', () => {
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({
+        ...valid,
+        verified: [
+          {
+            ...valid.verified[0],
+            quotes: [{ sha7: 'abc1234', quote: Q, field: 'joined' }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a silence claim in verified', () => {
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({
+        ...valid,
+        verified: [{ ...valid.verified[0], kind: 'silence' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires silent', () => {
+    const { silent: _, ...noSilent } = valid;
+    expect(VerifiedAnswerResponseSchema.safeParse(noSilent).success).toBe(false);
+  });
+
+  it('requires tally', () => {
+    const { tally: _, ...noTally } = valid;
+    expect(VerifiedAnswerResponseSchema.safeParse(noTally).success).toBe(false);
+  });
+
+  it('requires citesSuspicious on verified and rejected entries', () => {
+    const { citesSuspicious: _v, ...v } = valid.verified[0]!;
+    const { citesSuspicious: _r, ...r } = valid.rejected[0]!;
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({ ...valid, verified: [v] }).success,
+    ).toBe(false);
+    expect(
+      VerifiedAnswerResponseSchema.safeParse({ ...valid, rejected: [r] }).success,
+    ).toBe(false);
   });
 });
 
@@ -499,7 +684,7 @@ describe('DoNotTouchEntrySchema', () => {
       {
         kind: 'memory',
         text: 'This was required by the API contract.',
-        citations: [{ sha7: 'abc1234' }],
+        citations: [{ sha7: 'abc1234', quote: 'fix race condition' }],
       },
     ],
   };
@@ -536,7 +721,7 @@ describe('RefactorPlanSchema', () => {
       {
         kind: 'memory',
         text: 'The retry logic was added to handle flaky downstream calls.',
-        citations: [{ sha7: 'abc1234' }],
+        citations: [{ sha7: 'abc1234', quote: 'fix race condition' }],
       },
     ],
     reversible: true,
@@ -549,7 +734,7 @@ describe('RefactorPlanSchema', () => {
       {
         kind: 'memory',
         text: 'This was required by the API contract.',
-        citations: [{ sha7: 'abc1234' }],
+        citations: [{ sha7: 'abc1234', quote: 'fix race condition' }],
       },
     ],
   };

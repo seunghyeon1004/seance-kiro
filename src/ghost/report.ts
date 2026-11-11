@@ -46,13 +46,7 @@ function renderVerifiedItem(vc: VerifiedClaim): string {
   const { claim } = vc;
   const kindTag = `[${claim.kind}]`;
 
-  if (claim.kind === 'silence') {
-    const text = escapeMd(claim.text);
-    const reason = escapeMd(claim.silenceReason);
-    return `- ${kindTag} ${text} Reason: ${reason}`;
-  }
-
-  // memory | speculation — both have citations
+  // memory | speculation — silence claims are never verified (ward-hardening R4.1)
   const text = escapeMd(claim.text);
   const citationParts = claim.citations.map((c) => {
     // sha7 is already validated hex — no escaping needed
@@ -68,7 +62,8 @@ function renderVerifiedItem(vc: VerifiedClaim): string {
 }
 
 function renderRejectedItem(rc: RejectedClaim): string {
-  const text = escapeMd(rc.claim.text);
+  // rc.text is set even when the claim did not match the claim format (rc.claim === null)
+  const text = escapeMd(rc.text);
   const reason = escapeMd(rc.reason);
   return `- ~~${text}~~ — rejected: ${reason}`;
 }

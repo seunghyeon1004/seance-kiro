@@ -20,6 +20,8 @@ import type {
   VerifierResult,
   VerifiedClaim,
   RejectedClaim,
+  SilentClaim,
+  CheckedClaim,
   Claim,
 } from '../../../src/ghost/schema.js';
 
@@ -45,29 +47,26 @@ const sha7Arb: fc.Arbitrary<string> = fc
   .hexaString({ minLength: 7, maxLength: 7 })
   .map((s) => s.toLowerCase());
 
-const citationWithQuoteArb = sha7Arb.chain((sha7) =>
-  fc.string({ minLength: 1, maxLength: 80 }).map((quote) => ({ sha7, quote })),
+/** Quotes are mandatory (ward-hardening R1.1) */
+const citationArb = sha7Arb.chain((sha7) =>
+  fc.string({ minLength: 8, maxLength: 80 }).map((quote) => ({ sha7, quote })),
 );
 
-const citationNoQuoteArb = sha7Arb.map((sha7) => ({ sha7 }));
-
-const citationArb = fc.oneof(citationWithQuoteArb, citationNoQuoteArb);
-
-const memoryClaimArb: fc.Arbitrary<Claim> = fc
+const memoryClaimArb: fc.Arbitrary<CheckedClaim> = fc
   .record({
     text: fc.string({ minLength: 1, maxLength: 200 }),
     citations: fc.array(citationArb, { minLength: 1, maxLength: 3 }),
   })
   .map(({ text, citations }) => ({ kind: 'memory' as const, text, citations }));
 
-const speculationClaimArb: fc.Arbitrary<Claim> = fc
+const speculationClaimArb: fc.Arbitrary<CheckedClaim> = fc
   .record({
     text: fc.string({ minLength: 1, maxLength: 200 }),
     citations: fc.array(citationArb, { minLength: 1, maxLength: 3 }),
   })
   .map(({ text, citations }) => ({ kind: 'speculation' as const, text, citations }));
 
-const silenceClaimArb: fc.Arbitrary<Claim> = fc
+const silenceClaimArb = fc
   .record({
     text: fc.string({ minLength: 1, maxLength: 200 }),
     silenceReason: fc.string({ minLength: 1, maxLength: 200 }),
@@ -85,26 +84,49 @@ const claimArb: fc.Arbitrary<Claim> = fc.oneof(
   silenceClaimArb,
 );
 
-const verifiedClaimArb: fc.Arbitrary<VerifiedClaim> = fc.record({
-  claim: claimArb,
-  speculative: fc.boolean(),
+const verifiedClaimArb: fc.Arbitrary<VerifiedClaim> = fc
+  .record({
+    index: fc.nat(100),
+    claim: fc.oneof(memoryClaimArb, speculationClaimArb),
+    speculative: fc.boolean(),
+  })
+  .map((v) => ({
+    ...v,
+    quotes: v.claim.citations.map((c) => ({ ...c, field: 'body' as const })),
+  }));
+
+const rejectedClaimArb: fc.Arbitrary<RejectedClaim> = fc
+  .record({
+    index: fc.nat(100),
+    claim: fc.option(claimArb, { nil: null }),
+    text: fc.string({ maxLength: 200 }),
+    reason: fc.string({ minLength: 1, maxLength: 200 }),
+  })
+  .map(({ index, claim, text, reason }) => ({
+    index,
+    claim,
+    kind: claim?.kind ?? 'unknown',
+    text: claim?.text ?? text,
+    citedSha7s: claim?.citations.map((c) => c.sha7) ?? [],
+    reason,
+  }));
+
+const silentClaimArb: fc.Arbitrary<SilentClaim> = fc.record({
+  index: fc.nat(100),
+  claim: silenceClaimArb,
 });
 
-const rejectedClaimArb: fc.Arbitrary<RejectedClaim> = fc.record({
-  claim: claimArb,
-  reason: fc.string({ minLength: 1, maxLength: 200 }),
-});
-
-/** A VerifierResult with arbitrary verified / rejected arrays */
+/** A VerifierResult with arbitrary verified / rejected / silent arrays */
 const verifierResultArb: fc.Arbitrary<VerifierResult> = fc
   .record({
     verified: fc.array(verifiedClaimArb, { minLength: 0, maxLength: 10 }),
     rejected: fc.array(rejectedClaimArb, { minLength: 0, maxLength: 10 }),
+    silent: fc.array(silentClaimArb, { minLength: 0, maxLength: 5 }),
   })
-  .map(({ verified, rejected }) => {
-    const total = verified.length + rejected.length;
+  .map(({ verified, rejected, silent }) => {
+    const total = verified.length + rejected.length + silent.length;
     const score = total === 0 ? 1 : verified.length / total;
-    return { verified, rejected, score };
+    return { verified, rejected, silent, score };
   });
 
 // ---------------------------------------------------------------------------
@@ -145,7 +167,7 @@ describe('P2 — rejected claims rendered with ~~ and heading iff non-empty', ()
     (result) => {
       const report = renderWardReport(result);
       for (const rc of result.rejected) {
-        const escaped = escapeMd(rc.claim.text);
+        const escaped = escapeMd(rc.text);
         expect(report).toContain(`~~${escaped}~~`);
       }
     },

@@ -222,7 +222,7 @@ describe('PS5 — verifierScore bounds on VerifiedRefactorPlan', () => {
   const validClaim = {
     kind: 'memory' as const,
     text: 'A claim',
-    citations: [{ sha7: 'abc1234' }],
+    citations: [{ sha7: 'abc1234', quote: 'a quote of some length' }],
   };
 
   const silenceClaim = {

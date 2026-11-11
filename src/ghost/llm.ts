@@ -10,8 +10,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
-import { GhostAnswerSchema } from './schema.js';
-import type { GhostAnswer } from './schema.js';
+import { GhostAnswerWireSchema } from './schema.js';
+import type { GhostAnswerWire } from './schema.js';
 import { ConfigError, TimeoutError, ParseError } from '../errors.js';
 
 // ---------------------------------------------------------------------------
@@ -90,7 +90,9 @@ const FIXTURE_DIR = join(
 // ---------------------------------------------------------------------------
 
 /**
- * Send a prompt to the LLM and return a parsed, Zod-validated GhostAnswer.
+ * Send a prompt to the LLM and return the answer with its envelope Zod-validated.
+ * Each claim is left for the verifier to check on its own (ward-hardening R1.8),
+ * so a quoteless claim is struck by the ward instead of failing the whole answer.
  *
  * @param prompt    - Full prompt string from buildPrompt().
  * @param sessionId - Used to validate the model's echoed sessionId.
@@ -101,7 +103,7 @@ export async function askGhost(
   sessionId: string,
   client?: AnthropicClient,
   opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
-): Promise<GhostAnswer> {
+): Promise<GhostAnswerWire> {
   try {
     return await askGhostOnce(prompt, sessionId, client, opts);
   } catch (err) {
@@ -118,7 +120,7 @@ async function askGhostOnce(
   sessionId: string,
   client?: AnthropicClient,
   opts: { tool?: 'ghost_answer' | 'refactor_plan' } = {},
-): Promise<GhostAnswer> {
+): Promise<GhostAnswerWire> {
   const planMode = opts.tool === 'refactor_plan';
   // Fixture mode — no network call
   if (process.env['ANTHROPIC_FIXTURE'] === '1') {
@@ -215,9 +217,10 @@ async function askGhostOnce(
   }
 
   if (planMode) {
-    // The plan travels through the same GhostAnswer envelope the rest of the pipeline expects:
+    // The plan travels through the same answer envelope the rest of the pipeline expects:
     // one claim whose text is the plan JSON (src/exorcism/plan.ts parses and verifies every inner claim).
-    return {
+    // The envelope claim itself is never verified (ward-hardening T2 removes it, R7.7).
+    const envelope: GhostAnswerWire = {
       voice: 'exorcist',
       sessionId,
       claims: [
@@ -227,14 +230,15 @@ async function askGhostOnce(
           citations: [{ sha7: '0000000' }],
         },
       ],
-    } as GhostAnswer;
+    };
+    return envelope;
   }
 
-  // Parse and validate
-  const parsed = GhostAnswerSchema.safeParse(toolUseBlock.input);
+  // Parse and validate the envelope; each claim is checked by the verifier
+  const parsed = GhostAnswerWireSchema.safeParse(toolUseBlock.input);
   if (!parsed.success) {
     throw new ParseError(
-      `LLM response failed GhostAnswerSchema validation: ${parsed.error.message}`,
+      `LLM response failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
     );
   }
 
@@ -248,7 +252,7 @@ async function askGhostOnce(
 async function loadFixture(
   prompt: string,
   planMode: boolean = false,
-): Promise<GhostAnswer> {
+): Promise<GhostAnswerWire> {
   const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
 
   // For refactor plans, look in exorcism-plans first, then fall back to ghost-answers
@@ -270,10 +274,10 @@ async function loadFixture(
         throw new ParseError(`Fixture file ${fixturePath} is not valid JSON`);
       }
 
-      const parsed = GhostAnswerSchema.safeParse(json);
+      const parsed = GhostAnswerWireSchema.safeParse(json);
       if (!parsed.success) {
         throw new ParseError(
-          `Fixture file ${fixturePath} failed GhostAnswerSchema validation: ${parsed.error.message}`,
+          `Fixture file ${fixturePath} failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
         );
       }
 
@@ -307,10 +311,10 @@ async function loadFixture(
     throw new ParseError(`Fixture file ${fixturePath} is not valid JSON`);
   }
 
-  const parsed = GhostAnswerSchema.safeParse(json);
+  const parsed = GhostAnswerWireSchema.safeParse(json);
   if (!parsed.success) {
     throw new ParseError(
-      `Fixture file ${fixturePath} failed GhostAnswerSchema validation: ${parsed.error.message}`,
+      `Fixture file ${fixturePath} failed GhostAnswerWireSchema validation: ${parsed.error.message}`,
     );
   }
 

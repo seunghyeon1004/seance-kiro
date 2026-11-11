@@ -92,13 +92,13 @@ function absentQuoteArb(ledger: EvidenceItem[]): fc.Arbitrary<string> {
   });
 }
 
-/** Build a well-formed memory claim using a SHA from the ledger */
+/** Build a well-formed memory claim using a SHA and a quote (its subject) from the ledger */
 function validMemoryClaimArb(ledger: EvidenceItem[]): fc.Arbitrary<Claim> {
   return fc.constantFrom(...ledger).map(
     (item): Claim => ({
       kind: 'memory',
       text: 'Some valid claim',
-      citations: [{ sha7: item.shortSha }],
+      citations: [{ sha7: item.shortSha, quote: item.subject }],
     }),
   );
 }
@@ -109,7 +109,7 @@ function invalidMemoryClaimArb(ledger: EvidenceItem[]): fc.Arbitrary<Claim> {
     (sha7): Claim => ({
       kind: 'memory',
       text: 'Bad claim with absent SHA',
-      citations: [{ sha7 }],
+      citations: [{ sha7, quote: 'a quote of some length' }],
     }),
   );
 }
@@ -278,12 +278,13 @@ describe('PV5 — determinism: same inputs → same outputs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// PV6 — One well-formed silence claim → verified.length === 1
+// PV6 — One well-formed silence claim → silent.length === 1, never verified
+// (ward-hardening R4.1: silence is reported, not verified)
 // ---------------------------------------------------------------------------
 
-describe('PV6 — one silence claim → verified.length === 1', () => {
+describe('PV6 — one silence claim → silent.length === 1', () => {
   test.prop([ledgerArb, fc.string({ minLength: 1, maxLength: 100 })], fcParams)(
-    'single silence claim always verifies',
+    'single silence claim always lands in silent',
     (ledger, silenceReason) => {
       const answer: GhostAnswer = {
         claims: [
@@ -300,7 +301,8 @@ describe('PV6 — one silence claim → verified.length === 1', () => {
 
       const result = verify(ledger, answer);
 
-      expect(result.verified).toHaveLength(1);
+      expect(result.silent).toHaveLength(1);
+      expect(result.verified).toHaveLength(0);
       expect(result.rejected).toHaveLength(0);
     },
   );
@@ -327,30 +329,34 @@ describe('PV7 — order preserved: no duplicates, no omissions', () => {
       ),
     ],
     fcParams,
-  )('each claim appears exactly once in verified or rejected', ({ ledger, claims }) => {
-    const answer: GhostAnswer = {
-      claims,
-      voice: 'Test ghost',
-      sessionId: 'test-session',
-    };
+  )(
+    'each claim appears exactly once in verified, rejected or silent',
+    ({ ledger, claims }) => {
+      const answer: GhostAnswer = {
+        claims,
+        voice: 'Test ghost',
+        sessionId: 'test-session',
+      };
 
-    const result = verify(ledger, answer);
+      const result = verify(ledger, answer);
 
-    // Collect all claim texts from both buckets
-    const verifiedTexts = result.verified.map((v) => v.claim.text);
-    const rejectedTexts = result.rejected.map((r) => r.claim.text);
-    const allTexts = [...verifiedTexts, ...rejectedTexts];
+      // Collect all claim texts from the three buckets
+      const verifiedTexts = result.verified.map((v) => v.claim.text);
+      const rejectedTexts = result.rejected.map((r) => r.text);
+      const silentTexts = result.silent.map((s) => s.claim.text);
+      const allTexts = [...verifiedTexts, ...rejectedTexts, ...silentTexts];
 
-    // Same length as input
-    expect(allTexts).toHaveLength(claims.length);
-  });
+      // Same length as input
+      expect(allTexts).toHaveLength(claims.length);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
-// PV8 — verified.length + rejected.length === answer.claims.length
+// PV8 — verified.length + rejected.length + silent.length === answer.claims.length
 // ---------------------------------------------------------------------------
 
-describe('PV8 — verified + rejected = total claims', () => {
+describe('PV8 — verified + rejected + silent = total claims', () => {
   test.prop(
     [
       ledgerArb.chain((ledger) =>
@@ -367,7 +373,7 @@ describe('PV8 — verified + rejected = total claims', () => {
       ),
     ],
     fcParams,
-  )('verified.length + rejected.length === claims.length', ({ ledger, claims }) => {
+  )('verified + rejected + silent === claims.length', ({ ledger, claims }) => {
     const answer = {
       claims,
       voice: 'Test ghost',
@@ -376,6 +382,8 @@ describe('PV8 — verified + rejected = total claims', () => {
 
     const result = verify(ledger, answer);
 
-    expect(result.verified.length + result.rejected.length).toBe(claims.length);
+    expect(result.verified.length + result.rejected.length + result.silent.length).toBe(
+      claims.length,
+    );
   });
 });

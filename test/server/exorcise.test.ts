@@ -35,7 +35,7 @@ const llmMod = await import('../../src/ghost/llm.js');
 const askGhostMock = vi.mocked(llmMod.askGhost);
 
 const { default: app, sessions, modelLimiter } = await import('../../src/server.js');
-import type { GhostAnswer } from '../../src/ghost/schema.js';
+import type { GhostAnswerWire } from '../../src/ghost/schema.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -64,8 +64,8 @@ const FIXTURE_LEDGER = {
   buildDurationMs: 100,
 };
 
-// A valid refactor plan wrapped in GhostAnswer
-const VALID_PLAN_ANSWER: GhostAnswer = {
+// A valid refactor plan wrapped in the answer envelope (its envelope claim is never verified)
+const VALID_PLAN_ANSWER: GhostAnswerWire = {
   claims: [
     {
       kind: 'memory',
@@ -96,7 +96,9 @@ const VALID_PLAN_ANSWER: GhostAnswer = {
               {
                 kind: 'speculation',
                 text: 'The original author likely considered retries but chose sleep for simplicity.',
-                citations: [{ sha7: 'abc1234' }],
+                citations: [
+                  { sha7: 'abc1234', quote: 'add sleep for downstream service' },
+                ],
               },
             ],
             reversible: true,
@@ -255,7 +257,7 @@ describe('POST /api/exorcise', () => {
             {
               kind: 'memory',
               text: 'This is a claim with a bad SHA.',
-              citations: [{ sha7: 'aaaa000' }], // Not in ledger!
+              citations: [{ sha7: 'aaaa000', quote: 'wait for downstream to stabilise' }], // Not in ledger!
             },
           ],
           reversible: true,
@@ -265,7 +267,7 @@ describe('POST /api/exorcise', () => {
       summary: 'A test plan with an invalid SHA.',
     });
 
-    const planWithBadSha: GhostAnswer = {
+    const planWithBadSha: GhostAnswerWire = {
       claims: [
         {
           kind: 'memory',

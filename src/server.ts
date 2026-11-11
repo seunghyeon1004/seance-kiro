@@ -20,12 +20,16 @@ import { buildLedger } from './evidence/ledger.js';
 import { buildPrompt } from './ghost/persona.js';
 import { askGhost } from './ghost/llm.js';
 import { verify } from './ghost/verifier.js';
-import { GhostAnswerSchema } from './ghost/schema.js';
+import { GhostAnswerWireSchema, HUNK_UI_CHARS } from './ghost/schema.js';
 import { renderWardReport } from './ghost/report.js';
 import type { WardReportMeta } from './ghost/report.js';
 import { computeScore } from './exorcism/score.js';
 import { buildPlan } from './exorcism/plan.js';
-import type { LedgerResult } from './ghost/schema.js';
+import type {
+  LedgerResult,
+  VerifiedAnswerResponse,
+  VerifierResult,
+} from './ghost/schema.js';
 import { ExorciseRequestSchema, ExorciseResponseSchema } from './ghost/schema.js';
 import {
   ValidationError,
@@ -185,6 +189,55 @@ function resolveRepo(repoUrl: string): string {
   return repoUrl;
 }
 
+/** True when any cited sha7 is the shortSha of a ledger item flagged as suspicious (R6.4). */
+function citesSuspicious(ledger: LedgerResult, sha7s: readonly string[]): boolean {
+  return sha7s.some((s) =>
+    ledger.items.some((i) => i.shortSha === s && i.suspiciousMessage),
+  );
+}
+
+/** Shared /api/ask and /api/ward response (ward-hardening design.md §9.1). */
+function toAnswerResponse(
+  ledger: LedgerResult,
+  result: VerifierResult,
+  voice: string,
+  report: string,
+  sessionId?: string,
+): VerifiedAnswerResponse {
+  const response: VerifiedAnswerResponse = {
+    voice,
+    verified: result.verified.map((v) => ({
+      text: v.claim.text,
+      kind: v.claim.kind,
+      citations: v.claim.citations,
+      speculative: v.speculative,
+      quotes: v.quotes,
+      citesSuspicious: citesSuspicious(
+        ledger,
+        v.claim.citations.map((c) => c.sha7),
+      ),
+    })),
+    rejected: result.rejected.map((r) => ({
+      text: REDACT ? REDACTED_TEXT : r.text,
+      kind: r.kind,
+      reason: r.reason,
+      citesSuspicious: citesSuspicious(ledger, r.citedSha7s),
+    })),
+    silent: result.silent.map((s) => ({
+      text: s.claim.text,
+      silenceReason: s.claim.silenceReason,
+    })),
+    tally: {
+      verified: result.verified.length,
+      checked: result.verified.length + result.rejected.length,
+      silent: result.silent.length,
+    },
+    score: result.score,
+    report,
+  };
+  return sessionId === undefined ? response : { sessionId, ...response };
+}
+
 const app = new Hono();
 
 // Apply security headers to all responses
@@ -296,7 +349,7 @@ app.post('/api/summon', async (c) => {
         date: i.date,
         subject: i.subject,
         body: i.body,
-        hunk: i.hunk.slice(0, 4000),
+        hunk: i.hunk.slice(0, HUNK_UI_CHARS),
         files: i.files,
         refs: i.refs,
         pr: i.pr,
@@ -360,25 +413,9 @@ app.post('/api/ask', async (c) => {
     // Reset session expiry (sliding window)
     entry.expiresAt = Date.now() + SESSION_TTL_MS;
 
-    const isProduction = REDACT;
-
-    return c.json({
-      sessionId,
-      voice: ghostAnswer.voice,
-      verified: verifierResult.verified.map((v) => ({
-        text: v.claim.text,
-        kind: v.claim.kind,
-        citations: v.claim.citations,
-        speculative: v.speculative,
-      })),
-      rejected: verifierResult.rejected.map((r) => ({
-        text: isProduction ? REDACTED_TEXT : r.claim.text,
-        kind: r.claim.kind,
-        reason: r.reason,
-      })),
-      score: verifierResult.score,
-      report,
-    });
+    return c.json(
+      toAnswerResponse(ledger, verifierResult, ghostAnswer.voice, report, sessionId),
+    );
   } catch (err: unknown) {
     const { status, code, message } = toHttpError(err);
     return c.json({ code, message }, status as 400 | 404 | 503 | 500);
@@ -482,7 +519,7 @@ app.post('/api/ward', async (c) => {
       404,
     );
   }
-  const parsed = GhostAnswerSchema.safeParse(body?.answer);
+  const parsed = GhostAnswerWireSchema.safeParse(body?.answer);
   if (!parsed.success) {
     return c.json(
       {
@@ -501,22 +538,7 @@ app.post('/api/ward', async (c) => {
     }
   }
   const wardReport = renderWardReport(r, wardMeta);
-  return c.json({
-    voice: parsed.data.voice,
-    verified: r.verified.map((v) => ({
-      text: v.claim.text,
-      kind: v.claim.kind,
-      citations: v.claim.citations,
-      speculative: v.speculative,
-    })),
-    rejected: r.rejected.map((x) => ({
-      text: REDACT ? REDACTED_TEXT : x.claim.text,
-      kind: x.claim.kind,
-      reason: x.reason,
-    })),
-    score: r.score,
-    report: wardReport,
-  });
+  return c.json(toAnswerResponse(entry.ledger, r, parsed.data.voice, wardReport));
 });
 
 // ---------------------------------------------------------------------------

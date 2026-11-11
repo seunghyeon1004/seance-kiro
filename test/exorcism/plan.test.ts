@@ -199,7 +199,7 @@ describe('buildPlan — fixture mode via mocked askGhost', () => {
             {
               kind: 'memory',
               text: 'This claim has a bad SHA.',
-              citations: [{ sha7: 'deadbee' }], // valid hex, not in ledger
+              citations: [{ sha7: 'deadbee', quote: 'wait for downstream to stabilise' }], // valid hex, not in ledger
             },
           ],
           reversible: false,
@@ -252,7 +252,7 @@ describe('buildPlan — fixture mode via mocked askGhost', () => {
             {
               kind: 'memory',
               text: 'Valid claim.',
-              citations: [{ sha7: 'abc1234' }],
+              citations: [{ sha7: 'abc1234', quote: 'wait for downstream to stabilise' }],
             },
           ],
           reversible: true,
@@ -266,7 +266,7 @@ describe('buildPlan — fixture mode via mocked askGhost', () => {
             {
               kind: 'memory',
               text: 'This cites a SHA not in the ledger.',
-              citations: [{ sha7: 'bad1234' }], // not in ledger
+              citations: [{ sha7: 'bad1234', quote: 'wait for downstream to stabilise' }], // not in ledger
             },
           ],
         },

@@ -8,7 +8,7 @@ Each task starts by writing the tests that fail without it. Each task ends with 
 
 ## T1 — Schema constants and the new verifier
 
-- [ ] Write the failing unit tests in `test/ghost/verifier.test.ts`:
+- [x] Write the failing unit tests in `test/ghost/verifier.test.ts`:
   - one test per reason F1–F11 and S1–S4 that asserts the exact sentence from design.md §4.2, with the citation's `sha7` in every citation reason (R1.9);
   - a quoteless citation, including a cast object that bypassed Zod, is rejected with F6 (R1.3);
   - a 7-character quote after `trim()` (F7) and a 501-character quote (F8) are rejected (R1.4);
@@ -19,18 +19,18 @@ Each task starts by writing the tests that fail without it. Each task ends with 
   - a claim naming a ledger author who wrote no cited item and is not named in one gets F11; a name inside a longer ledger author's name is not counted separately (R3.2, R3.3);
   - a valid silence claim lands in `silent`, never `verified`; silence with a citation, an empty `silenceReason`, or text or `silenceReason` over 300 characters is rejected with S1–S4 (R4.1, R4.2);
   - `score` equals `verified / (verified + rejected + silent)` and is 1 for an empty result (R4.4).
-- [ ] Write the failing schema tests in `test/ghost/schema.test.ts`: `CitationSchema` requires `quote` with the 8/500 bounds (R1.1); `SilenceClaimSchema` caps `text` and `silenceReason` at 300; `GhostAnswerWireSchema` refuses 0 and 51 claims (R1.8); `VerifiedAnswerResponseSchema` requires `quotes`, `silent` and `tally`.
-- [ ] Write the failing property tests in `test/ghost/pbt/verifier.hardening.pbt.ts` for CP1–CP8 and the verifier half of CP9 (R1.3–R1.5, R1.7, R1.8, R1.10, R3.1, R3.2, R4.1, R4.4, R9.4, N2, N6). For CP4, add `test/ghost/pbt/legacy-verifier.ts`: `src/ghost/verifier.ts` from `git show d738258:src/ghost/verifier.ts`, changed only in import paths (and, if the new schema no longer types it, a local copy of the old `GhostAnswer` type).
-- [ ] Update the existing tests that assert removed behaviour, as listed in design.md §13.2: `test/ghost/verifier.test.ts` (quotes added, "handles all three kinds" expects `silent` and score `2/4`, the "Charles Babbage" test renamed because he is not a ledger author), `test/ghost/pbt/verifier.pbt.ts` (generators add quotes or expect rejection) and `test/ghost/schema.test.ts` (N5).
-- [ ] In `src/ghost/schema.ts`, add the constants `QUOTE_MIN_CHARS`, `QUOTE_MAX_CHARS`, `SILENCE_MAX_CHARS`, `MAX_CLAIMS`, `MAX_CITATIONS`, `HUNK_UI_CHARS`, and the citation, claim, `ClaimShapeSchema`, `GhostAnswerSchema`, `GhostAnswerWireSchema`, `VerifiedQuote`, `VerifierResult` and ask/ward response schemas from design.md §3. Leave the plan and exorcise schemas for T2 (R1.1, R1.6, N3).
-- [ ] Rewrite `src/ghost/verifier.ts` to the algorithm in design.md §4.1: one index per call, per-field quote search, `YEAR_RE` via `matchAll`, author masking with `indexOf`, no regular expression built from ledger or claim text, frozen result (R1.3–R1.9, R3.1–R3.3, R4.1, R4.2, R4.4, N2).
-- [ ] Make the minimum call-site changes so everything type-checks and behaves consistently:
+- [x] Write the failing schema tests in `test/ghost/schema.test.ts`: `CitationSchema` requires `quote` with the 8/500 bounds (R1.1); `SilenceClaimSchema` caps `text` and `silenceReason` at 300; `GhostAnswerWireSchema` refuses 0 and 51 claims (R1.8); `VerifiedAnswerResponseSchema` requires `quotes`, `silent` and `tally`.
+- [x] Write the failing property tests in `test/ghost/pbt/verifier.hardening.pbt.ts` for CP1–CP8 and the verifier half of CP9 (R1.3–R1.5, R1.7, R1.8, R1.10, R3.1, R3.2, R4.1, R4.4, R9.4, N2, N6). For CP4, add `test/ghost/pbt/legacy-verifier.ts`: `src/ghost/verifier.ts` from `git show d738258:src/ghost/verifier.ts`, changed only in import paths (and, if the new schema no longer types it, a local copy of the old `GhostAnswer` type).
+- [x] Update the existing tests that assert removed behaviour, as listed in design.md §13.2: `test/ghost/verifier.test.ts` (quotes added, "handles all three kinds" expects `silent` and score `2/4`, the "Charles Babbage" test renamed because he is not a ledger author), `test/ghost/pbt/verifier.pbt.ts` (generators add quotes or expect rejection) and `test/ghost/schema.test.ts` (N5).
+- [x] In `src/ghost/schema.ts`, add the constants `QUOTE_MIN_CHARS`, `QUOTE_MAX_CHARS`, `SILENCE_MAX_CHARS`, `MAX_CLAIMS`, `MAX_CITATIONS`, `HUNK_UI_CHARS`, and the citation, claim, `ClaimShapeSchema`, `GhostAnswerSchema`, `GhostAnswerWireSchema`, `VerifiedQuote`, `VerifierResult` and ask/ward response schemas from design.md §3. Leave the plan and exorcise schemas for T2 (R1.1, R1.6, N3).
+- [x] Rewrite `src/ghost/verifier.ts` to the algorithm in design.md §4.1: one index per call, per-field quote search, `YEAR_RE` via `matchAll`, author masking with `indexOf`, no regular expression built from ledger or claim text, frozen result (R1.3–R1.9, R3.1–R3.3, R4.1, R4.2, R4.4, N2).
+- [x] Make the minimum call-site changes so everything type-checks and behaves consistently:
   - `src/ghost/llm.ts`: parse model output and fixture files with `GhostAnswerWireSchema`, so a quoteless claim reaches the verifier instead of failing the answer, and the plan fixture's `0000000` envelope still loads;
   - `src/server.ts`: a shared `toAnswerResponse` for `/api/ask` and `/api/ward` with `verified[].quotes`, `citesSuspicious` (read from `item.suspiciousMessage`), `silent`, `tally` and the new `score`; `/api/ward` parses `GhostAnswerWireSchema`; the summon hunk uses `HUNK_UI_CHARS` (R1.6, R2.1, R4.3, R6.4);
   - `src/exorcism/plan.ts`: `verifyPlanClaims` reads the new `VerifierResult` and counts `silent` as rejected; the plan response shape stays as it is until T2;
   - `src/ghost/report.ts`: rejected items render `rc.text`.
-- [ ] Update `test/server/ask.test.ts`, `test/ghost/report.test.ts`, `test/ghost/pbt/report.pbt.ts`, `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.test.ts` where they assert the old response fields or the old score. Add assertions in `test/server/ask.test.ts` for `quotes`, `silent`, `tally` and `citesSuspicious` on both `/api/ask` and `/api/ward`, using a ledger item with `suspiciousMessage: true` set directly (R2.1, R4.3, R6.4).
-- [ ] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
+- [x] Update `test/server/ask.test.ts`, `test/ghost/report.test.ts`, `test/ghost/pbt/report.pbt.ts`, `test/ghost/ask.fixture.test.ts` and `test/exorcism/plan.test.ts` where they assert the old response fields or the old score. Add assertions in `test/server/ask.test.ts` for `quotes`, `silent`, `tally` and `citesSuspicious` on both `/api/ask` and `/api/ward`, using a ledger item with `suspiciousMessage: true` set directly (R2.1, R4.3, R6.4).
+- [x] Run `npm test`, `npm run typecheck` and `npm run lint`; all green.
 
 Covers: R1.1, R1.3–R1.10, R2.1, R3.1–R3.3, R4.1–R4.4, R6.4 (ask/ward), R9.4, N2, N3, N5, N6.
 

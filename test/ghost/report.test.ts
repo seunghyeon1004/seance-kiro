@@ -3,15 +3,20 @@
  *
  * Covers:
  *  - one verified memory claim with a quote
- *  - one verified silence claim
- *  - one rejected claim
+ *  - a silence claim is not counted or listed as verified (ward-hardening R4.1)
+ *  - one rejected claim, including one whose claim did not parse (rc.text)
  *  - struck heading absent when there are no rejected claims
  *  - location line from meta
  */
 
 import { describe, it, expect } from 'vitest';
 import { renderWardReport, escapeMd } from '../../src/ghost/report.js';
-import type { VerifierResult } from '../../src/ghost/schema.js';
+import type {
+  Claim,
+  RejectedClaim,
+  VerifiedClaim,
+  VerifierResult,
+} from '../../src/ghost/schema.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,9 +26,28 @@ function makeResult(overrides: Partial<VerifierResult> = {}): VerifierResult {
   return {
     verified: [],
     rejected: [],
+    silent: [],
     score: 1,
     ...overrides,
   };
+}
+
+function verifiedMemory(text: string, sha7: string, quote: string): VerifiedClaim {
+  return {
+    index: 0,
+    claim: { kind: 'memory', text, citations: [{ sha7, quote }] },
+    speculative: false,
+    quotes: [{ sha7, quote, field: 'body' }],
+  };
+}
+
+function rejectedMemory(text: string, sha7: string, reason: string): RejectedClaim {
+  const claim: Claim = {
+    kind: 'memory',
+    text,
+    citations: [{ sha7, quote: 'some quote here' }],
+  };
+  return { index: 0, claim, kind: 'memory', text, citedSha7s: [sha7], reason };
 }
 
 // ---------------------------------------------------------------------------
@@ -92,17 +116,9 @@ describe('renderWardReport', () => {
 
   it('contains the count line with correct N and M', () => {
     const result = makeResult({
-      verified: [
-        {
-          claim: { kind: 'memory', text: 'A fact', citations: [{ sha7: 'a1b2c3d' }] },
-          speculative: false,
-        },
-      ],
+      verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
       rejected: [
-        {
-          claim: { kind: 'memory', text: 'Bad claim', citations: [{ sha7: 'dead000' }] },
-          reason: 'sha dead000 not in ledger',
-        },
+        rejectedMemory('Bad claim', 'dead000', 'Commit dead000 is not in the ledger.'),
       ],
       score: 0.5,
     });
@@ -116,16 +132,7 @@ describe('renderWardReport', () => {
 
   it('renders a verified memory claim with a quote', () => {
     const result = makeResult({
-      verified: [
-        {
-          claim: {
-            kind: 'memory',
-            text: 'Retry after 3 s',
-            citations: [{ sha7: 'a1b2c3d', quote: 'vendor returns 429' }],
-          },
-          speculative: false,
-        },
-      ],
+      verified: [verifiedMemory('Retry after 3 s', 'a1b2c3d', 'vendor returns 429')],
       score: 1,
     });
     const report = renderWardReport(result);
@@ -140,28 +147,27 @@ describe('renderWardReport', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Silence claim
+  // Silence claim (ward-hardening R4.1: silence is never in `verified`)
   // -------------------------------------------------------------------------
 
-  it('renders a verified silence claim with reason', () => {
+  it('does not count a silence claim in the count line or list it as verified', () => {
     const result = makeResult({
-      verified: [
+      silent: [
         {
+          index: 0,
           claim: {
             kind: 'silence',
             text: 'The record is silent',
             citations: [],
             silenceReason: 'no commit mentions the timeout',
           },
-          speculative: false,
         },
       ],
-      score: 1,
+      score: 0,
     });
     const report = renderWardReport(result);
-    expect(report).toContain(
-      '[silence] The record is silent Reason: no commit mentions the timeout',
-    );
+    expect(report).toContain('**0 of 0 claims verified**');
+    expect(report).not.toContain('## Verified');
   });
 
   // -------------------------------------------------------------------------
@@ -171,21 +177,36 @@ describe('renderWardReport', () => {
   it('renders a rejected claim under ## Struck by the ward', () => {
     const result = makeResult({
       rejected: [
-        {
-          claim: {
-            kind: 'memory',
-            text: 'Invented reason',
-            citations: [{ sha7: 'deadbee' }],
-          },
-          reason: 'sha deadbee not in ledger',
-        },
+        rejectedMemory(
+          'Invented reason',
+          'deadbee',
+          'Commit deadbee is not in the ledger.',
+        ),
       ],
       score: 0,
     });
     const report = renderWardReport(result);
     expect(report).toContain('## Struck by the ward');
     expect(report).toContain('~~Invented reason~~');
-    expect(report).toContain('rejected: sha deadbee not in ledger');
+    expect(report).toContain('rejected: Commit deadbee is not in the ledger.');
+  });
+
+  it('renders the text of a rejected claim that did not match the claim format', () => {
+    const result = makeResult({
+      rejected: [
+        {
+          index: 0,
+          claim: null,
+          kind: 'rumour',
+          text: 'Hearsay *only*',
+          citedSha7s: [],
+          reason: "Claim 1 is not in the ward's format (kind).",
+        },
+      ],
+      score: 0,
+    });
+    const report = renderWardReport(result);
+    expect(report).toContain('~~Hearsay \\*only\\*~~');
   });
 
   // -------------------------------------------------------------------------
@@ -194,17 +215,7 @@ describe('renderWardReport', () => {
 
   it('omits ## Struck by the ward when there are no rejected claims', () => {
     const result = makeResult({
-      verified: [
-        {
-          claim: {
-            kind: 'silence',
-            text: 'The record is silent',
-            citations: [],
-            silenceReason: 'no info',
-          },
-          speculative: false,
-        },
-      ],
+      verified: [verifiedMemory('A fact', 'a1b2c3d', 'some quote here')],
       score: 1,
     });
     const report = renderWardReport(result);
@@ -218,10 +229,7 @@ describe('renderWardReport', () => {
   it('omits ## Verified when there are no verified claims', () => {
     const result = makeResult({
       rejected: [
-        {
-          claim: { kind: 'memory', text: 'Bad', citations: [{ sha7: 'dead000' }] },
-          reason: 'sha dead000 not in ledger',
-        },
+        rejectedMemory('Bad', 'dead000', 'Commit dead000 is not in the ledger.'),
       ],
       score: 0,
     });
@@ -263,14 +271,11 @@ describe('renderWardReport', () => {
   it('escapes Markdown in claim text', () => {
     const result = makeResult({
       rejected: [
-        {
-          claim: {
-            kind: 'memory',
-            text: 'Line with **bold** and `code`',
-            citations: [{ sha7: 'dead000' }],
-          },
-          reason: 'sha dead000 not in ledger',
-        },
+        rejectedMemory(
+          'Line with **bold** and `code`',
+          'dead000',
+          'Commit dead000 is not in the ledger.',
+        ),
       ],
       score: 0,
     });

@@ -56,7 +56,14 @@ describe('ghost on the sample crypt with a recorded answer (T10)', () => {
       expect(result.score).toBeGreaterThanOrEqual(0);
       expect(result.score).toBeLessThanOrEqual(1);
       expect(result.verified.length).toBeGreaterThanOrEqual(1);
-      expect(result.verified.length + result.rejected.length).toBe(answer.claims.length);
+      // ward-hardening R4.1: every claim lands in exactly one of the three buckets
+      expect(result.verified.length + result.rejected.length + result.silent.length).toBe(
+        answer.claims.length,
+      );
+      // R1.1: every verified claim carries one found quote per citation
+      for (const v of result.verified) {
+        expect(v.quotes).toHaveLength(v.claim.citations.length);
+      }
     } finally {
       if (prev === undefined) delete process.env['ANTHROPIC_FIXTURE'];
       else process.env['ANTHROPIC_FIXTURE'] = prev;
