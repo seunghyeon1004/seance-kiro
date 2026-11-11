@@ -1,0 +1,64 @@
+{
+  "sample": "crypt",
+  "file": "legacy/tax.js",
+  "startLine": 7,
+  "endLine": 7,
+  "question": "Is it safe to delete the wait?",
+  "model": "claude-sonnet-5-5",
+  "recordedAt": "2026-11-11T03:27:06.671Z",
+  "ledgerShas": [
+    "e9a5c9c",
+    "6a959a9"
+  ],
+  "kind": "ask",
+  "answer": {
+    "claims": [
+      {
+        "kind": "memory",
+        "text": "I added the wait as a hack. The vendor rejected requests that came too close together, and their support told me there was no burst allowance.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds, and their support confirmed there is no burst allowance."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "Without the delay the nightly batch lost about 8% of quotes. I noted then that the proper fix was a queue.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "Without the delay the nightly batch loses about 8% of quotes. Proper fix is a queue."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "A later refactor kept the delay, renamed to PAUSE_MS. It left a TODO to remove it after migrating to a new tax vendor.",
+        "citations": [
+          {
+            "sha7": "6a959a9",
+            "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+          }
+        ]
+      },
+      {
+        "kind": "speculation",
+        "text": "So no, not as things stand. The wait is there because of the old vendor's 3-second rule. It's only safe to delete once the migration to the new vendor is done, or once a queue replaces it. I can't tell from the ledger whether the migration has happened or whether the new vendor has the same limit.",
+        "citations": [
+          {
+            "sha7": "6a959a9",
+            "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+          },
+          {
+            "sha7": "e9a5c9c",
+            "quote": "Proper fix is a queue."
+          }
+        ]
+      }
+    ],
+    "voice": "first-person, practical engineer",
+    "sessionId": "recording"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "sample": "crypt",
+  "file": "legacy/tax.js",
+  "startLine": 7,
+  "endLine": 7,
+  "question": "Who touched this line last, and why?",
+  "model": "claude-sonnet-5-5",
+  "recordedAt": "2026-11-11T03:26:57.807Z",
+  "ledgerShas": [
+    "e9a5c9c",
+    "6a959a9"
+  ],
+  "kind": "ask",
+  "answer": {
+    "claims": [
+      {
+        "kind": "memory",
+        "text": "The last person to touch the delay line was Tom Haskell, in August 2024. It was a rename-only refactor. He pulled the 3000 into a PAUSE_MS constant and renamed the variables. The wait itself stayed.",
+        "citations": [
+          {
+            "sha7": "6a959a9",
+            "quote": "refactor: rename variables in tax.js"
+          },
+          {
+            "sha7": "6a959a9",
+            "quote": "const PAUSE_MS = 3000;"
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "I wrote the original delay in 2020. The tax vendor returned 429 when two requests from one account landed within 3 seconds, and without the wait the nightly batch lost about 8% of quotes.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds"
+          },
+          {
+            "sha7": "e9a5c9c",
+            "quote": "Without the delay the nightly batch loses about 8% of quotes."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "I called it a hack when I wrote it. I said the proper fix was a queue.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "hack: wait 3s before calling the tax vendor"
+          },
+          {
+            "sha7": "e9a5c9c",
+            "quote": "Proper fix is a queue."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "By Tom's commit, the file carried a TODO to remove the delay after migrating to the new tax vendor. That comment was already there as context in his diff.",
+        "citations": [
+          {
+            "sha7": "6a959a9",
+            "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+          }
+        ]
+      },
+      {
+        "kind": "silence",
+        "text": "I can't say who added the TODO comment, or whether the vendor migration ever happened.",
+        "citations": [],
+        "silenceReason": "The ledger doesn't show which commit added the TODO or whether the new tax vendor migration happened."
+      }
+    ],
+    "voice": "Dmitri Volkov, first person, plain and a bit rueful about the hack",
+    "sessionId": "recording"
+  }
+}

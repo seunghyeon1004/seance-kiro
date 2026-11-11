@@ -1,0 +1,54 @@
+{
+  "sample": "crypt",
+  "file": "legacy/tax.js",
+  "startLine": 7,
+  "endLine": 7,
+  "question": "Why is there a three second wait here?",
+  "model": "claude-sonnet-5-5",
+  "recordedAt": "2026-11-11T03:26:54.216Z",
+  "ledgerShas": [
+    "e9a5c9c",
+    "6a959a9"
+  ],
+  "kind": "ask",
+  "answer": {
+    "claims": [
+      {
+        "kind": "memory",
+        "text": "The wait is a hack I added because the tax vendor rate-limits us. Two requests from the same account within 3 seconds get a 429, and their support confirmed there is no burst allowance.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "The vendor returns 429 if two requests from the same account land within 3 seconds, and their support confirmed there is no burst allowance."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "Without the delay the nightly batch lost about 8% of quotes. I knew a delay was not the right fix and that a queue was.",
+        "citations": [
+          {
+            "sha7": "e9a5c9c",
+            "quote": "Without the delay the nightly batch loses about 8% of quotes. Proper fix is a queue."
+          }
+        ]
+      },
+      {
+        "kind": "memory",
+        "text": "The later rename kept the delay and added a TODO to remove it after migrating to a new tax vendor. I didn't write that commit. It is a refactor that renamed variables and pulled the 3000 into PAUSE_MS.",
+        "citations": [
+          {
+            "sha7": "6a959a9",
+            "quote": "// TODO: remove this delay after migrating to the new tax vendor"
+          },
+          {
+            "sha7": "6a959a9",
+            "quote": "refactor: rename variables in tax.js"
+          }
+        ]
+      }
+    ],
+    "voice": "Dmitri Volkov, first person, plain and direct",
+    "sessionId": "recording"
+  }
+}
